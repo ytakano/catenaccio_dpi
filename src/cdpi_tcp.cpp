@@ -1,5 +1,7 @@
 #include "cdpi_tcp.hpp"
 
+#include <unistd.h>
+
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
@@ -11,7 +13,11 @@
 
 using namespace std;
 
-cdpi_tcp::cdpi_tcp() : m_thread(boost::bind(&cdpi_tcp::run, this))
+#define TCP_GC_TIMER 120
+
+cdpi_tcp::cdpi_tcp() : m_thread_run(boost::bind(&cdpi_tcp::run, this)),
+                       m_thread_gc(boost::bind(&cdpi_tcp::garbage_collector,
+                                               this))
 {
 
 }
@@ -36,10 +42,58 @@ cdpi_tcp::input_tcp(cdpi_id &id, cdpi_direction dir, char *buf, int len)
 }
 
 void
+cdpi_tcp::garbage_collector()
+{
+    for (;;) {
+        sleep(TCP_GC_TIMER);
+        {
+            boost::mutex::scoped_lock lock(m_mutex);
+
+            std::map<cdpi_id, ptr_cdpi_tcp_flow>::iterator it;
+
+            for (it = m_flow.begin(); it != m_flow.end(); ++it) {
+                if (((it->second->m_flow1.m_is_syn &&
+                      ! it->second->m_flow2.m_is_syn) ||
+                     (it->second->m_flow1.m_is_fin &&
+                       ! it->second->m_flow2.m_is_fin)) &&
+                    time(NULL) - it->second->m_flow1.m_time > TCP_GC_TIMER) {
+
+                    it->second->m_flow1.m_is_rm = true;
+
+                    cdpi_id_dir id_dir;
+
+                    id_dir.m_id  = it->first;
+                    id_dir.m_dir = FROM_ADDR1;
+
+                    m_events.insert(id_dir);
+                } else if (((! it->second->m_flow1.m_is_syn &&
+                             it->second->m_flow2.m_is_syn) ||
+                            (! it->second->m_flow1.m_is_fin &&
+                            it->second->m_flow2.m_is_fin)) &&
+                           time(NULL) - it->second->m_flow2.m_time > TCP_GC_TIMER) {
+
+                    it->second->m_flow2.m_is_rm = true;
+
+                    cdpi_id_dir id_dir;
+
+                    id_dir.m_id  = it->first;
+                    id_dir.m_dir = FROM_ADDR2;
+
+                    m_events.insert(id_dir);
+                }
+            }
+        }
+    }
+}
+
+void
 cdpi_tcp::run()
 {
     for (;;) {
         cdpi_id_dir tcp_event;
+#ifdef DEBUG
+        char addr1[32], addr2[32];
+#endif // DEBUG
         
         {
             boost::mutex::scoped_lock lock(m_mutex);
@@ -52,16 +106,49 @@ cdpi_tcp::run()
             // consume event
             tcp_event = e1.front();
             e1.pop_front();
-        }
 
 #ifdef DEBUG
-        char addr1[32], addr2[32];
-
-        inet_ntop(PF_INET, &tcp_event.m_id.m_addr1->l3_addr.b32,
-                  addr1, sizeof(addr1));
-        inet_ntop(PF_INET, &tcp_event.m_id.m_addr2->l3_addr.b32,
-                  addr2, sizeof(addr2));
+            inet_ntop(PF_INET, &tcp_event.m_id.m_addr1->l3_addr.b32,
+                      addr1, sizeof(addr1));
+            inet_ntop(PF_INET, &tcp_event.m_id.m_addr2->l3_addr.b32,
+                      addr2, sizeof(addr2));
 #endif // DEBUG
+
+
+            // garbage collection
+            std::map<cdpi_id, ptr_cdpi_tcp_flow>::iterator it_flow;
+            it_flow = m_flow.find(tcp_event.m_id);
+
+            if (it_flow == m_flow.end())
+                continue;
+
+            if ((tcp_event.m_dir == FROM_ADDR1 &&
+                 it_flow->second->m_flow1.m_is_rm) ||
+                (tcp_event.m_dir == FROM_ADDR2 &&
+                 it_flow->second->m_flow2.m_is_rm)) {
+
+#ifdef DEBUG
+                cout << "garbage collected: addr1 = "
+                     << addr1 << ":"
+                     << ntohs(tcp_event.m_id.m_addr1->l4_port)
+                     << ", addr2 = "
+                     << addr2 << ":"
+                     << ntohs(tcp_event.m_id.m_addr2->l4_port)
+                     << endl;
+#endif // DEBUG
+
+                cdpi_bytes bytes;
+
+                tcp_event.m_dir = FROM_ADDR1;
+                m_stream.in_stream_event(STREAM_ERROR, tcp_event, bytes);
+
+                tcp_event.m_dir = FROM_ADDR2;
+                m_stream.in_stream_event(STREAM_ERROR, tcp_event, bytes);
+
+                lock.unlock();
+                rm_flow(tcp_event.m_id, tcp_event.m_dir);
+            }
+        }
 
         cdpi_tcp_packet packet;
         while (get_packet(tcp_event.m_id, tcp_event.m_dir, packet)) {
@@ -116,7 +203,7 @@ cdpi_tcp::run()
 
                 cdpi_bytes bytes;
 
-                recv_rst(tcp_event.m_id, tcp_event.m_dir);
+                rm_flow(tcp_event.m_id, tcp_event.m_dir);
 
                 tcp_event.m_dir = FROM_ADDR1;
                 m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
@@ -153,6 +240,8 @@ cdpi_tcp::run()
 
             tcp_event.m_dir = FROM_ADDR2;
             m_stream.in_stream_event(STREAM_ERROR, tcp_event, bytes);
+
+            rm_flow(tcp_event.m_id, tcp_event.m_dir);
         }
     }
 }
@@ -203,7 +292,7 @@ cdpi_tcp::recv_fin(const cdpi_id &id, cdpi_direction dir)
 }
 
 void
-cdpi_tcp::recv_rst(const cdpi_id &id, cdpi_direction dir)
+cdpi_tcp::rm_flow(const cdpi_id &id, cdpi_direction dir)
 {
     boost::mutex::scoped_lock lock(m_mutex);
 

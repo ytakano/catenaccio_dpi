@@ -37,9 +37,10 @@ struct cdpi_tcp_uniflow {
     bool     m_is_gaveup;
     bool     m_is_syn;
     bool     m_is_fin;
+    bool     m_is_rm;
 
     cdpi_tcp_uniflow() : m_min_seq(0), m_is_gaveup(false), m_is_syn(false),
-                         m_is_fin(false) { }
+                         m_is_fin(false), m_is_rm(false) { }
 };
 
 struct cdpi_tcp_flow {
@@ -63,6 +64,7 @@ public:
 
     void input_tcp(cdpi_id &id, cdpi_direction dir, char *buf, int len);
     void run();
+    void garbage_collector();
 
 private:
     std::map<cdpi_id, ptr_cdpi_tcp_flow> m_flow;
@@ -73,10 +75,11 @@ private:
     bool get_packet(const cdpi_id &id, cdpi_direction dir,
                     cdpi_tcp_packet &packet);
     bool recv_fin(const cdpi_id &id, cdpi_direction dir);
-    void recv_rst(const cdpi_id &id, cdpi_direction dir);
+    void rm_flow(const cdpi_id &id, cdpi_direction dir);
     int  num_packets(const cdpi_id &id, cdpi_direction dir);
 
-    boost::thread    m_thread;
+    boost::thread    m_thread_run;
+    boost::thread    m_thread_gc;
     boost::mutex     m_mutex;
     boost::condition m_condition;
 };
