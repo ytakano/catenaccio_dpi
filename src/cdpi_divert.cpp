@@ -20,7 +20,7 @@ void callback_ipv4(evutil_socket_t fd, short what, void *arg)
     sockaddr_in  sin;
     socklen_t    sin_len;
     ssize_t      size;
-    uint8_t      buf[1024 * 100];
+    char         buf[1024 * 100];
 
     sin_len = sizeof(sin);
     size = recvfrom(fd, buf, sizeof(buf), 0, (sockaddr*)&sin, &sin_len);
@@ -55,7 +55,7 @@ void callback_ipv6(evutil_socket_t fd, short what, void *arg)
     ip6_hdr      *hdr;
     socklen_t     sin_len;
     ssize_t       size;
-    uint8_t       buf[1024 * 100];
+    char          buf[1024 * 100];
     char          src[64], dst[64];
 
     sin_len = sizeof(sin);

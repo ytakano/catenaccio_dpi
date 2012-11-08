@@ -62,10 +62,31 @@ public:
     uint8_t get_l3_proto() { return m_l3_proto; }
     uint8_t get_l4_proto() { return m_l4_proto; }
 
-private:
     boost::shared_ptr<cdpi_peer> m_addr1, m_addr2;
+
+private:
     uint8_t m_l3_proto;
     uint8_t m_l4_proto;
+};
+
+struct cdpi_id_dir {
+    cdpi_id        m_id;
+    cdpi_direction m_dir;
+
+    bool operator< (const cdpi_id_dir &rhs) const {
+        if (m_dir == rhs.m_dir)
+            return m_id < rhs.m_id;
+
+        return m_dir < rhs.m_dir;
+    }
+
+    bool operator> (const cdpi_id_dir &rhs) const {
+        return rhs < *this;
+    }
+
+    bool operator== (const cdpi_id_dir &rhs) const {
+        return m_dir == rhs.m_dir && m_id == rhs.m_id;
+    }
 };
 
 #endif // CDPI_ID_HPP

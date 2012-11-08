@@ -39,7 +39,7 @@ void
 cdpi_tcp::run()
 {
     for (;;) {
-        cdpi_tcp_event tcp_event;
+        cdpi_id_dir tcp_event;
         
         {
             boost::mutex::scoped_lock lock(m_mutex);
@@ -47,33 +47,112 @@ cdpi_tcp::run()
                 m_condition.wait(lock);
             }
 
-            cdpi_tcp_event_cont::nth_index<1>::type &e1 = m_events.get<1>();
+            cdpi_id_dir_cont::nth_index<1>::type &e1 = m_events.get<1>();
 
             // consume event
             tcp_event = e1.front();
             e1.pop_front();
         }
 
-        bool ret;
-        do {
-            cdpi_tcp_packet packet;
-            ret = get_packet(tcp_event.m_id, tcp_event.m_dir, packet);
+#ifdef DEBUG
+        char addr1[32], addr2[32];
 
+        inet_ntop(PF_INET, &tcp_event.m_id.m_addr1->l3_addr.b32,
+                  addr1, sizeof(addr1));
+        inet_ntop(PF_INET, &tcp_event.m_id.m_addr2->l3_addr.b32,
+                  addr2, sizeof(addr2));
+#endif // DEBUG
+
+        cdpi_tcp_packet packet;
+        while (get_packet(tcp_event.m_id, tcp_event.m_dir, packet)) {
             if (packet.m_flags & TH_SYN) {
                 // TODO: event, connection opened
+
+#ifdef DEBUG
+                cout << "connection opened: addr1 = "
+                     << addr1 << ":"
+                     << ntohs(tcp_event.m_id.m_addr1->l4_port)
+                     << ", addr2 = "
+                     << addr2 << ":"
+                     << ntohs(tcp_event.m_id.m_addr2->l4_port)
+                     << ", from = " << tcp_event.m_dir
+                     << endl;
+#endif // DEBUG
+
+                cdpi_bytes bytes;
+                m_stream.in_stream_event(STREAM_CREATED, tcp_event, bytes);
             } else if (packet.m_flags & TH_FIN &&
                        recv_fin(tcp_event.m_id, tcp_event.m_dir)) {
                 // TODO: event, connection closed
+
+#ifdef DEBUG
+                cout << "connection closed: addr1 = "
+                     << addr1 << ":"
+                     << ntohs(tcp_event.m_id.m_addr1->l4_port)
+                     << ", addr2 = "
+                     << addr2 << ":"
+                     << ntohs(tcp_event.m_id.m_addr2->l4_port)
+                     << endl;
+#endif // DEBUG
+
+                cdpi_bytes bytes;
+
+                tcp_event.m_dir = FROM_ADDR1;
+                m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
+
+                tcp_event.m_dir = FROM_ADDR2;
+                m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
             } else if (packet.m_flags & TH_RST) {
                 // TODO: event, connection reset
+#ifdef DEBUG
+                cout << "connection reset: addr1 = "
+                     << addr1 << ":"
+                     << ntohs(tcp_event.m_id.m_addr1->l4_port)
+                     << ", addr2 = "
+                     << addr2 << ":"
+                     << ntohs(tcp_event.m_id.m_addr2->l4_port)
+                     << endl;
+#endif // DEBUG
+
+                cdpi_bytes bytes;
+
                 recv_rst(tcp_event.m_id, tcp_event.m_dir);
+
+                tcp_event.m_dir = FROM_ADDR1;
+                m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
+
+                tcp_event.m_dir = FROM_ADDR2;
+                m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
             } else {
                 // TODO: event, data in
+
+                packet.m_bytes.m_len = packet.m_data_len;
+                packet.m_bytes.m_pos = packet.m_data_pos;
+
+                m_stream.in_stream_event(STREAM_DATA_IN, tcp_event,
+                                         packet.m_bytes);
             }
-        } while (ret);
+        }
 
         if (num_packets(tcp_event.m_id, tcp_event.m_dir) > MAX_PACKETS) {
             // TODO: event, strange connection
+#ifdef DEBUG
+            cout << "connection error: addr1 = "
+                 << addr1 << ":"
+                 << ntohs(tcp_event.m_id.m_addr1->l4_port)
+                 << ", addr2 = "
+                 << addr2 << ":"
+                 << ntohs(tcp_event.m_id.m_addr2->l4_port)
+                 << endl;
+#endif // DEBUG
+
+            cdpi_bytes bytes;
+
+            tcp_event.m_dir = FROM_ADDR1;
+            m_stream.in_stream_event(STREAM_ERROR, tcp_event, bytes);
+
+            tcp_event.m_dir = FROM_ADDR2;
+            m_stream.in_stream_event(STREAM_ERROR, tcp_event, bytes);
         }
     }
 }
@@ -159,23 +238,19 @@ cdpi_tcp::get_packet(const cdpi_id &id, cdpi_direction dir,
     map<uint32_t, cdpi_tcp_packet>::iterator it_pkt;
 
     it_pkt = p_uniflow->m_packets.find(p_uniflow->m_min_seq);
-    if (it_pkt == p_uniflow->m_packets.end())
+    if (it_pkt == p_uniflow->m_packets.end()) {
         return false;
+    }
 
     packet = it_pkt->second;
 
     p_uniflow->m_packets.erase(it_pkt);
 
-    if (packet.m_flags & TH_SYN) {
-        p_uniflow->m_min_seq++;
-    } else if (packet.m_flags & TH_FIN) {
+    if (packet.m_flags & TH_FIN) {
         p_uniflow->m_is_fin = true;
-        recv_fin(id, dir);
-    } else if (packet.m_flags & TH_RST) {
-        recv_rst(id, dir);
-    } else {
-        p_uniflow->m_min_seq = packet.m_seq + packet.m_data_len;
     }
+
+    p_uniflow->m_min_seq = packet.m_nxt_seq;
 
     return true;
 }
@@ -217,6 +292,21 @@ cdpi_tcp::input_tcp4(cdpi_id &id, cdpi_direction dir, char *buf, int len)
     packet.m_nxt_seq  = packet.m_seq + packet.m_data_len;
     packet.m_read_pos = 0;
 
+/*
+#ifdef DEBUG
+    cout << "TCP flags: ";
+    if (packet.m_flags & TH_SYN)
+        cout << "S";
+    if (packet.m_flags & TH_RST)
+        cout << "R";
+    if (packet.m_flags & TH_ACK)
+        cout << "A";
+    if (packet.m_flags & TH_FIN)
+        cout << "F";
+    cout << endl;
+#endif
+*/
+
     {
         boost::mutex::scoped_lock lock(m_mutex);
 
@@ -231,22 +321,30 @@ cdpi_tcp::input_tcp4(cdpi_id &id, cdpi_direction dir, char *buf, int len)
         }
 
         if (packet.m_flags & TH_SYN) {
-            p_uniflow->m_min_seq = packet.m_seq;
+            if (! p_uniflow->m_is_syn) {
+                p_uniflow->m_min_seq = packet.m_seq;
+                p_uniflow->m_is_syn  = true;
+                packet.m_nxt_seq = packet.m_seq + 1;
+            } else {
+                return;
+            }
         } else if (! packet.m_flags & TH_RST &&
                    (int32_t)packet.m_seq - (int32_t)p_uniflow->m_min_seq < 0) {
             return;
         }
 
         if (packet.m_flags & TH_SYN || packet.m_flags & TH_FIN ||
-            packet.m_flags & TH_RST || packet.m_data_len > 0) {
+            packet.m_data_len > 0) {
             p_uniflow->m_packets[packet.m_seq] = packet;
+        } else if (packet.m_flags & TH_RST) {
+            p_uniflow->m_packets[p_uniflow->m_min_seq] = packet;
         }
 
         p_uniflow->m_time = time(NULL);
 
 
         // produce event
-        cdpi_tcp_event tcp_event;
+        cdpi_id_dir tcp_event;
 
         tcp_event.m_id  = id;
         tcp_event.m_dir = dir;

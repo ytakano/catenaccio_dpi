@@ -1,4 +1,5 @@
 #include "cdpi_divert.hpp"
+#include "cdpi_tcp.hpp"
 
 #include <iostream>
 
@@ -9,8 +10,24 @@ public:
     cb_ipv4() { }
     virtual ~cb_ipv4() { }
 
-    virtual void operator() (uint8_t *bytes, size_t len) {
+    virtual void operator() (char *bytes, size_t len) {
+        cdpi_direction dir;
+        cdpi_id        id;
+
+        dir = id.set_iph(bytes, IPPROTO_IPV4);
+
+        switch (id.get_l4_proto()) {
+        case IPPROTO_TCP:
+            m_tcp.input_tcp(id, dir, bytes, len);
+            break;
+        default:
+            ;
+        }
     }
+
+private:
+    cdpi_tcp m_tcp;
+
 };
 
 int

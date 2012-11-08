@@ -3,6 +3,7 @@
 
 #include "cdpi_bytes.hpp"
 #include "cdpi_id.hpp"
+#include "cdpi_stream.hpp"
 
 #include <stdint.h>
 #include <time.h>
@@ -34,44 +35,26 @@ struct cdpi_tcp_uniflow {
     time_t   m_time;
     uint32_t m_min_seq;
     bool     m_is_gaveup;
+    bool     m_is_syn;
     bool     m_is_fin;
 
-    cdpi_tcp_uniflow() : m_min_seq(0), m_is_gaveup(false), m_is_fin(false) { }
+    cdpi_tcp_uniflow() : m_min_seq(0), m_is_gaveup(false), m_is_syn(false),
+                         m_is_fin(false) { }
 };
 
 struct cdpi_tcp_flow {
     cdpi_tcp_uniflow m_flow1, m_flow2;
 };
 
-struct cdpi_tcp_event {
-    cdpi_id        m_id;
-    cdpi_direction m_dir;
-
-    bool operator< (const cdpi_tcp_event &rhs) const {
-        if (m_dir == rhs.m_dir)
-            return m_id < rhs.m_id;
-
-        return m_dir < rhs.m_dir;
-    }
-
-    bool operator> (const cdpi_tcp_event &rhs) const {
-        return rhs < *this;
-    }
-
-    bool operator== (const cdpi_tcp_event &rhs) const {
-        return m_dir == rhs.m_dir && m_id == rhs.m_id;
-    }
-};
-
 typedef boost::shared_ptr<cdpi_tcp_flow> ptr_cdpi_tcp_flow;
 
 typedef boost::multi_index::multi_index_container<
-    cdpi_tcp_event,
+    cdpi_id_dir,
     boost::multi_index::indexed_by<
-        boost::multi_index::ordered_unique<boost::multi_index::identity<cdpi_tcp_event> >,
+        boost::multi_index::ordered_unique<boost::multi_index::identity<cdpi_id_dir> >,
         boost::multi_index::sequenced<>
     >
-> cdpi_tcp_event_cont;
+> cdpi_id_dir_cont;
 
 class cdpi_tcp {
 public:
@@ -83,7 +66,8 @@ public:
 
 private:
     std::map<cdpi_id, ptr_cdpi_tcp_flow> m_flow;
-    cdpi_tcp_event_cont                  m_events;
+    cdpi_id_dir_cont                     m_events;
+    cdpi_stream                          m_stream;
 
     void input_tcp4(cdpi_id &id, cdpi_direction dir, char *buf, int len);
     bool get_packet(const cdpi_id &id, cdpi_direction dir,
