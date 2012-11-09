@@ -19,7 +19,11 @@ enum cdpi_stream_event {
 
 struct cdpi_stream_info {
     std::list<cdpi_bytes> m_bytes;
-    cdpi_proto_type       m_proto;
+    cdpi_proto_type       m_type;
+    ptr_cdpi_proto        m_proto;
+    bool                  m_is_gaveup;
+
+    cdpi_stream_info() : m_type(PROTO_NONE), m_is_gaveup(false) { }
 };
 
 typedef boost::shared_ptr<cdpi_stream_info> ptr_cdpi_stream_info;
@@ -37,6 +41,7 @@ private:
 
     void create_stream(const cdpi_id_dir &id_dir);
     void destroy_stream(const cdpi_id_dir &id_dir);
+    void in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes);
 
 };
 
