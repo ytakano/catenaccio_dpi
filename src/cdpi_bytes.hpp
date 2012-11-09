@@ -1,6 +1,9 @@
 #ifndef CDPI_BYTES_HPP
 #define CDPI_BYTES_HPP
 
+#include <list>
+#include <string>
+
 #include <boost/shared_array.hpp>
 
 class cdpi_bytes {
@@ -17,5 +20,12 @@ public:
     int m_pos;
     int m_len;
 };
+
+int read_bytes_ec(const std::list<cdpi_bytes> &bytes, char *buf, int len,
+                  char c);
+int skip_bytes(std::list<cdpi_bytes> &bytes, int len);
+int find_char(char *buf, int len, char c);
+
+void to_lower_str(std::string &str);
 
 #endif // CDPI_BYTES_HPP

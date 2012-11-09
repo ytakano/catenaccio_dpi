@@ -26,6 +26,9 @@ struct cdpi_stream_info {
     cdpi_stream_info() : m_type(PROTO_NONE), m_is_gaveup(false) { }
 };
 
+class cdpi_parse_error { };
+class cdpi_proxy { };
+
 typedef boost::shared_ptr<cdpi_stream_info> ptr_cdpi_stream_info;
 
 class cdpi_stream {
