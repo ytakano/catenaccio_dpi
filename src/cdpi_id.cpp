@@ -1,11 +1,14 @@
 #include "cdpi_id.hpp"
 
+#include <arpa/inet.h>
+
 #include <netinet/ip.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 
 using namespace boost;
+using namespace std;
 
 cdpi_direction
 cdpi_id::set_iph(char *iph, int protocol)
@@ -52,9 +55,25 @@ cdpi_id::set_iph(char *iph, int protocol)
         }
     }
     case IPPROTO_IPV6:
+        assert(protocol != IPPROTO_IPV6);
+        break;
     default:
         break;
     }
 
     return FROM_NONE;
+}
+
+void
+cdpi_id::print_id() const
+{
+    char addr1[32], addr2[32];
+
+    inet_ntop(PF_INET, &m_addr1->l3_addr.b32, addr1, sizeof(addr1));
+    inet_ntop(PF_INET, &m_addr2->l3_addr.b32, addr2, sizeof(addr2));
+
+    cout << "addr1 = " << addr1 << ":" << ntohs(m_addr1->l4_port)
+         << ", addr2 = " << addr2 << ":" << ntohs(m_addr2->l4_port)
+         << ", l3_proto = " << (int)m_l3_proto
+         << ", l4_proto = " << (int)m_l4_proto << endl;
 }

@@ -7,6 +7,7 @@
 
 #include <list>
 #include <map>
+#include <sstream>
 
 #include <boost/shared_ptr.hpp>
 
@@ -26,7 +27,19 @@ struct cdpi_stream_info {
     cdpi_stream_info() : m_type(PROTO_NONE), m_is_gaveup(false) { }
 };
 
-class cdpi_parse_error { };
+class cdpi_parse_error {
+public:
+    cdpi_parse_error(std::string file, int line) {
+        std::stringstream ss;
+
+        ss << file << ":" << line;
+
+        m_msg = ss.str();
+    }
+
+    std::string m_msg;
+};
+
 class cdpi_proxy { };
 
 typedef boost::shared_ptr<cdpi_stream_info> ptr_cdpi_stream_info;

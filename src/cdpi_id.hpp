@@ -9,7 +9,11 @@ struct cdpi_peer {
         uint8_t  b128[16];
     } l3_addr;
 
-    uint32_t l4_port; // big endian
+    uint16_t l4_port; // big endian
+    uint16_t padding;
+
+    cdpi_peer() { memset(this, 0, sizeof(*this)); }
+    cdpi_peer(const cdpi_peer &rhs) { *this = rhs; }
 
     bool operator< (const cdpi_peer &rhs) const {
         return memcmp(this, &rhs, sizeof(cdpi_peer)) < 0 ? true : false;
@@ -21,6 +25,11 @@ struct cdpi_peer {
 
     bool operator== (const cdpi_peer &rhs) const {
         return memcmp(this, &rhs, sizeof(cdpi_peer)) == 0 ? true : false;
+    }
+
+    cdpi_peer& operator= (const cdpi_peer &rhs) {
+        memcpy(this, &rhs, sizeof(cdpi_peer));
+        return *this;
     }
 };
 
@@ -36,11 +45,18 @@ public:
     virtual ~cdpi_id(){ };
 
     cdpi_direction set_iph(char *iph, int protocol);
+    void print_id() const;
 
     bool operator< (const cdpi_id &rhs) const {
         if (m_l3_proto == rhs.m_l3_proto) {
             if (m_l4_proto == rhs.m_l4_proto) {
-                m_addr1 < rhs.m_addr2;
+                int n = memcmp(m_addr1.get(), rhs.m_addr1.get(),
+                               sizeof(cdpi_peer));
+
+                if (n == 0)
+                    return *m_addr2 < *rhs.m_addr2;
+
+                return n < 0 ? true : false;
             }
 
             return m_l4_proto < rhs.m_l4_proto;
@@ -56,7 +72,8 @@ public:
     bool operator== (const cdpi_id &rhs) const {
         return (m_l3_proto == rhs.m_l3_proto &&
                 m_l4_proto == rhs.m_l4_proto &&
-                *m_addr1 == *m_addr2);
+                *m_addr1 == *rhs.m_addr1 &&
+                *m_addr2 == *rhs.m_addr2);
     }
 
     uint8_t get_l3_proto() { return m_l3_proto; }

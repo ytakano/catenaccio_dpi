@@ -11,15 +11,17 @@ read_bytes_ec(const list<cdpi_bytes> &bytes, char *buf, int len, char c)
     int read_len = 0;
 
     for (it = bytes.begin(); it != bytes.end(); ++it) {
-        char *p = it->m_ptr.get() + it->m_pos;
+        const char *p = it->m_ptr.get() + it->m_pos;
+
+        if (! it->m_ptr)
+            continue;
 
         for (int i = 0; i < it->m_len; i++) {
             if (read_len >= len)
                 return read_len;
 
-            *buf = p[i];
+            buf[read_len] = p[i];
 
-            buf++;
             read_len++;
 
             if (p[i] == c)
@@ -37,10 +39,15 @@ skip_bytes(list<cdpi_bytes> &bytes, int len)
     int skip_len = 0;
 
     for (it = bytes.begin(); it != bytes.end();) {
-        if (len < it->m_len) {
-            it->m_len -= len;
-            it->m_pos += len;
-            skip_len  += len;
+        int remain = len - skip_len;
+
+        if (! it->m_ptr)
+            continue;
+
+        if (remain < it->m_len) {
+            it->m_len -= remain;
+            it->m_pos += remain;
+            skip_len  += remain;
             break;
         }
 

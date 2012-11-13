@@ -117,10 +117,12 @@ cdpi_tcp::run()
 
             // garbage collection
             std::map<cdpi_id, ptr_cdpi_tcp_flow>::iterator it_flow;
+
             it_flow = m_flow.find(tcp_event.m_id);
 
-            if (it_flow == m_flow.end())
+            if (it_flow == m_flow.end()) {
                 continue;
+            }
 
             if ((tcp_event.m_dir == FROM_ADDR1 &&
                  it_flow->second->m_flow1.m_is_rm) ||
@@ -151,6 +153,10 @@ cdpi_tcp::run()
         }
 
         cdpi_tcp_packet packet;
+
+        cout << "event: ";
+        tcp_event.m_id.print_id();
+
         while (get_packet(tcp_event.m_id, tcp_event.m_dir, packet)) {
             if (packet.m_flags & TH_SYN) {
                 // TODO: event, connection opened
@@ -212,7 +218,6 @@ cdpi_tcp::run()
                 m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
             } else {
                 // TODO: event, data in
-
                 packet.m_bytes.m_len = packet.m_data_len;
                 packet.m_bytes.m_pos = packet.m_data_pos;
 
@@ -224,7 +229,7 @@ cdpi_tcp::run()
         if (num_packets(tcp_event.m_id, tcp_event.m_dir) > MAX_PACKETS) {
             // TODO: event, strange connection
 #ifdef DEBUG
-            cout << "connection error: addr1 = "
+            cout << "connection error(packets limit exceeded): addr1 = "
                  << addr1 << ":"
                  << ntohs(tcp_event.m_id.m_addr1->l4_port)
                  << ", addr2 = "
@@ -356,8 +361,22 @@ cdpi_tcp::input_tcp4(cdpi_id &id, cdpi_direction dir, char *buf, int len)
     iph  = (ip*)buf;
     tcph = (tcphdr*)(buf + iph->ip_hl * 4);
 
-    // TODO: checksum
+/*
+#ifdef DEBUG
+    cout << "TCP flags: ";
+    if (tcph->th_flags & TH_SYN)
+        cout << "S";
+    if (tcph->th_flags & TH_RST)
+        cout << "R";
+    if (tcph->th_flags & TH_ACK)
+        cout << "A";
+    if (tcph->th_flags & TH_FIN)
+        cout << "F";
+    cout << endl;
+#endif
+*/
 
+    // TODO: checksum
     {
         boost::mutex::scoped_lock lock(m_mutex);
 
@@ -380,21 +399,6 @@ cdpi_tcp::input_tcp4(cdpi_id &id, cdpi_direction dir, char *buf, int len)
     packet.m_data_len = len - packet.m_data_pos;
     packet.m_nxt_seq  = packet.m_seq + packet.m_data_len;
     packet.m_read_pos = 0;
-
-/*
-#ifdef DEBUG
-    cout << "TCP flags: ";
-    if (packet.m_flags & TH_SYN)
-        cout << "S";
-    if (packet.m_flags & TH_RST)
-        cout << "R";
-    if (packet.m_flags & TH_ACK)
-        cout << "A";
-    if (packet.m_flags & TH_FIN)
-        cout << "F";
-    cout << endl;
-#endif
-*/
 
     {
         boost::mutex::scoped_lock lock(m_mutex);

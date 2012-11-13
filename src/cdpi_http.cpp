@@ -58,159 +58,161 @@ void
 cdpi_http::parse(list<cdpi_bytes> &bytes)
 {
     for (;;) {
-        bool ret = false;
+         bool ret = false;
 
-        switch (m_state) {
-        case HTTP_METHOD:
-            ret = parse_method(bytes);
-            break;
-        case HTTP_RESPONSE:
-            ret = parse_response(bytes);
-            break;
-        case HTTP_HEAD:
-        case HTTP_CHUNK_TRAILER:
-            ret = parse_head(bytes);
-            break;
-        case HTTP_BODY:
-            ret = parse_body(bytes);
-            break;
-        case HTTP_CHUNK_LEN:
-            ret = parse_chunk_len(bytes);
-            break;
-        case HTTP_CHUNK_BODY:
-            ret = parse_chunk_body(bytes);
-            break;
-        case HTTP_CHUNK_EL:
-            ret = parse_chunk_el(bytes);
-            break;
-        }
+         switch (m_state) {
+         case HTTP_METHOD:
+             ret = parse_method(bytes);
+             break;
+         case HTTP_RESPONSE:
+             ret = parse_response(bytes);
+             break;
+         case HTTP_HEAD:
+         case HTTP_CHUNK_TRAILER:
+             ret = parse_head(bytes);
+             break;
+         case HTTP_BODY:
+             ret = parse_body(bytes);
+             break;
+         case HTTP_CHUNK_LEN:
+             ret = parse_chunk_len(bytes);
+             break;
+         case HTTP_CHUNK_BODY:
+             ret = parse_chunk_body(bytes);
+             break;
+         case HTTP_CHUNK_EL:
+             ret = parse_chunk_el(bytes);
+             break;
+         }
 
-        if (! ret)
-            break;
-    }
-}
+         if (! ret)
+             break;
+     }
+ }
 
-bool
-cdpi_http::parse_method(list<cdpi_bytes> &bytes)
-{
-    int   len;
-    int   remain;
-    int   n;
-    char  buf[1024 * 4];
-    char *p = buf;
+ bool
+ cdpi_http::parse_method(list<cdpi_bytes> &bytes)
+ {
+     int   len;
+     int   remain;
+     int   n;
+     char  buf[1024 * 4];
+     char *p = buf;
 
-    len = remain = read_bytes_ec(bytes, buf, sizeof(buf), '\n');
+     len = remain = read_bytes_ec(bytes, buf, sizeof(buf), '\n');
 
-    if (len == 0 || buf[len - 1] != '\n')
-        return false;
+     if (len == 0 || buf[len - 1] != '\n')
+         return false;
 
 
-    // read method
-    n = find_char((char*)p, remain, ' ');
-    if (n < 0)
-        throw cdpi_parse_error();
+     // read method
+     n = find_char((char*)p, remain, ' ');
+     if (n < 0)
+         throw cdpi_parse_error(__FILE__, __LINE__);
 
-    m_method.push(string(p, p + n));
-    p += n + 1;
-    remain -= n + 1;
+     m_method.push(string(p, p + n));
+     p += n + 1;
+     remain -= n + 1;
 
-    // read URI
-    n = find_char((char*)p, remain, ' ');
-    if (n < 0)
-        throw cdpi_parse_error();
+     // read URI
+     n = find_char((char*)p, remain, ' ');
+     if (n < 0)
+         throw cdpi_parse_error(__FILE__, __LINE__);
 
-    m_uri = string(p, p + n);
-    p += n + 1;
-    remain -= n + 1;
+     m_uri = string(p, p + n);
+     p += n + 1;
+     remain -= n + 1;
 
-    // read version
-    n = find_char((char*)p, remain, '\n');
-    if (n < 0)
-        throw cdpi_parse_error();
+     // read version
+     n = find_char((char*)p, remain, '\n');
+     if (n < 0)
+         throw cdpi_parse_error(__FILE__, __LINE__);
 
-    if (n > 0 && p[n - 1] == '\r')
-        m_ver = string(p, p + n - 1);
-    else
-        m_ver = string(p, p + n);
+     if (n > 0 && p[n - 1] == '\r')
+         m_ver = string(p, p + n - 1);
+     else
+         m_ver = string(p, p + n);
 
-    // skip read buffer
-    skip_bytes(bytes, len);
+     // skip read buffer
+     skip_bytes(bytes, len);
 
-    // change state to HTTP_HEAD
-    m_state = cdpi_http::HTTP_HEAD;
+     // change state to HTTP_HEAD
+     m_state = cdpi_http::HTTP_HEAD;
 
-    // TODO: event http method
-    cout << m_method.back() << " " << m_uri << " " << m_ver << endl;
+     // TODO: event http method
+     cout << m_method.back() << " " << m_uri << " " << m_ver << endl;
 
-    return true;
-}
+     return true;
+ }
 
-bool
-cdpi_http::parse_response(list<cdpi_bytes> &bytes)
-{
-    int  n;
-    int  remain;
-    int  len;
-    char buf[1024 * 4];
-    char *p = buf;
+ bool
+ cdpi_http::parse_response(list<cdpi_bytes> &bytes)
+ {
+     int  n;
+     int  remain;
+     int  len;
+     char buf[1024 * 4];
+     char *p = buf;
 
-    len = remain = read_bytes_ec(bytes, buf, sizeof(buf), '\n');
+     len = remain = read_bytes_ec(bytes, buf, sizeof(buf), '\n');
 
-    if (len == 0 || buf[len - 1] != '\n')
-        return false;
+     if (len == 0 || buf[len - 1] != '\n')
+         return false;
 
-    // read http version
-    n = find_char((char*)p, remain, ' ');
-    if (n < 0)
-        throw cdpi_parse_error();
+     // read http version
+     n = find_char((char*)p, remain, ' ');
+     if (n < 0)
+         throw cdpi_parse_error(__FILE__, __LINE__);
 
-    m_ver = string(p, p + n);
+     m_ver = string(p, p + n);
 
-    p += n + 1;
-    remain -= n + 1;
+     p += n + 1;
+     remain -= n + 1;
 
-    // read status code
-    n = find_char((char*)p, remain, ' ');
-    if (n < 0)
-        throw cdpi_parse_error();
+     // read status code
+     n = find_char((char*)p, remain, ' ');
+     if (n < 0)
+         throw cdpi_parse_error(__FILE__, __LINE__);
 
-    m_code = string(p, p + n);
+     m_code = string(p, p + n);
 
-    p += n + 1;
-    remain -= n + 1;
+     p += n + 1;
+     remain -= n + 1;
 
-    // read responce message
-    n = find_char((char*)p, remain, '\n');
-    if (n < 0)
-        throw cdpi_parse_error();
+     // read responce message
+     n = find_char((char*)p, remain, '\n');
+     if (n < 0)
+         throw cdpi_parse_error(__FILE__, __LINE__);
 
-    if (n > 0 && p[n - 1] == '\r')
-        m_res_msg = string(p, p + n - 1);
-    else
-        m_res_msg = string(p, p + n);
+     if (n > 0 && p[n - 1] == '\r')
+         m_res_msg = string(p, p + n - 1);
+     else
+         m_res_msg = string(p, p + n);
 
-    // skip read buffer
-    skip_bytes(bytes, len);
+     // skip read buffer
+     skip_bytes(bytes, len);
 
-    // change state to HTTP_HEAD
-    m_state = cdpi_http::HTTP_HEAD;
+     // change state to HTTP_HEAD
+     m_state = cdpi_http::HTTP_HEAD;
 
-    // TODO: event http response
-    cout << m_ver << " " << m_code << " " << m_res_msg << endl;
+     // TODO: event http response
+     cout << m_ver << " " << m_code << " " << m_res_msg << endl;
 
-    return true;
-}
+     return true;
+ }
 
-bool
-cdpi_http::parse_head(list<cdpi_bytes> &bytes)
-{
-    char buf[1024 * 4];
+ bool
+ cdpi_http::parse_head(list<cdpi_bytes> &bytes)
+ {
+     char buf[1024 * 8];
 
-    for (;;) {
-        const int len = read_bytes_ec(bytes, buf, sizeof(buf), '\n');
+     for (;;) {
+         const int len = read_bytes_ec(bytes, buf, sizeof(buf), '\n');
 
-        if (len == 0 || buf[len - 1] != '\n')
+
+        if (len == 0 || buf[len - 1] != '\n') {
             return false;
+        }
 
         if ((len == 2 && memcmp(buf, "\r\n", 2) ==0) ||
             (len == 1 && buf[0] == '\n')) {
@@ -251,10 +253,13 @@ cdpi_http::parse_head(list<cdpi_bytes> &bytes)
                 string method;
 
                 if (m_peer) {
+                    if (m_peer->m_method.size() == 0)
+                        return false;
+
                     method = m_peer->m_method.front();
                     m_peer->m_method.pop();
                 } else {
-                    throw cdpi_parse_error();
+                    throw cdpi_parse_error(__FILE__, __LINE__);
                 }
 
                 if (m_state == HTTP_CHUNK_TRAILER) {
@@ -282,7 +287,7 @@ cdpi_http::parse_head(list<cdpi_bytes> &bytes)
                 break;
             }
             default:
-                throw cdpi_parse_error();
+                throw cdpi_parse_error(__FILE__, __LINE__);
             }
 
             return true;
@@ -293,6 +298,7 @@ cdpi_http::parse_head(list<cdpi_bytes> &bytes)
 
             if (pos < 0) {
                 skip_bytes(bytes, len);
+                cout << "here 1: " << string(buf, buf + len) << endl;
                 continue;
             }
 
@@ -305,6 +311,7 @@ cdpi_http::parse_head(list<cdpi_bytes> &bytes)
 
             if (p >= buf + len) {
                 skip_bytes(bytes, len);
+                cout << "here 2" << endl;
                 continue;
             }
 
@@ -363,6 +370,9 @@ cdpi_http::parse_body(list<cdpi_bytes> &bytes)
         len = len < (int)sizeof(buf) ? len : sizeof(buf);
 
         len = skip_bytes(bytes, len);
+
+        cout << "parse body: len = "  << len << endl;
+
 
         if (len == 0)
             break;
