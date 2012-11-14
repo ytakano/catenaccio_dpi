@@ -217,11 +217,11 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
         if ((len == 2 && memcmp(buf, "\r\n", 2) ==0) ||
             (len == 1 && buf[0] == '\n')) {
 
-            skip_bytes(bytes, len);
-
             switch (m_type) {
             case PROTO_HTTP_CLIENT:
             {
+                skip_bytes(bytes, len);
+
                 if (m_state == HTTP_CHUNK_TRAILER) {
                     m_state = HTTP_METHOD;
                 } else if (m_method.back() == "CONNECT") {
@@ -261,6 +261,8 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
                 } else {
                     throw cdpi_parse_error(__FILE__, __LINE__);
                 }
+
+                skip_bytes(bytes, len);
 
                 if (m_state == HTTP_CHUNK_TRAILER) {
                     m_state = HTTP_RESPONSE;

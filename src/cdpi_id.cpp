@@ -1,5 +1,7 @@
 #include "cdpi_id.hpp"
 
+#include <sys/socket.h>
+
 #include <arpa/inet.h>
 
 #include <netinet/ip.h>

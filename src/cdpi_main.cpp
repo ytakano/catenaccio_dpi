@@ -1,6 +1,8 @@
 #include "cdpi_divert.hpp"
 #include "cdpi_tcp.hpp"
 
+#include <netinet/in.h>
+
 #include <iostream>
 
 using namespace std;
