@@ -7,8 +7,8 @@
 
 using namespace std;
 
-static boost::regex regex_http_req("^[A-Z]+ .+ HTTP/(1.0|1.1)\r?\n(([a-zA-Z]|-)+: .+\r?\n)+.*");
-static boost::regex regex_http_res("^HTTP/(1.0|1.1) [0-9]{3} .+\r?\n(([a-zA-Z]|-)+: .+\r?\n)+.*");
+static boost::regex regex_http_req("(^[A-Z]+ .+ HTTP/1.0\r?\n.*|^[A-Z]+ .+ HTTP/1.1\r?\n(([a-zA-Z]|-)+: .+\r?\n)*.*)");
+static boost::regex regex_http_res("(^HTTP/1.0 [0-9]{3} .+\r?\n.*|^HTTP/1.1 [0-9]{3} .+\r?\n(([a-zA-Z]|-)+: .+\r?\n)*.*)");
 
 cdpi_http::cdpi_http(cdpi_proto_type type) : m_body_read(0)
 {
@@ -259,7 +259,7 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
                     method = m_peer->m_method.front();
                     m_peer->m_method.pop();
                 } else {
-                    throw cdpi_parse_error(__FILE__, __LINE__);
+                    return false;
                 }
 
                 skip_bytes(bytes, len);
@@ -300,7 +300,6 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
 
             if (pos < 0) {
                 skip_bytes(bytes, len);
-                cout << "here 1: " << string(buf, buf + len) << endl;
                 continue;
             }
 
@@ -313,7 +312,6 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
 
             if (p >= buf + len) {
                 skip_bytes(bytes, len);
-                cout << "here 2" << endl;
                 continue;
             }
 
@@ -372,9 +370,6 @@ cdpi_http::parse_body(list<cdpi_bytes> &bytes)
         len = len < (int)sizeof(buf) ? len : sizeof(buf);
 
         len = skip_bytes(bytes, len);
-
-        cout << "parse body: len = "  << len << endl;
-
 
         if (len == 0)
             break;

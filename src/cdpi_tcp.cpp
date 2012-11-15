@@ -176,9 +176,10 @@ cdpi_tcp::run()
 
                 cdpi_bytes bytes;
                 m_stream.in_stream_event(STREAM_CREATED, tcp_event, bytes);
-            } else if (packet.m_flags & TH_FIN &&
-                       recv_fin(tcp_event.m_id, tcp_event.m_dir)) {
-                // TODO: event, connection closed
+            } else if (packet.m_flags & TH_FIN) {
+                cdpi_bytes bytes;
+
+                m_stream.in_stream_event(STREAM_DATA_IN, tcp_event, bytes);
 
 #ifdef DEBUG
                 cout << "connection closed: addr1 = "
@@ -187,16 +188,18 @@ cdpi_tcp::run()
                      << ", addr2 = "
                      << addr2 << ":"
                      << ntohs(tcp_event.m_id.m_addr2->l4_port)
+                     << ", from = " << tcp_event.m_dir
                      << endl;
 #endif // DEBUG
 
-                cdpi_bytes bytes;
+                if (recv_fin(tcp_event.m_id, tcp_event.m_dir)) {
+                    // TODO: event, connection closed
+                    tcp_event.m_dir = FROM_ADDR1;
+                    m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
 
-                tcp_event.m_dir = FROM_ADDR1;
-                m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
-
-                tcp_event.m_dir = FROM_ADDR2;
-                m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
+                    tcp_event.m_dir = FROM_ADDR2;
+                    m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
+                }
             } else if (packet.m_flags & TH_RST) {
                 // TODO: event, connection reset
 #ifdef DEBUG

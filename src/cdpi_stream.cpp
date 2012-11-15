@@ -22,13 +22,19 @@ cdpi_stream::in_stream_event(cdpi_stream_event st_event,
         create_stream(id_dir);
         break;
     case STREAM_DATA_IN:
-        in_data(id_dir, bytes);
-        break;
-    case STREAM_DESTROYED:
     {
-        cdpi_bytes bytes;
+        cdpi_id_dir id_dir2;
+        cdpi_bytes  bytes2;
+
+        id_dir2.m_id  = id_dir.m_id;
+        id_dir2.m_dir = id_dir.m_dir == FROM_ADDR1 ? FROM_ADDR2 : FROM_ADDR1;
+
         in_data(id_dir, bytes);
+        in_data(id_dir2, bytes2);
+        
+        break;
     }
+    case STREAM_DESTROYED:
     case STREAM_ERROR:
         destroy_stream(id_dir);
         break;
@@ -128,7 +134,7 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
         it->second->m_is_gaveup = true;
         it->second->m_bytes.clear();
 
-        cout << parse_error.m_msg << endl;
+        cout << "parse error: " << parse_error.m_msg << endl;
     } catch (cdpi_proxy proxy) {
         it->second->m_type = PROTO_HTTP_PROXY;
     }
