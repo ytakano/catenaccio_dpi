@@ -3,10 +3,14 @@
 
 #include <boost/shared_ptr.hpp>
 
+#include <list>
+
 enum cdpi_proto_type {
     PROTO_HTTP_CLIENT,
     PROTO_HTTP_SERVER,
     PROTO_HTTP_PROXY,
+    PROTO_SSL_CLIENT,
+    PROTO_SSL_SERVER,
     PROTO_NONE,
 };
 
@@ -14,7 +18,6 @@ class cdpi_proto {
 public:
     cdpi_proto();
     virtual ~cdpi_proto() = 0;
-
 };
 
 typedef boost::shared_ptr<cdpi_proto> ptr_cdpi_proto;

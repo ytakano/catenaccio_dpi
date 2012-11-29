@@ -19,10 +19,11 @@ enum cdpi_stream_event {
 };
 
 struct cdpi_stream_info {
-    std::list<cdpi_bytes> m_bytes;
-    cdpi_proto_type       m_type;
-    ptr_cdpi_proto        m_proto;
-    bool                  m_is_gaveup;
+    std::list<cdpi_bytes>     m_bytes;
+    std::list<ptr_cdpi_proto> m_proxy;
+    cdpi_proto_type           m_type;
+    ptr_cdpi_proto            m_proto;
+    bool                      m_is_gaveup;
 
     cdpi_stream_info() : m_type(PROTO_NONE), m_is_gaveup(false) { }
 };

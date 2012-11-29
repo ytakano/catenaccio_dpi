@@ -60,10 +60,10 @@ skip_bytes(list<cdpi_bytes> &bytes, int len)
 }
 
 int
-find_char(char *buf, int len, char c)
+find_char(const char *buf, int len, char c)
 {
     int n = 0;
-    char *end = buf + len;
+    const char *end = buf + len;
 
     for (; buf < end; buf++) {
         if (*buf == c)
@@ -73,6 +73,19 @@ find_char(char *buf, int len, char c)
     }
 
     return -1;
+}
+
+void
+print_binary(const char *buf, int len)
+{
+    const char *hex[] = {"0", "1", "2", "3", 
+                         "4", "5", "6", "7",
+                         "8", "9", "a", "b",
+                         "c", "d", "e", "f"};
+
+    for (int i = 0; i < len; i++) {
+        cout << hex[(buf[i] >> 4) & 0x0f] << hex[buf[i] & 0x0f];
+    }
 }
 
 int

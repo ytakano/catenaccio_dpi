@@ -24,7 +24,8 @@ public:
 int read_bytes_ec(const std::list<cdpi_bytes> &bytes, char *buf, int len,
                   char c);
 int skip_bytes(std::list<cdpi_bytes> &bytes, int len);
-int find_char(char *buf, int len, char c);
+int find_char(const char *buf, int len, char c);
+void print_binary(const char *buf, int len);
 
 void to_lower_str(std::string &str);
 

@@ -1,4 +1,5 @@
 #include "cdpi_stream.hpp"
+#include "cdpi_ssl.hpp"
 #include "cdpi_http.hpp"
 
 using namespace std;
@@ -78,7 +79,7 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
         it->second->m_type == PROTO_HTTP_PROXY) {
         // protocol detection
         if (cdpi_http::is_http_client(it->second->m_bytes)) {
-            it->second->m_type = PROTO_HTTP_CLIENT;
+            it->second->m_type  = PROTO_HTTP_CLIENT;
             it->second->m_proto = ptr_cdpi_proto(new cdpi_http(PROTO_HTTP_CLIENT));
 
             cout << "protocol: HTTP Client" << endl;
@@ -105,6 +106,16 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
             }
 
             cout << "protocol: HTTP Server" << endl;
+        } else if (cdpi_ssl::is_ssl_client(it->second->m_bytes)) {
+            it->second->m_type  = PROTO_SSL_CLIENT;
+            it->second->m_proto = ptr_cdpi_proto(new cdpi_ssl(PROTO_SSL_CLIENT));
+
+            cout << "protocol: SSL Client" << endl;
+        } else if (cdpi_ssl::is_ssl_server(it->second->m_bytes)) {
+            it->second->m_type  = PROTO_SSL_CLIENT;
+            it->second->m_proto = ptr_cdpi_proto(new cdpi_ssl(PROTO_SSL_SERVER));
+
+            cout << "protocol: SSL Server" << endl;
         } else {
             if (it->second->m_bytes.size() > 8) {
                 it->second->m_is_gaveup = true;
@@ -137,5 +148,6 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
         cout << "parse error: " << parse_error.m_msg << endl;
     } catch (cdpi_proxy proxy) {
         it->second->m_type = PROTO_HTTP_PROXY;
+        it->second->m_proxy.push_back(it->second->m_proto);
     }
 }
