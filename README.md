@@ -9,5 +9,5 @@ Catenaccio DPI is a program for deep packet inspection.
 
 ### How to Compile
 
-> "$ cmake CMakeLists.txt
-$ make"
+    $ cmake CMakeLists.txt
+    $ make
