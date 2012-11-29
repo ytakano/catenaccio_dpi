@@ -1,8 +1,14 @@
 #include "cdpi_ssl.hpp"
 
+#include <arpa/inet.h>
+
 #include <boost/regex.hpp>
 
 using namespace std;
+
+#define SSL20_VER 0x0200
+#define SSL30_VER 0x0300
+#define TLS10_VER 0x0301
 
 /*
  * Content Type: Handshake(0x16)
@@ -36,11 +42,6 @@ cdpi_ssl::is_ssl_client(list<cdpi_bytes> &bytes)
     string     data(buf.m_ptr.get() + buf.m_pos,
                     buf.m_ptr.get() + buf.m_pos + buf.m_len);
 
-
-    //print_binary(data.c_str(), data.size());
-
-    //cout << endl;
-
     return boost::regex_match(data, regex_ssl_client_hello);
 }
 
@@ -55,4 +56,42 @@ cdpi_ssl::is_ssl_server(list<cdpi_bytes> &bytes)
                     buf.m_ptr.get() + buf.m_pos + buf.m_len);
 
     return boost::regex_match(data, regex_ssl_server_hello);
+}
+
+void
+cdpi_ssl::parse(list<cdpi_bytes> &bytes)
+{
+    uint16_t ver;
+    uint16_t len;
+    uint8_t  type;
+    char     buf[5];
+    int      read_len;
+
+    read_len = read_bytes(bytes, buf, sizeof(buf));
+
+    if (read_len < (int)sizeof(buf))
+        return;
+
+    type = (uint8_t)buf[0];
+
+    memcpy(&ver, &buf[1], sizeof(ver));
+    memcpy(&len, &buf[3], sizeof(len));
+
+    ver = ntohs(ver);
+    len = ntohs(len);
+
+    switch (type) {
+    case SSL_HANDSHAKE:
+    case SSL_CHANGE_CIPHER_SPEC:
+    case SSL_ALERT:
+    case SSL_APPLICATION_DATA:
+    case SSL_HEARTBEAT:
+    {
+        int skip_len;
+        skip_len = skip_bytes(bytes, len);
+        break;
+    }
+    default:
+        break;
+    }
 }

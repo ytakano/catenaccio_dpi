@@ -60,6 +60,34 @@ skip_bytes(list<cdpi_bytes> &bytes, int len)
 }
 
 int
+read_bytes(list<cdpi_bytes> &bytes, char *buf, int len)
+{
+    list<cdpi_bytes>::iterator it;
+    int read_len = 0;
+
+    for (it = bytes.begin(); it != bytes.end(); ++it) {
+        int remain = len - read_len;
+
+        if (! it->m_ptr)
+            continue;
+
+        if (remain < it->m_len) {
+            memcpy(buf, it->m_ptr.get() + it->m_pos, remain);
+            read_len += remain;
+
+            break;
+        }
+
+        memcpy(buf, it->m_ptr.get() + it->m_pos, it->m_len);
+
+        buf += it->m_len;
+        read_len += it->m_len;
+    }
+
+    return read_len;
+}
+
+int
 find_char(const char *buf, int len, char c)
 {
     int n = 0;

@@ -23,6 +23,7 @@ public:
 
 int read_bytes_ec(const std::list<cdpi_bytes> &bytes, char *buf, int len,
                   char c);
+int read_bytes(std::list<cdpi_bytes> &bytes, char *buf, int len);
 int skip_bytes(std::list<cdpi_bytes> &bytes, int len);
 int find_char(const char *buf, int len, char c);
 void print_binary(const char *buf, int len);
