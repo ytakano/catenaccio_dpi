@@ -1,4 +1,5 @@
 #include "cdpi_ssl.hpp"
+#include "cdpi_stream.hpp"
 
 #include <arpa/inet.h>
 
@@ -22,7 +23,7 @@ using namespace std;
 static boost::regex regex_ssl_client_hello("^\\x16(\\x02\\x00|\\x03\\x00|\\x03\\x01)..\\x01...\\1.*");
 static boost::regex regex_ssl_server_hello("^\\x16(\\x02\\x00|\\x03\\x00|\\x03\\x01)..\\x02...\\1.*");
 
-cdpi_ssl::cdpi_ssl(cdpi_proto_type type)
+cdpi_ssl::cdpi_ssl(cdpi_proto_type type) 
 {
     m_type = type;
 }
@@ -67,31 +68,39 @@ cdpi_ssl::parse(list<cdpi_bytes> &bytes)
     char     buf[5];
     int      read_len;
 
-    read_len = read_bytes(bytes, buf, sizeof(buf));
+    for (;;) {
+        read_len = read_bytes(bytes, buf, sizeof(buf));
 
-    if (read_len < (int)sizeof(buf))
-        return;
+        if (read_len < (int)sizeof(buf))
+            return;
 
-    type = (uint8_t)buf[0];
+        type = (uint8_t)buf[0];
 
-    memcpy(&ver, &buf[1], sizeof(ver));
-    memcpy(&len, &buf[3], sizeof(len));
+        memcpy(&ver, &buf[1], sizeof(ver));
+        memcpy(&len, &buf[3], sizeof(len));
 
-    ver = ntohs(ver);
-    len = ntohs(len);
+        ver = ntohs(ver);
+        len = ntohs(len);
 
-    switch (type) {
-    case SSL_HANDSHAKE:
-    case SSL_CHANGE_CIPHER_SPEC:
-    case SSL_ALERT:
-    case SSL_APPLICATION_DATA:
-    case SSL_HEARTBEAT:
-    {
-        int skip_len;
-        skip_len = skip_bytes(bytes, len);
-        break;
-    }
-    default:
-        break;
+
+        boost::shared_array<char> data(new char[len]);
+
+        read_len = read_bytes(bytes, data.get(), len);
+
+        if (read_len < len)
+            return;
+
+        skip_bytes(bytes, read_len + sizeof(buf));
+
+        switch (type) {
+        case SSL_HANDSHAKE:
+        case SSL_CHANGE_CIPHER_SPEC:
+        case SSL_ALERT:
+        case SSL_APPLICATION_DATA:
+        case SSL_HEARTBEAT:
+            break;
+        default:
+            throw cdpi_parse_error(__FILE__, __LINE__);
+        }
     }
 }

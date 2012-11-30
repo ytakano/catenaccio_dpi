@@ -11,6 +11,9 @@
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 
+#ifndef IPPROTO_DIVERT
+    #define IPPROTO_DIVERT          254
+#endif // IPPROTO_DIVERT
 
 using namespace std;
 

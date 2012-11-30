@@ -96,13 +96,34 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
             id_dir_peer.m_id  = id_dir.m_id;
 
             it_peer = m_info.find(id_dir_peer);
-            if (it_peer != m_info.end() &&
-                (it_peer->second->m_type == PROTO_HTTP_CLIENT ||
-                 it_peer->second->m_type == PROTO_HTTP_PROXY)) {
-                ptr_cdpi_http p_http;
+            if (it_peer != m_info.end()) {
+                if (it_peer->second->m_proxy.size() > 0) {
+                    list<ptr_cdpi_proto>::reverse_iterator r_it;
+                    int i = it->second->m_proxy.size();
 
-                p_http = boost::dynamic_pointer_cast<cdpi_http>(it->second->m_proto);
-                p_http->set_peer(boost::dynamic_pointer_cast<cdpi_http>(it_peer->second->m_proto));
+                    for (r_it = it_peer->second->m_proxy.rbegin();
+                         i > 0 && r_it != it_peer->second->m_proxy.rend();
+                         ++it) {
+                        i--;
+                    }
+
+                    if (i == 0) {
+                        ptr_cdpi_http p_http, p_peer;
+
+                        p_http = boost::dynamic_pointer_cast<cdpi_http>(it->second->m_proto);
+                        p_peer = boost::dynamic_pointer_cast<cdpi_http>(*r_it);
+
+                        if (p_peer)
+                            p_http->set_peer(p_peer);
+
+                    }
+                } else if (it_peer->second->m_type == PROTO_HTTP_CLIENT ||
+                           it_peer->second->m_type == PROTO_HTTP_PROXY) {
+                    ptr_cdpi_http p_http;
+
+                    p_http = boost::dynamic_pointer_cast<cdpi_http>(it->second->m_proto);
+                    p_http->set_peer(boost::dynamic_pointer_cast<cdpi_http>(it_peer->second->m_proto));
+                }
             }
 
             cout << "protocol: HTTP Server" << endl;
