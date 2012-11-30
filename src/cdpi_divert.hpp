@@ -1,6 +1,9 @@
 #ifndef CDPI_DIVERT_HPP
 #define CDPI_DIVERT_HPP
 
+#include "cdpi_id.hpp"
+#include "cdpi_tcp.hpp"
+
 #include <stdint.h>
 #include <event.h>
 
@@ -12,6 +15,31 @@ public:
     virtual ~cdpi_callback() { }
 
     virtual void operator()(char *bytes, size_t len) = 0;
+};
+
+class cb_ipv4 : public cdpi_callback {
+public:
+    cb_ipv4(boost::shared_ptr<cdpi_tcp> p_tcp) : m_tcp(p_tcp) { }
+    virtual ~cb_ipv4() { }
+
+    virtual void operator() (char *bytes, size_t len) {
+        cdpi_direction dir;
+        cdpi_id        id;
+
+        dir = id.set_iph(bytes, IPPROTO_IPV4);
+
+        switch (id.get_l4_proto()) {
+        case IPPROTO_TCP:
+            m_tcp->input_tcp(id, dir, bytes, len);
+            break;
+        default:
+            ;
+        }
+    }
+
+private:
+    boost::shared_ptr<cdpi_tcp> m_tcp;
+
 };
 
 typedef boost::shared_ptr<cdpi_callback> cdpi_callback_ptr;
@@ -46,5 +74,8 @@ private:
     friend void callback_ipv4(evutil_socket_t fd, short what, void *arg);
     friend void callback_ipv6(evutil_socket_t fd, short what, void *arg);
 };
+
+void run_divert(int port, ptr_cdpi_event_listener listener);
+
 
 #endif // CDPI_DIVERT_HPP

@@ -11,29 +11,11 @@
 
 using namespace std;
 
-class cb_ipv4 : public cdpi_callback {
+class my_event_listener : public cdpi_event_listener {
 public:
-    cb_ipv4() { }
-    virtual ~cb_ipv4() { }
-
-    virtual void operator() (char *bytes, size_t len) {
-        cdpi_direction dir;
-        cdpi_id        id;
-
-        dir = id.set_iph(bytes, IPPROTO_IPV4);
-
-        switch (id.get_l4_proto()) {
-        case IPPROTO_TCP:
-            m_tcp.input_tcp(id, dir, bytes, len);
-            break;
-        default:
-            ;
-        }
+    virtual void operator() (cdpi_event cev, const cdpi_id_dir &id_dir,
+                             cdpi_stream &stream) {
     }
-
-private:
-    cdpi_tcp m_tcp;
-
 };
 
 extern char *optarg;
@@ -79,25 +61,11 @@ main(int argc, char *argv[])
     }
 
     if (is_pcap) {
-        cdpi_pcap pcp;
-
-        pcp.set_dev(dev);
-        pcp.set_callback_ipv4(boost::shared_ptr<cdpi_callback>(new cb_ipv4));
-        pcp.run();
+        boost::shared_ptr<my_event_listener> listener(new my_event_listener);
+        run_pcap(dev, boost::dynamic_pointer_cast<cdpi_event_listener>(listener));
     } else {
-        event_base *ev_base = event_base_new();
-        cdpi_divert dvt;
-
-        if (!ev_base) {
-            cerr << "couldn't new event_base" << endl;
-            return -1;
-        }
-
-        dvt.set_ev_base(ev_base);
-        dvt.set_callback_ipv4(boost::shared_ptr<cdpi_callback>(new cb_ipv4));
-        dvt.run(dvt_port, 0);
-
-        event_base_dispatch(ev_base);
+        boost::shared_ptr<my_event_listener> listener(new my_event_listener);
+        run_divert(dvt_port, boost::dynamic_pointer_cast<cdpi_event_listener>(listener));
     }
 
     return 0;

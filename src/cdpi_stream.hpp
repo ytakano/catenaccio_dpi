@@ -2,6 +2,7 @@
 #define CDPI_STREAM_HPP
 
 #include "cdpi_bytes.hpp"
+#include "cdpi_event.hpp"
 #include "cdpi_id.hpp"
 #include "cdpi_proto.hpp"
 
@@ -53,12 +54,18 @@ public:
     void in_stream_event(cdpi_stream_event st_event, const cdpi_id_dir &id_dir,
                          cdpi_bytes bytes);
 
+    void set_event_listener(ptr_cdpi_event_listener &listener) {
+        m_listener = listener;
+    }
+
 private:
     std::map<cdpi_id_dir, ptr_cdpi_stream_info> m_info;
 
     void create_stream(const cdpi_id_dir &id_dir);
     void destroy_stream(const cdpi_id_dir &id_dir);
     void in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes);
+
+    ptr_cdpi_event_listener m_listener;
 
 };
 

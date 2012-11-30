@@ -1,4 +1,5 @@
 #include "cdpi_pcap.hpp"
+#include "cdpi_divert.hpp"
 
 #include <pcap/pcap.h>
 
@@ -8,6 +9,20 @@
 #include <iostream>
 
 using namespace std;
+
+void
+run_pcap(string dev, ptr_cdpi_event_listener listener)
+{
+    cdpi_pcap pcp;
+    boost::shared_ptr<cdpi_tcp> p_tcp(new cdpi_tcp);
+
+    p_tcp->set_event_listener(listener);
+
+    pcp.set_dev(dev);
+    pcp.set_callback_ipv4(boost::shared_ptr<cdpi_callback>(new cb_ipv4(p_tcp)));
+    pcp.run();
+}
+
 
 void
 pcap_callback(uint8_t *user, const struct pcap_pkthdr *h, const uint8_t *bytes)

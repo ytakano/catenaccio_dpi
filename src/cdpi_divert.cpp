@@ -111,32 +111,60 @@ cdpi_divert::open_divert(uint16_t port)
 void
 cdpi_divert::run(uint16_t ipv4_port, uint16_t ipv6_port)
 {
-    m_fd_ipv4 = open_divert(ipv4_port);
-    if (m_fd_ipv4 < 0) {
-        cerr << "couldn't open divert socket's port " << ipv4_port << endl;
+    if (ipv4_port > 0) {
+        m_fd_ipv4 = open_divert(ipv4_port);
+        if (m_fd_ipv4 < 0) {
+            cerr << "couldn't open divert socket's port " << ipv4_port << endl;
+            exit(-1);
+        }
+
+        m_ev_ipv4 = event_new(m_ev_base, m_fd_ipv4, EV_READ | EV_PERSIST,
+                              callback_ipv4, this);
+        if (!m_ev_ipv4) {
+            cerr << "couldn't new event" << endl;
+            exit(-1);
+        }
+
+        event_add(m_ev_ipv4, NULL);
+    }
+
+
+    // divert socket is not supporting IPv6
+    if (ipv6_port > 0) {
+        m_fd_ipv6 = open_divert(ipv6_port);
+        if (m_fd_ipv6 < 0) {
+            cerr << "couldn't open divert socket's port" << ipv6_port << endl;
+            exit(-1);
+        }
+
+        m_ev_ipv6 = event_new(m_ev_base, m_fd_ipv6, EV_READ | EV_PERSIST,
+                              callback_ipv6, this);
+        if (!m_ev_ipv6) {
+            cerr << "couldn't new event" << endl;
+            exit(-1);
+        }
+
+        event_add(m_ev_ipv6, NULL);
+    }
+}
+
+void
+run_divert(int port, ptr_cdpi_event_listener listener)
+{
+    event_base *ev_base = event_base_new();
+    cdpi_divert dvt;
+    boost::shared_ptr<cdpi_tcp> p_tcp(new cdpi_tcp);
+
+    if (!ev_base) {
+        cerr << "couldn't new event_base" << endl;
         exit(-1);
     }
 
-    m_fd_ipv6 = open_divert(ipv6_port);
-    if (m_fd_ipv6 < 0) {
-        cerr << "couldn't open divert socket's port" << ipv6_port << endl;
-    }
+    p_tcp->set_event_listener(listener);
 
+    dvt.set_ev_base(ev_base);
+    dvt.set_callback_ipv4(boost::shared_ptr<cdpi_callback>(new cb_ipv4(p_tcp)));
+    dvt.run(port, 0);
 
-    m_ev_ipv4 = event_new(m_ev_base, m_fd_ipv4, EV_READ | EV_PERSIST,
-                          callback_ipv4, this);
-    if (!m_ev_ipv4) {
-        cerr << "couldn't new event" << endl;
-        exit(-1);
-    }
-
-    m_ev_ipv6 = event_new(m_ev_base, m_fd_ipv6, EV_READ | EV_PERSIST,
-                          callback_ipv6, this);
-    if (!m_ev_ipv6) {
-        cerr << "couldn't new event" << endl;
-        exit(-1);
-    }
-
-    event_add(m_ev_ipv4, NULL);
-    event_add(m_ev_ipv6, NULL);
+    event_base_dispatch(ev_base);
 }

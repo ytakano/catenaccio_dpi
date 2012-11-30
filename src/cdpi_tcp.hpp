@@ -65,6 +65,9 @@ public:
     void input_tcp(cdpi_id &id, cdpi_direction dir, char *buf, int len);
     void run();
     void garbage_collector();
+    void set_event_listener(ptr_cdpi_event_listener listener) {
+        m_stream.set_event_listener(listener);
+    }
 
 private:
     std::map<cdpi_id, ptr_cdpi_tcp_flow> m_flow;

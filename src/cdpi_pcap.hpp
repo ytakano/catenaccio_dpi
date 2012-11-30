@@ -2,6 +2,7 @@
 #define CDPI_PCAP_HPP
 
 #include "cdpi_divert.hpp"
+#include "cdpi_event.hpp"
 
 #include <stdint.h>
 
@@ -34,5 +35,7 @@ private:
     cdpi_callback_ptr m_callback_ipv4;
     cdpi_callback_ptr m_callback_ipv6;
 };
+
+void run_pcap(std::string dev, ptr_cdpi_event_listener listener);
 
 #endif // CDPI_PCAP_HPP
