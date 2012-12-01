@@ -1,5 +1,4 @@
 #include "cdpi_divert.hpp"
-#include "cdpi_tcp.hpp"
 #include "cdpi_pcap.hpp"
 
 #include <unistd.h>

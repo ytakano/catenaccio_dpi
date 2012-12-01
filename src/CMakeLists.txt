@@ -1,15 +1,25 @@
-add_definitions(-g -O0 -Wall -DDEBUG)
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
 
 FILE(GLOB CPPSources *.cpp)
 FILE(GLOB CPPHeaders *.hpp)
+FILE(GLOB CPPMain cdpi_main.cpp)
 
-add_executable(cattenacio_dpi ${CPPSources})
+list(REMOVE_ITEM CPPSources ${CPPMain})
+
+add_executable(cattenacio_dpi ${CPPSources} ${CPPMain})
 add_library(cdpi SHARED ${CPPSources})
+add_library(cdpi_static STATIC ${CPPSources})
+add_library(cdpi_static_i386 STATIC ${CPPSources})
+
+set_property(TARGET cdpi_static_i386 PROPERTY COMPILE_FLAGS "-arch i386")
 
 set(LIBS event boost_thread-mt boost_system-mt boost_regex-mt pcap)
 
 target_link_libraries(cattenacio_dpi ${LIBS})
 target_link_libraries(cdpi ${LIBS})
 
-INSTALL(TARGETS cdpi LIBRARY DESTINATION lib)
+
+INSTALL(TARGETS cdpi cdpi_static cdpi_static_i386 LIBRARY DESTINATION lib
+                                                  ARCHIVE DESTINATION lib)
 INSTALL(FILES ${CPPHeaders} DESTINATION include/cdpi)
