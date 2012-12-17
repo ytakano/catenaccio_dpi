@@ -24,9 +24,12 @@ struct cdpi_stream_info {
     std::list<ptr_cdpi_proto> m_proxy;
     cdpi_proto_type           m_type;
     ptr_cdpi_proto            m_proto;
+    uint64_t                  m_total_size;
+    time_t                    m_init_time;
     bool                      m_is_gaveup;
 
-    cdpi_stream_info() : m_type(PROTO_NONE), m_is_gaveup(false) { }
+    cdpi_stream_info() : m_type(PROTO_NONE), m_total_size(0),
+                         m_init_time(time(NULL)), m_is_gaveup(false) { }
 };
 
 class cdpi_parse_error {
@@ -57,6 +60,8 @@ public:
     void set_event_listener(ptr_cdpi_event_listener &listener) {
         m_listener = listener;
     }
+
+    double get_bps(cdpi_id_dir id_dir);
 
 private:
     std::map<cdpi_id_dir, ptr_cdpi_stream_info> m_info;

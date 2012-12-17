@@ -76,8 +76,8 @@ public:
                 *m_addr2 == *rhs.m_addr2);
     }
 
-    uint8_t get_l3_proto() { return m_l3_proto; }
-    uint8_t get_l4_proto() { return m_l4_proto; }
+    uint8_t get_l3_proto() const { return m_l3_proto; }
+    uint8_t get_l4_proto() const { return m_l4_proto; }
 
     boost::shared_ptr<cdpi_peer> m_addr1, m_addr2;
 

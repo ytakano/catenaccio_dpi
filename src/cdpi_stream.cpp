@@ -74,8 +74,10 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
     if (it == m_info.end() || it->second->m_is_gaveup)
         return;
 
-    if (bytes.m_ptr)
+    if (bytes.m_ptr) {
         it->second->m_bytes.push_back(bytes);
+        it->second->m_total_size += bytes.m_len;
+    }
 
     if (it->second->m_type == PROTO_NONE ||
         it->second->m_type == PROTO_HTTP_PROXY) {
@@ -181,4 +183,16 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
         it->second->m_type = PROTO_HTTP_PROXY;
         it->second->m_proxy.push_back(it->second->m_proto);
     }
+}
+
+double
+cdpi_stream::get_bps(cdpi_id_dir id_dir)
+{
+    map<cdpi_id_dir, ptr_cdpi_stream_info>::iterator it;
+
+    it = m_info.find(id_dir);
+    if (it == m_info.end())
+        return 0.0;
+
+    return (double)it->second->m_total_size * 8 / (double)(time(NULL) - it->second->m_init_time);
 }

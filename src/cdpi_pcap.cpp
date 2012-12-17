@@ -21,6 +21,7 @@ run_pcap(string dev, ptr_cdpi_event_listener listener)
     pcp.set_dev(dev);
     pcp.set_callback_ipv4(boost::shared_ptr<cdpi_callback>(new cb_ipv4(p_tcp)));
     pcp.run();
+    exit(0);
 }
 
 

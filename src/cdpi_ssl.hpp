@@ -45,7 +45,14 @@ public:
     void parse(std::list<cdpi_bytes> &bytes);
 
 private:
-    cdpi_proto_type m_type;
+    cdpi_proto_type     m_type;
+    uint8_t             m_ver;
+    cdpi_bytes          m_session_id;
+    std::list<uint16_t> m_cipher_suites;
+    std::list<uint8_t>  m_compression_methods;
+
+    void parse_handshake(char *data, int len);
+    void parse_client_hello(char *data, int len);
 
 };
 
