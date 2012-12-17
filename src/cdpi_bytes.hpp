@@ -1,6 +1,8 @@
 #ifndef CDPI_BYTES_HPP
 #define CDPI_BYTES_HPP
 
+#include <string.h>
+
 #include <list>
 #include <string>
 

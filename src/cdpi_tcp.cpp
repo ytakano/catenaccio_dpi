@@ -4,6 +4,10 @@
 
 #include <sys/socket.h>
 
+#ifdef __linux__
+    #define __FAVOR_BSD
+#endif
+
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
@@ -34,7 +38,6 @@ cdpi_tcp::input_tcp(cdpi_id &id, cdpi_direction dir, char *buf, int len)
 {
     switch (id.get_l3_proto()) {
     case IPPROTO_IP:
-    case IPPROTO_IPV4:
         input_tcp4(id, dir, buf, len);
         break;
     case IPPROTO_IPV6:

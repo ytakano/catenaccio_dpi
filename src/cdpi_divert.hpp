@@ -26,7 +26,7 @@ public:
         cdpi_direction dir;
         cdpi_id        id;
 
-        dir = id.set_iph(bytes, IPPROTO_IPV4);
+        dir = id.set_iph(bytes, IPPROTO_IP);
 
         switch (id.get_l4_proto()) {
         case IPPROTO_TCP:

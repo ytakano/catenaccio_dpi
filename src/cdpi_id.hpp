@@ -1,6 +1,9 @@
 #ifndef CDPI_ID_HPP
 #define CDPI_ID_HPP
 
+#include <stdint.h>
+#include <string.h>
+
 #include <boost/shared_ptr.hpp>
 
 struct cdpi_peer {

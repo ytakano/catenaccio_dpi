@@ -10,9 +10,11 @@ list(REMOVE_ITEM CPPSources ${CPPMain})
 add_executable(cattenacio_dpi ${CPPSources} ${CPPMain})
 add_library(cdpi SHARED ${CPPSources})
 add_library(cdpi_static STATIC ${CPPSources})
-add_library(cdpi_static_i386 STATIC ${CPPSources})
 
-set_property(TARGET cdpi_static_i386 PROPERTY COMPILE_FLAGS "-arch i386")
+IF(APPLE)
+    add_library(cdpi_static_i386 STATIC ${CPPSources})
+    set_property(TARGET cdpi_static_i386 PROPERTY COMPILE_FLAGS "-arch i386")
+ENDIF(APPLE)
 
 set(LIBS event boost_thread-mt boost_system-mt boost_regex-mt pcap)
 
@@ -20,6 +22,10 @@ target_link_libraries(cattenacio_dpi ${LIBS})
 target_link_libraries(cdpi ${LIBS})
 
 
-INSTALL(TARGETS cdpi cdpi_static cdpi_static_i386 LIBRARY DESTINATION lib
-                                                  ARCHIVE DESTINATION lib)
+INSTALL(TARGETS cdpi cdpi_static LIBRARY DESTINATION lib
+                                 ARCHIVE DESTINATION lib)
 INSTALL(FILES ${CPPHeaders} DESTINATION include/cdpi)
+
+IF(APPLE)
+    INSTALL(TARGETS cdpi_static_i386 ARCHIVE DESTINATION lib)
+ENDIF(APPLE)

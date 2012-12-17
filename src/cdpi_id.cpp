@@ -4,6 +4,10 @@
 
 #include <arpa/inet.h>
 
+#ifdef __linux__
+    #define __FAVOR_BSD
+#endif
+
 #include <netinet/ip.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -17,7 +21,6 @@ cdpi_id::set_iph(char *iph, int protocol)
 {
     switch (protocol) {
     case IPPROTO_IP:
-    case IPPROTO_IPV4:
     {
         shared_ptr<cdpi_peer> addr1(new cdpi_peer);
         shared_ptr<cdpi_peer> addr2(new cdpi_peer);
