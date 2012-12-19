@@ -23,11 +23,24 @@ using namespace std;
 static boost::regex regex_ssl_client_hello("^\\x16(\\x02\\x00|\\x03\\x00|\\x03\\x01)..\\x01...\\1.*");
 static boost::regex regex_ssl_server_hello("^\\x16(\\x02\\x00|\\x03\\x00|\\x03\\x01)..\\x02...\\1.*");
 
+struct cdpi_ssl_compression_method {
+    uint16_t    m_idx;
+    const char *m_method;
+};
+
 struct cdpi_ssl_cipher_suite {
     uint16_t    m_idx;
     const char *m_cipher;
 };
 
+// cf. http://www.iana.org/assignments/comp-meth-ids/comp-meth-ids.xml
+cdpi_ssl_compression_method compression_methods[] = {
+    { 0, "NULL"},
+    { 1, "DEFLATE"},
+    {64, "LZS"}
+};
+
+// cf. http://www.iana.org/assignments/tls-parameters/tls-parameters.xml
 cdpi_ssl_cipher_suite cipher_suites[] = {
     {0x0000, "TLS_NULL_WITH_NULL_NULL"},
     {0x0001, "TLS_RSA_WITH_NULL_MD5"},
@@ -458,8 +471,23 @@ cdpi_ssl::parse_handshake(char *data, int len)
         parse_client_hello(data + 6, msg_len);
         break;
     case SSL_SERVER_HELLO:
+        parse_server_hello(data + 6, msg_len);
         break;
     case SSL_CERTIFICATE:
+        break;
+    default:
+        ;
+    }
+}
+
+void
+cdpi_ssl::parse_server_hello(char *data, int len)
+{
+    switch (m_ver) {
+    case SSL30_VER:
+    case TLS10_VER:
+        break;
+    case SSL20_VER:
         break;
     default:
         ;
@@ -473,10 +501,98 @@ cdpi_ssl::parse_client_hello(char *data, int len)
     case SSL30_VER:
     case TLS10_VER:
     {
-        uint32_t gmt_unix_time;
-        uint8_t  rnd[28];
+        char    *end_of_data = data + len;
+        char    *p;
         uint8_t  session_id_len;
+        uint8_t  compression_methods_len;
         uint16_t cipher_suites_len;
+
+        // read GMT UNIX Time
+        p     = data;
+        data += sizeof(m_gmt_unix_time);
+
+        if (data > end_of_data)
+            return;
+
+        memcpy(&m_gmt_unix_time, p, sizeof(m_gmt_unix_time));
+        m_gmt_unix_time = ntohl(m_gmt_unix_time);
+
+
+        // read random
+        p     = data;
+        data += sizeof(m_random);
+
+        if (data > end_of_data)
+            return;
+
+        memcpy(m_random, p, sizeof(m_random));
+
+
+        // read session ID
+        p     = data;
+        data += sizeof(session_id_len);
+
+        if (data > end_of_data)
+            return;
+
+        memcpy(&session_id_len, data, sizeof(session_id_len));
+
+
+        if (session_id_len > 0) {
+            p     = data;
+            data += session_id_len;
+
+            if (data > end_of_data)
+                return;
+
+            m_session_id.set_buf(p, session_id_len);
+        }
+
+
+        // read cipher suites
+        p     = data;
+        data += sizeof(cipher_suites_len);
+
+        if (data > end_of_data)
+            return;
+
+        memcpy(&cipher_suites_len, p, sizeof(cipher_suites_len));
+        cipher_suites_len = ntohs(cipher_suites_len);
+
+
+        if (data + cipher_suites_len * 2 > end_of_data)
+            return;
+
+        for (uint16_t i = 0; i < cipher_suites_len; i++) {
+            uint16_t buf;
+            memcpy(&buf, &data[i * sizeof(buf)], sizeof(buf));
+
+            m_cipher_suites.push_back(buf);
+        }
+
+        data += cipher_suites_len * 2;
+
+
+        // read compression methods
+        p     = data;
+        data += sizeof(compression_methods_len);
+
+        memcpy(&compression_methods_len, p, sizeof(compression_methods_len));
+
+        if (data + compression_methods_len > end_of_data)
+            return;
+
+        for (uint8_t i = 0; i < compression_methods_len; i++) {
+            uint8_t buf;
+            memcpy(&buf, &data[i], sizeof(buf));
+
+            m_compression_methods.push_back(buf);
+        }
+
+        data += compression_methods_len;
+
+
+        // TODO: read extension
     }
         break;
     case SSL20_VER:

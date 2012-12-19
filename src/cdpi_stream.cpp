@@ -38,8 +38,8 @@ cdpi_stream::in_stream_event(cdpi_stream_event st_event,
     }
     case STREAM_DESTROYED:
     case STREAM_ERROR:
-        destroy_stream(id_dir);
         (*m_listener)(CDPI_EVENT_STREAM_CLOSE, id_dir, *this);
+        destroy_stream(id_dir);
         break;
     }
 }
