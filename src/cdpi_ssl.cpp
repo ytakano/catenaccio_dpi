@@ -486,7 +486,81 @@ cdpi_ssl::parse_server_hello(char *data, int len)
     switch (m_ver) {
     case SSL30_VER:
     case TLS10_VER:
+    {
+        char    *end_of_data = data + len;
+        char    *p;
+        uint8_t  session_id_len;
+        uint8_t  compression_method;
+        uint16_t cipher_suite;
+
+        // read GMT UNIX Time
+        p     = data;
+        data += sizeof(m_gmt_unix_time);
+
+        if (data > end_of_data)
+            return;
+
+        memcpy(&m_gmt_unix_time, p, sizeof(m_gmt_unix_time));
+        m_gmt_unix_time = ntohl(m_gmt_unix_time);
+
+
+        // read random
+        p     = data;
+        data += sizeof(m_random);
+
+        if (data > end_of_data)
+            return;
+
+        memcpy(m_random, p, sizeof(m_random));
+
+
+        // read session ID
+        p     = data;
+        data += sizeof(session_id_len);
+
+        if (data > end_of_data)
+            return;
+
+        memcpy(&session_id_len, p, sizeof(session_id_len));
+
+        if (session_id_len > 0) {
+            p     = data;
+            data += session_id_len;
+
+            if (data > end_of_data)
+                return;
+
+            m_session_id.set_buf(p, session_id_len);
+        }
+
+
+        // read cipher suite
+        p     = data;
+        data += sizeof(cipher_suite);
+
+        if (data > end_of_data)
+            return;
+
+        memcpy(&cipher_suite, p, sizeof(cipher_suite));
+        cipher_suite = ntohs(cipher_suite);
+
+        m_cipher_suites.push_back(cipher_suite);
+
+
+        // read compression method
+        p     = data;
+        data += sizeof(compression_method);
+
+        if (data > end_of_data)
+            return;
+
+        memcpy(&compression_method, p, sizeof(compression_method));
+
+
+        // TODO: read extensions
+
         break;
+    }
     case SSL20_VER:
         break;
     default:
@@ -592,9 +666,10 @@ cdpi_ssl::parse_client_hello(char *data, int len)
         data += compression_methods_len;
 
 
-        // TODO: read extension
-    }
+        // TODO: read extensions
+
         break;
+    }
     case SSL20_VER:
         break;
     default:
