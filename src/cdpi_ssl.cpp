@@ -559,6 +559,8 @@ cdpi_ssl::parse_server_hello(char *data, int len)
 
         // TODO: read extensions
 
+        // TODO: event parse server hello
+
         break;
     }
     case SSL20_VER:
@@ -667,6 +669,8 @@ cdpi_ssl::parse_client_hello(char *data, int len)
 
 
         // TODO: read extensions
+
+        // TODO: event parse client hello
 
         break;
     }

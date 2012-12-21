@@ -21,7 +21,8 @@ using namespace std;
 
 #define TCP_GC_TIMER 120
 
-cdpi_tcp::cdpi_tcp() : m_thread_run(boost::bind(&cdpi_tcp::run, this)),
+cdpi_tcp::cdpi_tcp() : m_is_del(false),
+                       m_thread_run(boost::bind(&cdpi_tcp::run, this)),
                        m_thread_gc(boost::bind(&cdpi_tcp::garbage_collector,
                                                this))
 {
@@ -30,7 +31,19 @@ cdpi_tcp::cdpi_tcp() : m_thread_run(boost::bind(&cdpi_tcp::run, this)),
 
 cdpi_tcp::~cdpi_tcp()
 {
+    m_is_del = true;
 
+    {
+        boost::mutex::scoped_lock lock(m_mutex);
+        m_condition.notify_one();
+    }
+    m_thread_run.join();
+
+    {
+        boost::mutex::scoped_lock lock(m_mutex_gc);
+        m_condition_gc.notify_one();
+    }
+    m_thread_gc.join();
 }
 
 void
@@ -50,7 +63,14 @@ void
 cdpi_tcp::garbage_collector()
 {
     for (;;) {
-        sleep(TCP_GC_TIMER);
+
+        boost::mutex::scoped_lock lock_gc(m_mutex_gc);
+        m_condition_gc.timed_wait(lock_gc, boost::posix_time::milliseconds(TCP_GC_TIMER * 1000));
+
+        if (m_is_del) {
+            return;
+        }
+
         {
             boost::mutex::scoped_lock lock(m_mutex);
 
@@ -104,6 +124,9 @@ cdpi_tcp::run()
             boost::mutex::scoped_lock lock(m_mutex);
             while (m_events.size() == 0) {
                 m_condition.wait(lock);
+
+                if (m_is_del)
+                    return;
             }
 
             cdpi_id_dir_cont::nth_index<1>::type &e1 = m_events.get<1>();
@@ -158,9 +181,6 @@ cdpi_tcp::run()
         }
 
         cdpi_tcp_packet packet;
-
-        cout << "event: ";
-        tcp_event.m_id.print_id();
 
         while (get_packet(tcp_event.m_id, tcp_event.m_dir, packet)) {
             if (packet.m_flags & TH_SYN) {

@@ -1,7 +1,7 @@
 #include "cdpi_pcap.hpp"
 #include "cdpi_divert.hpp"
 
-#include <pcap/pcap.h>
+#include <unistd.h>
 
 #include <net/ethernet.h>
 #include <netinet/ip.h>
@@ -10,20 +10,41 @@
 
 using namespace std;
 
+boost::shared_ptr<cdpi_pcap> pcp;
+bool m_is_running = false;
+
+
 void
 run_pcap(string dev, ptr_cdpi_event_listener listener)
 {
-    cdpi_pcap pcp;
+    for (;;) {
+        if (m_is_running) {
+            stop_pcap();
+            sleep(1);
+        } else {
+            break;
+        }
+    }
+
+    m_is_running = true;
+
+    pcp = boost::shared_ptr<cdpi_pcap>(new cdpi_pcap);
     boost::shared_ptr<cdpi_tcp> p_tcp(new cdpi_tcp);
 
     p_tcp->set_event_listener(listener);
 
-    pcp.set_dev(dev);
-    pcp.set_callback_ipv4(boost::shared_ptr<cdpi_callback>(new cb_ipv4(p_tcp)));
-    pcp.run();
-    exit(0);
+    pcp->set_dev(dev);
+    pcp->set_callback_ipv4(boost::shared_ptr<cdpi_callback>(new cb_ipv4(p_tcp)));
+    pcp->run();
+
+    m_is_running = false;
 }
 
+void
+stop_pcap()
+{
+    pcp->stop();
+}
 
 void
 pcap_callback(uint8_t *user, const struct pcap_pkthdr *h, const uint8_t *bytes)
@@ -38,6 +59,11 @@ cdpi_pcap::callback(const struct pcap_pkthdr *h, const uint8_t *bytes)
 {
     uint8_t proto;
     const uint8_t *ip_hdr = get_ip_hdr(bytes, h->caplen, proto);
+
+    if (m_is_break) {
+        pcap_breakloop(m_handle);
+        return;
+    }
 
     if (ip_hdr == NULL)
         return;
@@ -71,7 +97,6 @@ cdpi_pcap::set_dev(std::string dev)
 void
 cdpi_pcap::run()
 {
-    pcap_t *handle;
     char errbuf[PCAP_ERRBUF_SIZE];
 
     if (m_dev == "") {
@@ -84,25 +109,33 @@ cdpi_pcap::run()
         m_dev = dev;
     }
 
-    cout << "start caputring " << m_dev << endl;
+    cout << "start capturing " << m_dev << endl;
 
-    handle = pcap_open_live(m_dev.c_str(), 1518, 1, 1000, errbuf);
+    m_handle = pcap_open_live(m_dev.c_str(), 1518, 1, 1000, errbuf);
 
-    if (handle == NULL) {
+    if (m_handle == NULL) {
         cerr << "Couldn't open device " << m_dev << ": " << errbuf << endl;
         return;
     }
 
-    m_dl_type = pcap_datalink(handle);
+    m_dl_type = pcap_datalink(m_handle);
 
-    switch (pcap_loop(handle, -1, pcap_callback, (u_char*)this)) {
-    case 0:
-        break;
-    case -1:
-        cerr << "An error was encouterd while pcap_loop()" << endl;
-        break;
-    case -2:
-        break;
+    for (;;) {
+        switch (pcap_dispatch(m_handle, -1, pcap_callback, (u_char*)this)) {
+        case 0:
+            if (m_is_break)
+                return;
+            break;
+        case -1:
+        {
+            char *err = pcap_geterr(m_handle);
+            cerr << "An error was encouterd while pcap_dispatch(): "
+                 << err << endl;
+            break;
+        }
+        case -2:
+            return;
+        }
     }
 }
 

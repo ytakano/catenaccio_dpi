@@ -81,10 +81,14 @@ private:
     void rm_flow(const cdpi_id &id, cdpi_direction dir);
     int  num_packets(const cdpi_id &id, cdpi_direction dir);
 
+    boost::mutex     m_mutex;
+    boost::mutex     m_mutex_gc;
+    boost::condition m_condition;
+    boost::condition m_condition_gc;
+    bool             m_is_del;
+
     boost::thread    m_thread_run;
     boost::thread    m_thread_gc;
-    boost::mutex     m_mutex;
-    boost::condition m_condition;
 };
 
 #endif // CDPI_TCP_HPP
