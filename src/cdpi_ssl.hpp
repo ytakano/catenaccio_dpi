@@ -46,7 +46,7 @@ public:
 
 private:
     cdpi_proto_type     m_type;
-    uint8_t             m_ver;
+    uint16_t            m_ver;
     uint8_t             m_random[28];
     uint32_t            m_gmt_unix_time;
     cdpi_bytes          m_session_id;

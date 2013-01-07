@@ -14,6 +14,46 @@ class my_event_listener : public cdpi_event_listener {
 public:
     virtual void operator() (cdpi_event cev, const cdpi_id_dir &id_dir,
                              cdpi_stream &stream) {
+
+        /*
+         * // IPv4 address and Port number
+         *
+         * uint32_t ipv4_addr;
+         * uint16_t port;
+         *
+         * if (id_dir.m_dir == FROM_ADDR1) {
+         *     pv4_addr = id_dir.m_id.m_addr1->l3_addr.b32;
+         *     port = id_dir.m_id.m_addr1->l4_port;
+         * } else {
+         *     ipv4_addr = id_dir.m_id.m_addr2->l3_addr.b32;
+         *     port = id_dir.m_id.m_addr2->l4_port;
+         * }
+         */
+
+        /*
+         * // L3 and L4 protocol
+         * // 今はIPv4とTCPだけなので必要ない
+         *
+         * if (id_dir.m_id.get_l3_proto() == IPPROTO_IP) {
+         * } else if (id_dir.m_id.get_l3_proto() == IPPROTO_IPV6) {
+         * }
+         *
+         * if (id_dir.m_id.get_l4_proto() == IPPROTO_TCP) {
+         * } else if (id_dir.m_id.get_l4_proto() == IPPROTO_UDP) {
+         * }
+         */
+          
+        switch (cev) {
+        case CDPI_EVENT_STREAM_OPEN:
+            //m_app.add_addr(id_dir);
+            break;
+        case CDPI_EVENT_STREAM_CLOSE:
+            //m_app.del_addr(id_dir);
+        case CDPI_EVENT_PROTOCOL_DETECTED:
+            // TODO:
+        default:
+            break;
+        }
     }
 };
 
