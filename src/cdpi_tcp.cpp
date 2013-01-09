@@ -54,6 +54,8 @@ cdpi_tcp::input_tcp(cdpi_id &id, cdpi_direction dir, char *buf, int len)
         input_tcp4(id, dir, buf, len);
         break;
     case IPPROTO_IPV6:
+        // TODO:
+        break;
     default:
         break;
     }

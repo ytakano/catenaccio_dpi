@@ -50,7 +50,7 @@ public:
         case CDPI_EVENT_STREAM_CLOSE:
             //m_app.del_addr(id_dir);
         case CDPI_EVENT_PROTOCOL_DETECTED:
-            // TODO:
+            //
         default:
             break;
         }

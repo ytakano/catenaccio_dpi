@@ -7,7 +7,10 @@
 #include <stdint.h>
 #include <event.h>
 
+#include <string>
+
 #include <boost/shared_ptr.hpp>
+#include <boost/regex.hpp>
 
 class cdpi_callback {
 public:
@@ -32,6 +35,17 @@ public:
         case IPPROTO_TCP:
             m_tcp->input_tcp(id, dir, bytes, len);
             break;
+        case IPPROTO_UDP:
+        {
+            boost::regex regex_foo("foo*");
+            std::string  data(bytes, bytes + len);
+
+            if (boost::regex_match(data, regex_foo)) {
+            } else {
+            }
+
+            break;
+        }
         default:
             ;
         }
@@ -39,6 +53,9 @@ public:
 
 private:
     boost::shared_ptr<cdpi_tcp> m_tcp;
+
+    // TODO
+    // boost::shared_ptr<cdpi_tcp> m_udp;
 
 };
 
