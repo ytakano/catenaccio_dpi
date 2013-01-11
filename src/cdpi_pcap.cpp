@@ -13,6 +13,11 @@ using namespace std;
 boost::shared_ptr<cdpi_pcap> pcp;
 bool m_is_running = false;
 
+struct vlanhdr {
+    uint16_t m_tci;
+    uint16_t m_type;
+};
+
 
 void
 run_pcap(string dev, ptr_cdpi_event_listener listener)
@@ -143,23 +148,37 @@ const uint8_t *
 cdpi_pcap::get_ip_hdr(const uint8_t *bytes, uint32_t len, uint8_t &proto)
 {
     const uint8_t *ip_hdr = NULL;
-
     switch (m_dl_type) {
-    case DLT_EN10MB: {
+    case DLT_EN10MB:
+    {
         if (len < sizeof(ether_header))
             break;
 
         const ether_header *ehdr = (const ether_header*)bytes;
+        uint16_t ether_type = ntohs(ehdr->ether_type);
+        int      skip       = sizeof(ether_header);
 
+    retry:
 
-        switch (ntohs(ehdr->ether_type)) {
+        switch (ether_type) {
+        case ETHERTYPE_VLAN:
+        {
+            const vlanhdr *vhdr = (const vlanhdr*)(bytes + skip);
+            ether_type = ntohs(vhdr->m_type);
+
+            skip += sizeof(vlanhdr);
+
+            goto retry;
+
+            break;
+        }
         case ETHERTYPE_IP:
             proto = IPPROTO_IP;
-            ip_hdr = bytes + sizeof(ether_header);
+            ip_hdr = bytes + skip;
             break;
         case ETHERTYPE_IPV6:
             proto = IPPROTO_IPV6;
-            ip_hdr = bytes + sizeof(ether_header);
+            ip_hdr = bytes + skip;
             break;
         default:
             break;
