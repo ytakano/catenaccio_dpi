@@ -53,6 +53,8 @@ private:
     std::list<uint16_t> m_cipher_suites;
     std::list<uint8_t>  m_compression_methods;
 
+    static std::map<uint16_t, std::string> cipher_suites_map;
+
     void parse_handshake(char *data, int len);
     void parse_client_hello(char *data, int len);
     void parse_server_hello(char *data, int len);
