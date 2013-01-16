@@ -30,6 +30,9 @@ static map<uint8_t, string>  compression_methods;
 void
 init_compression_methods()
 {
+    if (compression_methods.size() > 0)
+        return;
+
     // cf. http://www.iana.org/assignments/comp-meth-ids/comp-meth-ids.xml
     compression_methods[0]  = "NULL";
     compression_methods[1]  = "DEFLATE";
@@ -39,6 +42,9 @@ init_compression_methods()
 void
 init_cipher_suites()
 {
+    if (cipher_suites.size() > 0)
+        return;
+
     // cf. http://www.iana.org/assignments/tls-parameters/tls-parameters.xml
     cipher_suites[0x0000] = "TLS_NULL_WITH_NULL_NULL";
     cipher_suites[0x0001] = "TLS_RSA_WITH_NULL_MD5";
@@ -367,8 +373,8 @@ init_cipher_suites()
 
 cdpi_ssl::cdpi_ssl(cdpi_proto_type type) : m_type(type), m_ver(0)
 {
-    if (cipher_suite.size() == 0)
-        init_cipher_suites();
+    init_cipher_suites();
+    init_compression_methods();
 }
 
 cdpi_ssl::~cdpi_ssl()

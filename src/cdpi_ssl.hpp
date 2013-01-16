@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include <list>
+#include <map>
 
 enum cdpi_ssl_content_type {
     SSL_CHANGE_CIPHER_SPEC = 20,
@@ -52,8 +53,6 @@ private:
     cdpi_bytes          m_session_id;
     std::list<uint16_t> m_cipher_suites;
     std::list<uint8_t>  m_compression_methods;
-
-    static std::map<uint16_t, std::string> cipher_suites_map;
 
     void parse_handshake(char *data, int len);
     void parse_client_hello(char *data, int len);
