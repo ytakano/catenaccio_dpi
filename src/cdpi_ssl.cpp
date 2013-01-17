@@ -1,6 +1,8 @@
 #include "cdpi_ssl.hpp"
 #include "cdpi_stream.hpp"
 
+#include <openssl/x509.h>
+
 #include <arpa/inet.h>
 
 #include <boost/regex.hpp>
@@ -369,6 +371,8 @@ init_cipher_suites()
     cipher_suites[0xc0a9] = "TLS_PSK_WITH_AES_256_CCM_8";
     cipher_suites[0xc0aa] = "TLS_PSK_DHE_WITH_AES_128_CCM_8";
     cipher_suites[0xc0ab] = "TLS_PSK_DHE_WITH_AES_256_CCM_8";
+    cipher_suites[0xfefe] = "SSL_RSA_FIPS_WITH_DES_CBC_SHA";
+    cipher_suites[0xfeff] = "SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA";
 }
 
 cdpi_ssl::cdpi_ssl(cdpi_proto_type type) : m_type(type), m_ver(0)
@@ -414,37 +418,42 @@ cdpi_ssl::parse(list<cdpi_bytes> &bytes)
     uint16_t ver;
     uint16_t len;
     uint8_t  type;
-    char     buf[5];
+    char     head[5];
     int      read_len;
 
     for (;;) {
-        read_len = read_bytes(bytes, buf, sizeof(buf));
+        read_len = read_bytes(bytes, head, sizeof(head));
 
-        if (read_len < (int)sizeof(buf))
+        if (read_len < (int)sizeof(head))
             return;
 
-        type = (uint8_t)buf[0];
+        type = (uint8_t)head[0];
 
-        memcpy(&ver, &buf[1], sizeof(ver));
-        memcpy(&len, &buf[3], sizeof(len));
+        memcpy(&ver, &head[1], sizeof(ver));
+        memcpy(&len, &head[3], sizeof(len));
 
         ver = ntohs(ver);
         len = ntohs(len);
 
         m_ver = ver;
 
-        boost::shared_array<char> data(new char[len]);
+        boost::shared_array<char> data(new char[len + sizeof(head)]);
 
-        read_len = read_bytes(bytes, data.get(), len);
+        read_len = read_bytes(bytes, data.get(), len + sizeof(head));
 
         if (read_len < len)
             return;
 
-        skip_bytes(bytes, read_len + sizeof(buf));
+        skip_bytes(bytes, read_len);
+
+        char *p = data.get() + sizeof(head);
+
+        cout << "  parse(): type = " << (uint32_t)type
+             << ", len = " << len << endl;
 
         switch (type) {
         case SSL_HANDSHAKE:
-            parse_handshake(data.get(), len);
+            parse_handshake(p, len);
             break;
         case SSL_CHANGE_CIPHER_SPEC:
         case SSL_ALERT:
@@ -461,33 +470,90 @@ void
 cdpi_ssl::parse_handshake(char *data, int len)
 {
     uint32_t msg_len;
-    uint16_t ver;
     uint8_t  type = data[0];
 
-    memcpy(&msg_len, &data[0], sizeof(len));
-    memcpy(&ver, &data[4], sizeof(ver));
+    memcpy(&msg_len, data, sizeof(msg_len));
 
     msg_len = ntohl(msg_len) & 0x00ffffff;
 
-    m_ver = ver;
+    if (msg_len + 4 != (uint32_t)len)
+        return;
+
+    cout << "    parse_handshake(): type = " << (uint32_t)type
+         << ", msg_len = " << msg_len << endl;
 
     switch (type) {
     case SSL_CLIENT_HELLO:
-        parse_client_hello(data + 6, msg_len);
+        parse_client_hello(data + 4, msg_len);
         break;
     case SSL_SERVER_HELLO:
-        parse_server_hello(data + 6, msg_len);
+        parse_server_hello(data + 4, msg_len);
         break;
     case SSL_CERTIFICATE:
+        parse_certificate(data + 4, msg_len);
         break;
     default:
         ;
     }
 }
 
+//type len    len
+//0b   000b87 000b84 00054e3082054a308
+
+//0b 000d45 000d420004c53
+//              420004c5308204c1308203a9
+
+void
+cdpi_ssl::parse_certificate(char *data, int len)
+{
+    uint32_t cert_len;
+
+    cout << "      parse_certificate() 1" << endl;
+
+    // read length of certification
+    if (len < 3)
+        return;
+
+    // 11 22 33 xx -> 00 11 22 33 -> 33 22 11 00
+    // ntohl -> xx 33 22 11 -> 
+
+    memcpy(&cert_len, data, 3);
+    cert_len = ntohl(cert_len) >> 8;
+
+    data += 3;
+
+    // verify length
+    if (cert_len + 3 != (uint32_t)len)
+        return;
+
+    cout << "      parse_certificate() 2" << endl;
+
+    // decode X509 certification
+    X509 *cert;
+
+    cert = d2i_X509(NULL, (const unsigned char**)&data, len);
+
+    if (cert == NULL)
+        return;
+
+    cout << "X509 cert was decoded!!" << endl;
+
+    X509_free(cert);
+}
+
 void
 cdpi_ssl::parse_server_hello(char *data, int len)
 {
+    cout << "      parse_server_hello()" << endl;
+
+    memcpy(&m_ver, data, sizeof(m_ver));
+
+    m_ver = ntohs(m_ver);
+
+    data += sizeof(m_ver);
+
+    len -= sizeof(m_ver);
+
     switch (m_ver) {
     case SSL30_VER:
     case TLS10_VER:
@@ -561,10 +627,53 @@ cdpi_ssl::parse_server_hello(char *data, int len)
 
         memcpy(&compression_method, p, sizeof(compression_method));
 
+        m_compression_methods.push_back(compression_method);
+
 
         // TODO: read extensions
 
         // TODO: event parse server hello
+
+        cout << "GMT UNIX Time = " << m_gmt_unix_time
+             << "\nRandom = ";
+
+        print_binary((char*)&m_random, sizeof(m_random));
+
+        if (m_session_id.m_ptr) {
+            cout << "\nSession ID = ";
+            print_binary(m_session_id.m_ptr.get(), m_session_id.m_len);
+        }
+
+        cout << "\nCipher Suites = ";
+
+        std::list<uint16_t>::iterator it;
+        for (it = m_cipher_suites.begin(); it != m_cipher_suites.end(); ++it) {
+            if (cipher_suites.find(*it) == cipher_suites.end()) {
+                uint16_t n = htons(*it);
+
+                print_binary((char*)&n, sizeof(uint16_t));
+
+                cout << "\n";
+            } else {
+                uint16_t n = htons(*it);
+
+                cout << cipher_suites[*it] << ", ";
+
+                print_binary((char*)&n, sizeof(uint16_t));
+
+                cout << "\n";
+            }
+        }
+
+        cout << "Compression Methods = ";
+
+        std::list<uint8_t>::iterator it2;
+        for (it2 = m_compression_methods.begin();
+             it2 != m_compression_methods.end(); ++it2) {
+            cout << compression_methods[*it2] << " ";
+        }
+
+        cout << endl;
 
         break;
     }
@@ -578,6 +687,18 @@ cdpi_ssl::parse_server_hello(char *data, int len)
 void
 cdpi_ssl::parse_client_hello(char *data, int len)
 {
+    cout << "      parse_client_hello()" << endl;
+
+    cout << endl;
+
+    memcpy(&m_ver, data, sizeof(m_ver));
+
+    m_ver = ntohs(m_ver);
+
+    data += sizeof(m_ver);
+
+    len -= sizeof(m_ver);
+
     switch (m_ver) {
     case SSL30_VER:
     case TLS10_VER:
@@ -616,8 +737,7 @@ cdpi_ssl::parse_client_hello(char *data, int len)
         if (data > end_of_data)
             return;
 
-        memcpy(&session_id_len, data, sizeof(session_id_len));
-
+        memcpy(&session_id_len, p, sizeof(session_id_len));
 
         if (session_id_len > 0) {
             p     = data;
@@ -640,18 +760,20 @@ cdpi_ssl::parse_client_hello(char *data, int len)
         memcpy(&cipher_suites_len, p, sizeof(cipher_suites_len));
         cipher_suites_len = ntohs(cipher_suites_len);
 
-
-        if (data + cipher_suites_len * 2 > end_of_data)
+        if (data + cipher_suites_len > end_of_data) {
             return;
+        }
 
-        for (uint16_t i = 0; i < cipher_suites_len; i++) {
+        for (uint16_t i = 0; i < cipher_suites_len / 2; i++) {
             uint16_t buf;
             memcpy(&buf, &data[i * sizeof(buf)], sizeof(buf));
+
+            buf = ntohs(buf);
 
             m_cipher_suites.push_back(buf);
         }
 
-        data += cipher_suites_len * 2;
+        data += cipher_suites_len;
 
 
         // read compression methods
@@ -660,8 +782,9 @@ cdpi_ssl::parse_client_hello(char *data, int len)
 
         memcpy(&compression_methods_len, p, sizeof(compression_methods_len));
 
-        if (data + compression_methods_len > end_of_data)
+        if (data + compression_methods_len > end_of_data) {
             return;
+        }
 
         for (uint8_t i = 0; i < compression_methods_len; i++) {
             uint8_t buf;
@@ -675,7 +798,51 @@ cdpi_ssl::parse_client_hello(char *data, int len)
 
         // TODO: read extensions
 
-        // TODO: event parse client hello
+        // TODO: event parse client Hello
+
+        cout << "GMT UNIX Time = " << m_gmt_unix_time
+             << "\nRandom = ";
+
+        print_binary((char*)&m_random, sizeof(m_random));
+
+
+        if (m_session_id.m_ptr) {
+            cout << "\nSession ID = ";
+            print_binary(m_session_id.m_ptr.get(), m_session_id.m_len);
+        }
+
+        cout << "\nCipher Suites = \n";
+
+        std::list<uint16_t>::iterator it;
+        for (it = m_cipher_suites.begin(); it != m_cipher_suites.end(); ++it) {
+            if (cipher_suites.find(*it) == cipher_suites.end()) {
+                uint16_t n = htons(*it);
+
+                cout << "\t";
+
+                print_binary((char*)&n, sizeof(uint16_t));
+
+                cout << "\n";
+            } else {
+                uint16_t n = htons(*it);
+
+                cout << "\t" << cipher_suites[*it] << ", ";
+
+                print_binary((char*)&n, sizeof(uint16_t));
+
+                cout << "\n";
+            }
+        }
+
+        cout << "Compression Methods = ";
+
+        std::list<uint8_t>::iterator it2;
+        for (it2 = m_compression_methods.begin();
+             it2 != m_compression_methods.end(); ++it2) {
+            cout << compression_methods[*it2] << " ";
+        }
+
+        cout << endl;
 
         break;
     }

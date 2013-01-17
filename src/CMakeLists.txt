@@ -16,7 +16,7 @@ IF(APPLE)
     set_property(TARGET cdpi_static_i386 PROPERTY COMPILE_FLAGS "-arch i386")
 ENDIF(APPLE)
 
-set(LIBS event boost_thread-mt boost_system-mt boost_regex-mt pcap)
+set(LIBS event boost_thread-mt boost_system-mt boost_regex-mt pcap crypto)
 
 target_link_libraries(cattenacio_dpi ${LIBS})
 target_link_libraries(cdpi ${LIBS})

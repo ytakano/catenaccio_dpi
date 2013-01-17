@@ -35,6 +35,10 @@ enum cdpi_ssl_handshake_type {
     SSL_SUPPLEMENTAL_DATA    = 23,
 };
 
+class cdpi_ssl;
+
+typedef boost::shared_ptr<cdpi_ssl> ptr_cdpi_ssl;
+
 class cdpi_ssl : public cdpi_proto {
 public:
     cdpi_ssl(cdpi_proto_type type);
@@ -57,6 +61,7 @@ private:
     void parse_handshake(char *data, int len);
     void parse_client_hello(char *data, int len);
     void parse_server_hello(char *data, int len);
+    void parse_certificate(char *data, int len);
 
 };
 

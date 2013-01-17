@@ -171,6 +171,15 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
             
             break;
         }
+        case PROTO_SSL_CLIENT:
+        case PROTO_SSL_SERVER:
+        {
+            ptr_cdpi_ssl p_ssl;
+
+            p_ssl = boost::dynamic_pointer_cast<cdpi_ssl>(it->second->m_proto);
+
+            p_ssl->parse(it->second->m_bytes);
+        }
         default:
             ;
         }
