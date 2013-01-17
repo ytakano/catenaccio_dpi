@@ -7,6 +7,8 @@
 
 #include <boost/regex.hpp>
 
+#include <fstream>
+
 using namespace std;
 
 #define SSL20_VER 0x0200
@@ -448,9 +450,6 @@ cdpi_ssl::parse(list<cdpi_bytes> &bytes)
 
         char *p = data.get() + sizeof(head);
 
-        cout << "  parse(): type = " << (uint32_t)type
-             << ", len = " << len << endl;
-
         switch (type) {
         case SSL_HANDSHAKE:
             parse_handshake(p, len);
@@ -479,9 +478,6 @@ cdpi_ssl::parse_handshake(char *data, int len)
     if (msg_len + 4 != (uint32_t)len)
         return;
 
-    cout << "    parse_handshake(): type = " << (uint32_t)type
-         << ", msg_len = " << msg_len << endl;
-
     switch (type) {
     case SSL_CLIENT_HELLO:
         parse_client_hello(data + 4, msg_len);
@@ -497,55 +493,67 @@ cdpi_ssl::parse_handshake(char *data, int len)
     }
 }
 
-//type len    len
-//0b   000b87 000b84 00054e3082054a308
-
-//0b 000d45 000d420004c53
-//              420004c5308204c1308203a9
-
 void
 cdpi_ssl::parse_certificate(char *data, int len)
 {
-    uint32_t cert_len;
-
-    cout << "      parse_certificate() 1" << endl;
+    uint32_t certs_len;
 
     // read length of certification
     if (len < 3)
         return;
 
-    // 11 22 33 xx -> 00 11 22 33 -> 33 22 11 00
-    // ntohl -> xx 33 22 11 -> 
-
-    memcpy(&cert_len, data, 3);
-    cert_len = ntohl(cert_len) >> 8;
+    memcpy(&certs_len, data, 3);
+    certs_len = ntohl(certs_len) >> 8;
 
     data += 3;
+    len  -= 3;
 
     // verify length
-    if (cert_len + 3 != (uint32_t)len)
+    if (certs_len != (uint32_t)len)
         return;
 
-    cout << "      parse_certificate() 2" << endl;
+    for (;;) {
+        uint32_t  cert_len = 0;
 
-    // decode X509 certification
-    X509 *cert;
+        if (len < 3)
+            return;
 
-    cert = d2i_X509(NULL, (const unsigned char**)&data, len);
+        memcpy(&cert_len, data, 3);
+        cert_len = ntohl(cert_len) >> 8;
 
-    if (cert == NULL)
-        return;
+        data += 3;
+        len  -= 3;
 
-    cout << "X509 cert was decoded!!" << endl;
+        if ((int)cert_len > len)
+            return;
 
-    X509_free(cert);
+        // decode X509 certification
+        X509 *cert;
+        unsigned char *p = (unsigned char*)data;
+
+        cert = d2i_X509(NULL, (const unsigned char**)&p, cert_len);
+
+        ofstream ofs("foo.cert", ios::trunc);
+
+        ofs.write(data, cert_len);
+
+        if (cert == NULL)
+            return;
+
+        X509_print_fp(stdout, cert);
+
+        X509_free(cert);
+
+        data += cert_len;
+        len  -= cert_len;
+    }
+
+    // TODO: event
 }
 
 void
 cdpi_ssl::parse_server_hello(char *data, int len)
 {
-    cout << "      parse_server_hello()" << endl;
-
     memcpy(&m_ver, data, sizeof(m_ver));
 
     m_ver = ntohs(m_ver);
@@ -687,10 +695,6 @@ cdpi_ssl::parse_server_hello(char *data, int len)
 void
 cdpi_ssl::parse_client_hello(char *data, int len)
 {
-    cout << "      parse_client_hello()" << endl;
-
-    cout << endl;
-
     memcpy(&m_ver, data, sizeof(m_ver));
 
     m_ver = ntohs(m_ver);
