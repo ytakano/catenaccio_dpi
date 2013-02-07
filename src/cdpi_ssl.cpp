@@ -7,8 +7,6 @@
 
 #include <boost/regex.hpp>
 
-#include <fstream>
-
 using namespace std;
 
 #define SSL20_VER 0x0200
@@ -532,10 +530,6 @@ cdpi_ssl::parse_certificate(char *data, int len)
         unsigned char *p = (unsigned char*)data;
 
         cert = d2i_X509(NULL, (const unsigned char**)&p, cert_len);
-
-        ofstream ofs("foo.cert", ios::trunc);
-
-        ofs.write(data, cert_len);
 
         if (cert == NULL)
             return;

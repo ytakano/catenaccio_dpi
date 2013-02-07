@@ -45,8 +45,7 @@ void callback_ipv4(evutil_socket_t fd, short what, void *arg)
     //cout << "recv IPv4: src = " << src << ", dst = " << dst << endl;
 #endif // DEBUG
 
-    if (dvt->m_callback_ipv4)
-        (*dvt->m_callback_ipv4)(buf, size);
+    dvt->m_callback(buf, size, IPPROTO_IP);
 
     sendto(fd, buf, size, 0, (sockaddr*)&sin, sin_len);
 }
@@ -76,8 +75,7 @@ void callback_ipv6(evutil_socket_t fd, short what, void *arg)
 
     cout << "recv IPv6: src = " << src << ", dst = " << dst << endl;
 
-    if (dvt->m_callback_ipv6) 
-        (*dvt->m_callback_ipv6)(buf, size);
+    dvt->m_callback(buf, size, IPPROTO_IPV6);
 
     sendto(fd, buf, size, 0, (sockaddr*)&sin, sin_len);
 }
@@ -153,17 +151,14 @@ run_divert(int port, ptr_cdpi_event_listener listener)
 {
     event_base *ev_base = event_base_new();
     cdpi_divert dvt;
-    boost::shared_ptr<cdpi_tcp> p_tcp(new cdpi_tcp);
 
     if (!ev_base) {
         cerr << "couldn't new event_base" << endl;
         exit(-1);
     }
 
-    p_tcp->set_event_listener(listener);
-
+    dvt.set_event_listener(listener);
     dvt.set_ev_base(ev_base);
-    dvt.set_callback_ipv4(boost::shared_ptr<cdpi_callback>(new cb_ipv4(p_tcp)));
     dvt.run(port, 0);
 
     event_base_dispatch(ev_base);

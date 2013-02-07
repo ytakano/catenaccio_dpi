@@ -34,12 +34,9 @@ run_pcap(string dev, ptr_cdpi_event_listener listener)
     m_is_running = true;
 
     pcp = boost::shared_ptr<cdpi_pcap>(new cdpi_pcap);
-    boost::shared_ptr<cdpi_tcp> p_tcp(new cdpi_tcp);
 
-    p_tcp->set_event_listener(listener);
-
+    pcp->set_event_listener(listener);
     pcp->set_dev(dev);
-    pcp->set_callback_ipv4(boost::shared_ptr<cdpi_callback>(new cb_ipv4(p_tcp)));
     pcp->run();
 
     m_is_running = false;
@@ -81,8 +78,7 @@ cdpi_pcap::callback(const struct pcap_pkthdr *h, const uint8_t *bytes)
         if (off & IP_MF || (off & 0x1fff) > 0)
             return;
 
-        if (m_callback_ipv4)
-            (*m_callback_ipv4)((char*)ip_hdr, ntohs(iph->ip_len));
+        m_callback((char*)ip_hdr, ntohs(iph->ip_len), proto);
 
         break;
     }

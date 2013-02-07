@@ -1,7 +1,7 @@
 #ifndef CDPI_PCAP_HPP
 #define CDPI_PCAP_HPP
 
-#include "cdpi_divert.hpp"
+#include "cdpi_callback.hpp"
 #include "cdpi_event.hpp"
 
 #include <pcap/pcap.h>
@@ -19,17 +19,13 @@ public:
     }
 
     void set_dev(std::string dev);
-    void run();
+    void set_event_listener(ptr_cdpi_event_listener listener) {
+        m_callback.set_event_listener(listener);
+    }
 
     void callback(const struct pcap_pkthdr *h, const uint8_t *bytes);
 
-    void set_callback_ipv4(cdpi_callback_ptr func) {
-        m_callback_ipv4 = func;
-    }
-    void set_callback_ipv6(cdpi_callback_ptr func) {
-        m_callback_ipv6 = func;
-    }
-
+    void run();
     void stop() { m_is_break = true; }
 
 private:
@@ -41,8 +37,7 @@ private:
     const uint8_t *get_ip_hdr(const uint8_t *bytes, uint32_t len,
                               uint8_t &proto);
 
-    cdpi_callback_ptr m_callback_ipv4;
-    cdpi_callback_ptr m_callback_ipv6;
+    cdpi_callback m_callback;
 };
 
 void run_pcap(std::string dev, ptr_cdpi_event_listener listener);
