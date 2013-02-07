@@ -2,19 +2,24 @@
 #define CDPI_HTTP_HPP
 
 #include "cdpi_bytes.hpp"
+#include "cdpi_event.hpp"
+#include "cdpi_id.hpp"
 #include "cdpi_proto.hpp"
+#include "cdpi_stream.hpp"
 
 #include <list>
 #include <map>
 #include <queue>
 
+class cdpi_stream;
 class cdpi_http;
 
 typedef boost::shared_ptr<cdpi_http> ptr_cdpi_http;
 
 class cdpi_http : public cdpi_proto {
 public:
-    cdpi_http(cdpi_proto_type type);
+    cdpi_http(cdpi_proto_type type, const cdpi_id_dir &id_dir,
+              cdpi_stream &stream);
     virtual ~cdpi_http();
 
     static bool is_http_client(std::list<cdpi_bytes> &bytes);
@@ -22,6 +27,9 @@ public:
 
     void parse(std::list<cdpi_bytes> &bytes);
     void set_peer(ptr_cdpi_http peer) { m_peer = peer; }
+    void set_event_listener(ptr_cdpi_event_listener &listener) {
+        m_listener = listener;
+    }
 
 private:
     enum http_state {
@@ -46,6 +54,10 @@ private:
     int m_body_read;
     int m_chunk_len;
     ptr_cdpi_http m_peer;
+    cdpi_id_dir   m_id_dir;
+    cdpi_stream  &m_stream;
+    ptr_cdpi_event_listener m_listener;
+
 
     bool parse_method(std::list<cdpi_bytes> &bytes);
     bool parse_response(std::list<cdpi_bytes> &bytes);

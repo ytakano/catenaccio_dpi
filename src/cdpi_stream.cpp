@@ -84,14 +84,16 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
         // protocol detection
         if (cdpi_http::is_http_client(it->second->m_bytes)) {
             it->second->m_type  = PROTO_HTTP_CLIENT;
-            it->second->m_proto = ptr_cdpi_proto(new cdpi_http(PROTO_HTTP_CLIENT));
+            it->second->m_proto = ptr_cdpi_proto(
+                new cdpi_http(PROTO_HTTP_CLIENT, id_dir, *this));
 
             cout << "protocol: HTTP Client" << endl;
 
             (*m_listener)(CDPI_EVENT_PROTOCOL_DETECTED, id_dir, *this);
         } else if (cdpi_http::is_http_server(it->second->m_bytes)) {
             it->second->m_type  = PROTO_HTTP_SERVER;
-            it->second->m_proto = ptr_cdpi_proto(new cdpi_http(PROTO_HTTP_SERVER));
+            it->second->m_proto = ptr_cdpi_proto(
+                new cdpi_http(PROTO_HTTP_SERVER, id_dir, *this));
 
             // set client
             map<cdpi_id_dir, ptr_cdpi_stream_info>::iterator it_peer;

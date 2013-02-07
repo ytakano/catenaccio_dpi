@@ -49,6 +49,9 @@ class cdpi_proxy { };
 
 typedef boost::shared_ptr<cdpi_stream_info> ptr_cdpi_stream_info;
 
+class cdpi_event_listener;
+typedef boost::shared_ptr<cdpi_event_listener> ptr_cdpi_event_listener;
+
 class cdpi_stream {
 public:
     cdpi_stream();
