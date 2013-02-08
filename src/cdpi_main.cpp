@@ -12,8 +12,8 @@ using namespace std;
 
 class my_event_listener : public cdpi_event_listener {
 public:
-    virtual void operator() (cdpi_event cev, const cdpi_id_dir &id_dir,
-                             cdpi_stream &stream) {
+    virtual void in_stream(cdpi_event cev, const cdpi_id_dir &id_dir,
+                           cdpi_stream &stream) {
 
         /*
          * // IPv4 address and Port number
@@ -42,18 +42,26 @@ public:
          * } else if (id_dir.m_id.get_l4_proto() == IPPROTO_UDP) {
          * }
          */
-          
+
         switch (cev) {
         case CDPI_EVENT_STREAM_OPEN:
-            //m_app.add_addr(id_dir);
             break;
         case CDPI_EVENT_STREAM_CLOSE:
-            //m_app.del_addr(id_dir);
+            break;
         case CDPI_EVENT_PROTOCOL_DETECTED:
-            //
+            break;
+        case CDPI_EVENT_HTTP_READ_METHOD:
+        case CDPI_EVENT_HTTP_READ_RESPONSE:
+        case CDPI_EVENT_HTTP_READ_HEAD:
+        case CDPI_EVENT_HTTP_READ_BODY:
+        case CDPI_EVENT_HTTP_READ_TRAILER:
+        case CDPI_EVENT_HTTP_PROXY:
         default:
             break;
         }
+    }
+
+    virtual void in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir) {
     }
 };
 

@@ -21,7 +21,7 @@ cdpi_stream::in_stream_event(cdpi_stream_event st_event,
     switch (st_event) {
     case STREAM_CREATED:
         create_stream(id_dir);
-        (*m_listener)(CDPI_EVENT_STREAM_OPEN, id_dir, *this);
+        m_listener->in_stream(CDPI_EVENT_STREAM_OPEN, id_dir, *this);
         break;
     case STREAM_DATA_IN:
     {
@@ -38,7 +38,7 @@ cdpi_stream::in_stream_event(cdpi_stream_event st_event,
     }
     case STREAM_DESTROYED:
     case STREAM_ERROR:
-        (*m_listener)(CDPI_EVENT_STREAM_CLOSE, id_dir, *this);
+        m_listener->in_stream(CDPI_EVENT_STREAM_CLOSE, id_dir, *this);
         destroy_stream(id_dir);
         break;
     }
@@ -85,15 +85,17 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
         if (cdpi_http::is_http_client(it->second->m_bytes)) {
             it->second->m_type  = PROTO_HTTP_CLIENT;
             it->second->m_proto = ptr_cdpi_proto(
-                new cdpi_http(PROTO_HTTP_CLIENT, id_dir, *this));
+                new cdpi_http(PROTO_HTTP_CLIENT, id_dir, *this,
+                              m_listener));
 
             cout << "protocol: HTTP Client" << endl;
 
-            (*m_listener)(CDPI_EVENT_PROTOCOL_DETECTED, id_dir, *this);
+            m_listener->in_stream(CDPI_EVENT_PROTOCOL_DETECTED, id_dir, *this);
         } else if (cdpi_http::is_http_server(it->second->m_bytes)) {
             it->second->m_type  = PROTO_HTTP_SERVER;
             it->second->m_proto = ptr_cdpi_proto(
-                new cdpi_http(PROTO_HTTP_SERVER, id_dir, *this));
+                new cdpi_http(PROTO_HTTP_SERVER, id_dir, *this,
+                              m_listener));
 
             // set client
             map<cdpi_id_dir, ptr_cdpi_stream_info>::iterator it_peer;
@@ -136,21 +138,21 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
 
             cout << "protocol: HTTP Server" << endl;
 
-            (*m_listener)(CDPI_EVENT_PROTOCOL_DETECTED, id_dir, *this);
+            m_listener->in_stream(CDPI_EVENT_PROTOCOL_DETECTED, id_dir, *this);
         } else if (cdpi_ssl::is_ssl_client(it->second->m_bytes)) {
             it->second->m_type  = PROTO_SSL_CLIENT;
             it->second->m_proto = ptr_cdpi_proto(new cdpi_ssl(PROTO_SSL_CLIENT));
 
             cout << "protocol: SSL Client" << endl;
 
-            (*m_listener)(CDPI_EVENT_PROTOCOL_DETECTED, id_dir, *this);
+            m_listener->in_stream(CDPI_EVENT_PROTOCOL_DETECTED, id_dir, *this);
         } else if (cdpi_ssl::is_ssl_server(it->second->m_bytes)) {
             it->second->m_type  = PROTO_SSL_SERVER;
             it->second->m_proto = ptr_cdpi_proto(new cdpi_ssl(PROTO_SSL_SERVER));
 
             cout << "protocol: SSL Server" << endl;
 
-            (*m_listener)(CDPI_EVENT_PROTOCOL_DETECTED, id_dir, *this);
+            m_listener->in_stream(CDPI_EVENT_PROTOCOL_DETECTED, id_dir, *this);
         } else {
             if (it->second->m_bytes.size() > 8) {
                 it->second->m_is_gaveup = true;

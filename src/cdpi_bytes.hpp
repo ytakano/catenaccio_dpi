@@ -1,6 +1,8 @@
 #ifndef CDPI_BYTES_HPP
 #define CDPI_BYTES_HPP
 
+#include "cdpi_common.hpp"
+
 #include <string.h>
 
 #include <list>
@@ -10,6 +12,78 @@
 
 class cdpi_bytes {
 public:
+    cdpi_bytes() : m_len(0) { }
+    cdpi_bytes(const char *str) { *this = str; }
+    cdpi_bytes(boost::shared_array<char> ptr, int len) : m_ptr(ptr),
+                                                         m_pos(0),
+                                                         m_len(len) { }
+    cdpi_bytes(const cdpi_bytes &rhs) { *this = rhs; }
+
+    cdpi_bytes & operator = (const char *str) {
+        int len = strlen(str);
+        m_ptr = boost::shared_array<char>(new char[len]);
+        memcpy(m_ptr.get(), str, len);
+        m_len = len;
+        m_pos = 0;
+
+        return *this;
+    }
+
+    cdpi_bytes & operator = (const cdpi_bytes &rhs) {
+        m_ptr = rhs.m_ptr;
+        m_len = rhs.m_len;
+        m_pos = rhs.m_pos;
+
+        return *this;
+    }
+
+    bool operator == (const cdpi_bytes &rhs) const {
+        if (m_len != rhs.m_len)
+            return false;
+
+        return memcmp(m_ptr.get() + m_pos, rhs.m_ptr.get() + rhs.m_pos,
+                      m_len) == 0;
+    }
+
+    bool operator < (const cdpi_bytes &rhs) const {
+        if (m_len == rhs.m_len)
+            return memcmp(m_ptr.get() + m_pos, rhs.m_ptr.get() + rhs.m_pos,
+                          m_len) < 0;
+
+        int len = m_len < rhs.m_len ? m_len : len;
+        int result;
+
+        result = memcmp(m_ptr.get() + m_pos, rhs.m_ptr.get() + rhs.m_pos, len);
+        if (result < 0) {
+            return true;
+        } else if (result > 0) {
+            return false;
+        } else {
+            return m_len < rhs.m_len;
+        }
+        
+        return false;
+    }
+
+    bool operator > (const cdpi_bytes &rhs) const {
+        return rhs < *this;
+    }
+
+    void fill_zero() {
+        memset(m_ptr.get() + m_pos, 0, m_len);
+    }
+
+    void alloc(size_t len) {
+        m_ptr = boost::shared_array<char>(new char[len]);
+
+        if (m_ptr.get() == NULL) {
+            PERROR();
+            exit(-1);
+        }
+
+        m_len = len;
+    }
+
     void set_buf(char *buf, int len) {
         m_ptr = boost::shared_array<char>(new char[len]);
         memcpy(m_ptr.get(), buf, len);

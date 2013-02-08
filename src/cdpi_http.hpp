@@ -19,7 +19,7 @@ typedef boost::shared_ptr<cdpi_http> ptr_cdpi_http;
 class cdpi_http : public cdpi_proto {
 public:
     cdpi_http(cdpi_proto_type type, const cdpi_id_dir &id_dir,
-              cdpi_stream &stream);
+              cdpi_stream &stream, ptr_cdpi_event_listener listener);
     virtual ~cdpi_http();
 
     static bool is_http_client(std::list<cdpi_bytes> &bytes);

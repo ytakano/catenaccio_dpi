@@ -11,8 +11,9 @@ static boost::regex regex_http_req("(^[A-Z]+ .+ HTTP/1.0\r?\n.*|^[A-Z]+ .+ HTTP/
 static boost::regex regex_http_res("(^HTTP/1.0 [0-9]{3} .+\r?\n.*|^HTTP/1.1 [0-9]{3} .+\r?\n(([a-zA-Z]|-)+: .+\r?\n)*.*)");
 
 cdpi_http::cdpi_http(cdpi_proto_type type, const cdpi_id_dir &id_dir,
-                     cdpi_stream &stream) :
-    m_body_read(0), m_id_dir(id_dir), m_stream(stream)
+                     cdpi_stream &stream, ptr_cdpi_event_listener listener) :
+    m_body_read(0), m_id_dir(id_dir), m_stream(stream),
+    m_listener(listener)
 {
     assert(type == PROTO_HTTP_CLIENT || type == PROTO_HTTP_SERVER);
 
@@ -147,7 +148,7 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
      cout << m_method.back() << " " << m_uri << " " << m_ver << endl;
 
      // event http method
-     (*m_listener)(CDPI_EVENT_HTTP_READ_METHOD, m_id_dir, m_stream);
+     m_listener->in_stream(CDPI_EVENT_HTTP_READ_METHOD, m_id_dir, m_stream);
 
      return true;
  }
@@ -209,7 +210,7 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
      cout << m_ver << " " << m_code << " " << m_res_msg << endl;
 
      // event http response
-     (*m_listener)(CDPI_EVENT_HTTP_READ_RESPONSE, m_id_dir, m_stream);
+     m_listener->in_stream(CDPI_EVENT_HTTP_READ_RESPONSE, m_id_dir, m_stream);
 
      return true;
  }
@@ -239,17 +240,17 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
                     m_state = HTTP_METHOD;
 
                     // event trailer
-                    (*m_listener)(CDPI_EVENT_HTTP_READ_TRAILER,
-                                  m_id_dir, m_stream);
+                    m_listener->in_stream(CDPI_EVENT_HTTP_READ_TRAILER,
+                                          m_id_dir, m_stream);
                 } else if (m_method.back() == "CONNECT") {
                     cout << "proxy: connect" << endl;
 
                     // event proxy
-                    (*m_listener)(CDPI_EVENT_HTTP_READ_HEAD,
-                                  m_id_dir, m_stream);
+                    m_listener->in_stream(CDPI_EVENT_HTTP_READ_HEAD,
+                                          m_id_dir, m_stream);
 
-                    (*m_listener)(CDPI_EVENT_HTTP_PROXY,
-                                  m_id_dir, m_stream);
+                    m_listener->in_stream(CDPI_EVENT_HTTP_PROXY,
+                                          m_id_dir, m_stream);
 
                     throw cdpi_proxy();
                 } else {
@@ -269,8 +270,8 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
                     }
 
                     // event head
-                    (*m_listener)(CDPI_EVENT_HTTP_READ_HEAD,
-                                  m_id_dir, m_stream);
+                    m_listener->in_stream(CDPI_EVENT_HTTP_READ_HEAD,
+                                          m_id_dir, m_stream);
                 }
 
                 break;
@@ -295,18 +296,18 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
                     m_state = HTTP_RESPONSE;
 
                     // event trailer
-                    (*m_listener)(CDPI_EVENT_HTTP_READ_TRAILER,
-                                  m_id_dir, m_stream);
+                    m_listener->in_stream(CDPI_EVENT_HTTP_READ_TRAILER,
+                                          m_id_dir, m_stream);
 
                 } else if (method == "CONNECT" && m_code == "200") {
                     cout << "proxy: connection established" << endl;
 
                     // event proxy
-                    (*m_listener)(CDPI_EVENT_HTTP_READ_HEAD,
-                                  m_id_dir, m_stream);
+                    m_listener->in_stream(CDPI_EVENT_HTTP_READ_HEAD,
+                                          m_id_dir, m_stream);
 
-                    (*m_listener)(CDPI_EVENT_HTTP_PROXY,
-                                  m_id_dir, m_stream);
+                    m_listener->in_stream(CDPI_EVENT_HTTP_PROXY,
+                                          m_id_dir, m_stream);
 
                     throw cdpi_proxy();
                 } else if (method == "HEAD" || m_code == "204" ||
@@ -324,8 +325,8 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
                     }
 
                     // event head
-                    (*m_listener)(CDPI_EVENT_HTTP_READ_HEAD,
-                                  m_id_dir, m_stream);
+                    m_listener->in_stream(CDPI_EVENT_HTTP_READ_HEAD,
+                                          m_id_dir, m_stream);
                 }
 
                 break;
@@ -439,7 +440,7 @@ cdpi_http::parse_body(list<cdpi_bytes> &bytes)
         m_body_read = 0;
 
         // event body
-        (*m_listener)(CDPI_EVENT_HTTP_READ_BODY, m_id_dir, m_stream);
+        m_listener->in_stream(CDPI_EVENT_HTTP_READ_BODY, m_id_dir, m_stream);
 
         return true;
     }
@@ -525,7 +526,7 @@ cdpi_http::parse_chunk_el(list<cdpi_bytes> &bytes)
         m_body_read = 0;
 
         // event body
-        (*m_listener)(CDPI_EVENT_HTTP_READ_BODY, m_id_dir, m_stream);
+        m_listener->in_stream(CDPI_EVENT_HTTP_READ_BODY, m_id_dir, m_stream);
 
         return true;
     }

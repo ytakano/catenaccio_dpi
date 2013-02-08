@@ -25,8 +25,9 @@ public:
     cdpi_event_listener() { }
     virtual ~cdpi_event_listener() { }
 
-    virtual void operator() (cdpi_event cev, const cdpi_id_dir &id_dir,
-                             cdpi_stream &stream) = 0;
+    virtual void in_stream(cdpi_event cev, const cdpi_id_dir &id_dir,
+                              cdpi_stream &stream) = 0;
+    virtual void in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir) = 0;
 };
 
 typedef boost::shared_ptr<cdpi_event_listener> ptr_cdpi_event_listener;

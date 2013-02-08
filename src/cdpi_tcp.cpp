@@ -186,8 +186,6 @@ cdpi_tcp::run()
 
         while (get_packet(tcp_event.m_id, tcp_event.m_dir, packet)) {
             if (packet.m_flags & TH_SYN) {
-                // TODO: event, connection opened
-
 #ifdef DEBUG
                 cout << "connection opened: addr1 = "
                      << addr1 << ":"
@@ -218,7 +216,6 @@ cdpi_tcp::run()
 #endif // DEBUG
 
                 if (recv_fin(tcp_event.m_id, tcp_event.m_dir)) {
-                    // TODO: event, connection closed
                     tcp_event.m_dir = FROM_ADDR1;
                     m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
 
@@ -226,7 +223,6 @@ cdpi_tcp::run()
                     m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
                 }
             } else if (packet.m_flags & TH_RST) {
-                // TODO: event, connection reset
 #ifdef DEBUG
                 cout << "connection reset: addr1 = "
                      << addr1 << ":"
@@ -247,7 +243,6 @@ cdpi_tcp::run()
                 tcp_event.m_dir = FROM_ADDR2;
                 m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
             } else {
-                // TODO: event, data in
                 packet.m_bytes.m_len = packet.m_data_len;
                 packet.m_bytes.m_pos = packet.m_data_pos;
 
@@ -257,7 +252,6 @@ cdpi_tcp::run()
         }
 
         if (num_packets(tcp_event.m_id, tcp_event.m_dir) > MAX_PACKETS) {
-            // TODO: event, strange connection
 #ifdef DEBUG
             cout << "connection error(packets limit exceeded): addr1 = "
                  << addr1 << ":"
