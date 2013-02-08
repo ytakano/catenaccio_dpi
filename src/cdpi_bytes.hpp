@@ -102,7 +102,10 @@ int read_bytes_ec(const std::list<cdpi_bytes> &bytes, char *buf, int len,
 int read_bytes(std::list<cdpi_bytes> &bytes, char *buf, int len);
 int skip_bytes(std::list<cdpi_bytes> &bytes, int len);
 int find_char(const char *buf, int len, char c);
+void get_digest(cdpi_bytes &md_value, const char *alg, const char *buf,
+                unsigned int len);
 void print_binary(const char *buf, int len);
+
 
 void to_lower_str(std::string &str);
 

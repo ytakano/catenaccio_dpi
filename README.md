@@ -11,8 +11,17 @@ Catenaccio DPI is a program for deep packet inspection.
 
 ### How to Compile
 
-    $ cmake CMakeLists.txt
+    $ cmake CMAKE_BUILD_TYPE=Release CMakeLists.txt
     $ make
+
+If you want compile as debug mode, set a option of CMAKE_BUILD_YPE=Debug when running cmake. Debug mode passes a option of -g and a definition of DEBUG=1.
+
+    $ cmake CMAKE_BUILD_TYPE=Debug CMakeLists.txt
+    $ make
+
+You can use a verbose mode when compiling.
+
+    $ make VERBOSE=1
 
 ### How to run
 
