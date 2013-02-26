@@ -12,6 +12,9 @@
 
 #include <boost/shared_ptr.hpp>
 
+#define PROTO_TO_HTTP(PROTO) boost::dynamic_pointer_cast<cdpi_http>(PROTO)
+#define PROTO_TO_SSL(PROTO)  boost::dynamic_pointer_cast<cdpi_ssl>(PROTO)
+
 enum cdpi_stream_event {
     STREAM_CREATED,
     STREAM_DATA_IN,
@@ -65,6 +68,8 @@ public:
     }
 
     double get_bps(cdpi_id_dir id_dir);
+
+    ptr_cdpi_proto get_proto(cdpi_id_dir id_dir);
 
 private:
     std::map<cdpi_id_dir, ptr_cdpi_stream_info> m_info;

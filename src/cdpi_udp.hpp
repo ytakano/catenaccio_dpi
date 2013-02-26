@@ -2,6 +2,7 @@
 #define CDPI_UDP_HPP
 
 #include "cdpi_bytes.hpp"
+#include "cdpi_event.hpp"
 #include "cdpi_id.hpp"
 
 #include <boost/thread.hpp>
@@ -9,7 +10,7 @@
 
 #include <queue>
 
-struct cdpi_udp_data {
+struct cdpi_udp_packet {
     cdpi_id_dir m_id_dir;
     cdpi_bytes  m_bytes;
 };
@@ -21,13 +22,19 @@ public:
 
     void input_udp(cdpi_id &id, cdpi_direction dir, char *buf, int len);
     void run();
+    void set_event_listener(ptr_cdpi_event_listener listener) {
+        m_listener = listener;
+    }
 
 private:
+    std::queue<cdpi_udp_packet> m_queue;
+    ptr_cdpi_event_listener     m_listener;
+
+    bool             m_is_del;
     boost::mutex     m_mutex;
     boost::condition m_condition;
     boost::thread    m_thread;
 
-    std::queue<cdpi_udp_data> m_queue;
 
     void input_udp4(cdpi_id &id, cdpi_direction dir, char *buf, int len);
 

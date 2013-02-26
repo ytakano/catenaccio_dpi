@@ -2,6 +2,7 @@
 #define CDPI_BENCODE_HPP
 
 #include "cdpi_bytes.hpp"
+#include "cdpi_proto.hpp"
 
 #include <event.h>
 
@@ -14,7 +15,7 @@
 
 #define HASH_TYPE "SHA1"
 
-class cdpi_bencode {
+class cdpi_bencode : public cdpi_proto {
 public:
     cdpi_bencode();
     virtual ~cdpi_bencode();

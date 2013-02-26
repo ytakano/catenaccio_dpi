@@ -10,6 +10,7 @@
 #include <list>
 #include <map>
 #include <queue>
+#include <string>
 
 class cdpi_stream;
 class cdpi_http;
@@ -30,6 +31,11 @@ public:
     void set_event_listener(ptr_cdpi_event_listener &listener) {
         m_listener = listener;
     }
+
+    std::string get_method() {
+        return m_method.size() > 0 ? m_method.back() : ""; }
+    std::string get_uri() { return m_uri; }
+    std::string get_ver() { return m_ver; }
 
 private:
     enum http_state {

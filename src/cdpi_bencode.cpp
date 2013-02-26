@@ -78,7 +78,7 @@ cdpi_bencode::dec_dict(istream &in, p_data &data)
         }
 
         if (c < '0' || c > '9') {
-            cerr << "dec_dict(): key of dictionary isn't string" << endl;
+            // cerr << "dec_dict(): key of dictionary isn't string" << endl;
             return false;
         }
 
@@ -86,7 +86,7 @@ cdpi_bencode::dec_dict(istream &in, p_data &data)
         p_data key, value;
 
         if (! dec_str(in, key)) {
-            cerr << "dec_dict(): invalid string format" << endl;
+            // cerr << "dec_dict(): invalid string format" << endl;
             return false;
         }
 
@@ -159,7 +159,7 @@ cdpi_bencode::dec_int(istream &in, p_data &data)
 
     in.get(c);
     if (c != 'e') {
-        cerr << "dec_int(): invalid integer format" << endl;
+        // cerr << "dec_int(): invalid integer format" << endl;
         return false;
     }
 

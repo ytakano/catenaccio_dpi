@@ -107,6 +107,34 @@ struct cdpi_id_dir {
     bool operator== (const cdpi_id_dir &rhs) const {
         return m_dir == rhs.m_dir && m_id == rhs.m_id;
     }
+
+
+    uint32_t get_ipv4_addr_src() const {
+        return m_dir == FROM_ADDR1 ?
+            m_id.m_addr1->l3_addr.b32 :
+            m_id.m_addr2->l3_addr.b32;
+    }
+
+    uint32_t get_ipv4_addr_dst() const {
+        return m_dir == FROM_ADDR1 ?
+            m_id.m_addr2->l3_addr.b32 :
+            m_id.m_addr1->l3_addr.b32;
+    }
+
+    uint16_t get_port_src() const {
+        return m_dir == FROM_ADDR1 ?
+            m_id.m_addr1->l4_port :
+            m_id.m_addr2->l4_port;
+    }
+
+    uint16_t get_port_dst() const {
+        return m_dir == FROM_ADDR1 ?
+            m_id.m_addr2->l4_port :
+            m_id.m_addr1->l4_port;
+    }
+
+    uint8_t get_l3_proto() const { return m_id.get_l3_proto(); }
+    uint8_t get_l4_proto() const { return m_id.get_l4_proto(); }
 };
 
 #endif // CDPI_ID_HPP

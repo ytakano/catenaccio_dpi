@@ -145,8 +145,6 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
      // change state to HTTP_HEAD
      m_state = cdpi_http::HTTP_HEAD;
 
-     cout << m_method.back() << " " << m_uri << " " << m_ver << endl;
-
      // event http method
      m_listener->in_stream(CDPI_EVENT_HTTP_READ_METHOD, m_id_dir, m_stream);
 

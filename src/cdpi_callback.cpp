@@ -17,6 +17,7 @@ cdpi_callback::operator() (char *bytes, size_t len, uint8_t proto) {
         m_tcp.input_tcp(id, dir, bytes, len);
         break;
     case IPPROTO_UDP:
+        m_udp.input_udp(id, dir, bytes, len);
         break;
     default:
         ;

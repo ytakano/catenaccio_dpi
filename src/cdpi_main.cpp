@@ -1,7 +1,10 @@
 #include "cdpi_divert.hpp"
 #include "cdpi_pcap.hpp"
+#include "cdpi_http.hpp"
 
 #include <unistd.h>
+
+#include <arpa/inet.h>
 
 #include <netinet/in.h>
 
@@ -15,53 +18,83 @@ public:
     virtual void in_stream(cdpi_event cev, const cdpi_id_dir &id_dir,
                            cdpi_stream &stream) {
 
-        /*
-         * // IPv4 address and Port number
-         *
-         * uint32_t ipv4_addr;
-         * uint16_t port;
-         *
-         * if (id_dir.m_dir == FROM_ADDR1) {
-         *     pv4_addr = id_dir.m_id.m_addr1->l3_addr.b32;
-         *     port = id_dir.m_id.m_addr1->l4_port;
-         * } else {
-         *     ipv4_addr = id_dir.m_id.m_addr2->l3_addr.b32;
-         *     port = id_dir.m_id.m_addr2->l4_port;
-         * }
-         */
+        
+        // How to get IPv4 address and Port number
+        
+        uint32_t addr_src = id_dir.get_ipv4_addr_src();
+        uint32_t addr_dst = id_dir.get_ipv4_addr_dst();
+        uint16_t port_src = ntohs(id_dir.get_port_src());
+        uint16_t port_dst = ntohs(id_dir.get_port_dst());
+        char src[32], dst[32];
+
+        inet_ntop(PF_INET, &addr_src, src, sizeof(src));
+        inet_ntop(PF_INET, &addr_dst, dst, sizeof(dst));
 
         /*
          * // L3 and L4 protocol
          * // 今はIPv4とTCPだけなので必要ない
          *
-         * if (id_dir.m_id.get_l3_proto() == IPPROTO_IP) {
-         * } else if (id_dir.m_id.get_l3_proto() == IPPROTO_IPV6) {
+         * if (id_dir.get_l3_proto() == IPPROTO_IP) {
+         * } else if (id_dir.get_l3_proto() == IPPROTO_IPV6) {
          * }
          *
-         * if (id_dir.m_id.get_l4_proto() == IPPROTO_TCP) {
-         * } else if (id_dir.m_id.get_l4_proto() == IPPROTO_UDP) {
+         * if (id_dir.get_l4_proto() == IPPROTO_TCP) {
+         * } else if (id_dir.get_l4_proto() == IPPROTO_UDP) {
          * }
          */
 
+        ptr_cdpi_http p_http;
+
         switch (cev) {
         case CDPI_EVENT_STREAM_OPEN:
+            cout << "stream open: src = " << src << ":" << port_src
+                 << ", dst = " << dst << ":" << port_dst
+                 << endl;
             break;
         case CDPI_EVENT_STREAM_CLOSE:
+            cout << "stream close: src = " << src << ":" << port_src
+                 << ", dst = " << dst << ":" << port_dst
+                 << endl;
             break;
         case CDPI_EVENT_PROTOCOL_DETECTED:
             break;
         case CDPI_EVENT_HTTP_READ_METHOD:
+        {
+            p_http = PROTO_TO_HTTP(stream.get_proto(id_dir));
+
+            cout << "HTTP read method: src = " << src << ":" << port_src
+                 << ", dst = " << dst << ":" << port_dst << endl;
+
+            cout << "\tmethod: " << p_http->get_method()
+                 << "\n\turi: " << p_http->get_uri()
+                 << "\n\tver: " << p_http->get_ver() << endl;
+
+            break;
+        }
+        // TODO:
         case CDPI_EVENT_HTTP_READ_RESPONSE:
+            break;
         case CDPI_EVENT_HTTP_READ_HEAD:
+            break;
         case CDPI_EVENT_HTTP_READ_BODY:
+            break;
         case CDPI_EVENT_HTTP_READ_TRAILER:
+            break;
         case CDPI_EVENT_HTTP_PROXY:
+            break;
         default:
             break;
         }
     }
 
-    virtual void in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir) {
+    virtual void in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
+                             cdpi_proto *data) {
+        switch (cev) {
+        case CDPI_EVENT_BENCODE:
+            break;
+        default:
+            ;
+        }
     }
 };
 

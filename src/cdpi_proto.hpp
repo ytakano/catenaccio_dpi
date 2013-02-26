@@ -6,11 +6,17 @@
 #include <list>
 
 enum cdpi_proto_type {
+    // TCP stream
     PROTO_HTTP_CLIENT,
     PROTO_HTTP_SERVER,
     PROTO_HTTP_PROXY,
     PROTO_SSL_CLIENT,
     PROTO_SSL_SERVER,
+
+    // UDP datagram
+    PROTO_BENCODE,
+
+    // others
     PROTO_NONE,
 };
 

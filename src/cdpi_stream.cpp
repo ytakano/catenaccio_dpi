@@ -14,6 +14,18 @@ cdpi_stream::~cdpi_stream()
 
 }
 
+ptr_cdpi_proto
+cdpi_stream::get_proto(cdpi_id_dir id_dir)
+{
+   map<cdpi_id_dir, ptr_cdpi_stream_info>::iterator it;
+
+    it = m_info.find(id_dir);
+    if (it == m_info.end())
+        return ptr_cdpi_proto();
+
+    return it->second->m_proto;
+}
+
 void
 cdpi_stream::in_stream_event(cdpi_stream_event st_event,
                              const cdpi_id_dir &id_dir, cdpi_bytes bytes)
@@ -120,8 +132,8 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
                     if (i == 0) {
                         ptr_cdpi_http p_http, p_peer;
 
-                        p_http = boost::dynamic_pointer_cast<cdpi_http>(it->second->m_proto);
-                        p_peer = boost::dynamic_pointer_cast<cdpi_http>(*r_it);
+                        p_http = PROTO_TO_HTTP(it->second->m_proto);
+                        p_peer = PROTO_TO_HTTP(*r_it);
 
                         if (p_peer)
                             p_http->set_peer(p_peer);
@@ -131,8 +143,8 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
                            it_peer->second->m_type == PROTO_HTTP_PROXY) {
                     ptr_cdpi_http p_http;
 
-                    p_http = boost::dynamic_pointer_cast<cdpi_http>(it->second->m_proto);
-                    p_http->set_peer(boost::dynamic_pointer_cast<cdpi_http>(it_peer->second->m_proto));
+                    p_http = PROTO_TO_HTTP(it->second->m_proto);
+                    p_http->set_peer(PROTO_TO_HTTP(it_peer->second->m_proto));
                 }
             }
 
@@ -169,7 +181,7 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
         {
             ptr_cdpi_http p_http;
 
-            p_http = boost::dynamic_pointer_cast<cdpi_http>(it->second->m_proto);
+            p_http = PROTO_TO_HTTP(it->second->m_proto);
 
             p_http->parse(it->second->m_bytes);
             
@@ -180,7 +192,7 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
         {
             ptr_cdpi_ssl p_ssl;
 
-            p_ssl = boost::dynamic_pointer_cast<cdpi_ssl>(it->second->m_proto);
+            p_ssl = PROTO_TO_SSL(it->second->m_proto);
 
             p_ssl->parse(it->second->m_bytes);
         }

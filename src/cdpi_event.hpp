@@ -3,10 +3,12 @@
 
 #include "cdpi_id.hpp"
 #include "cdpi_stream.hpp"
+#include "cdpi_proto.hpp"
 
 #include <boost/shared_ptr.hpp>
 
 enum cdpi_event {
+    // TCP stream
     CDPI_EVENT_STREAM_OPEN,
     CDPI_EVENT_STREAM_CLOSE,
     CDPI_EVENT_PROTOCOL_DETECTED,
@@ -16,6 +18,9 @@ enum cdpi_event {
     CDPI_EVENT_HTTP_READ_BODY,
     CDPI_EVENT_HTTP_READ_TRAILER,
     CDPI_EVENT_HTTP_PROXY,
+
+    // UDP datagram
+    CDPI_EVENT_BENCODE,
 };
 
 class cdpi_stream;
@@ -26,8 +31,9 @@ public:
     virtual ~cdpi_event_listener() { }
 
     virtual void in_stream(cdpi_event cev, const cdpi_id_dir &id_dir,
-                              cdpi_stream &stream) = 0;
-    virtual void in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir) = 0;
+                           cdpi_stream &stream) = 0;
+    virtual void in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
+                             cdpi_proto *data) = 0;
 };
 
 typedef boost::shared_ptr<cdpi_event_listener> ptr_cdpi_event_listener;

@@ -2,6 +2,7 @@
 #define CDPI_CALLBACK_HPP
 
 #include "cdpi_tcp.hpp"
+#include "cdpi_udp.hpp"
 
 class cdpi_callback {
 public:
@@ -10,14 +11,13 @@ public:
 
     void set_event_listener(ptr_cdpi_event_listener listener) {
         m_tcp.set_event_listener(listener);
+        m_udp.set_event_listener(listener);
     }
 
     void operator() (char *bytes, size_t len, uint8_t proto);
 private:
     cdpi_tcp m_tcp;
-
-    // TODO
-    // boost::shared_ptr<cdpi_tcp> m_udp;
+    cdpi_udp m_udp;
 
 };
 
