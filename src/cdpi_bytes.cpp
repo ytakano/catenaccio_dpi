@@ -4,6 +4,8 @@
 
 #include <openssl/evp.h>
 
+#include <sstream>
+
 using namespace std;
 
 int
@@ -156,4 +158,21 @@ get_digest(cdpi_bytes &md_value, const char *alg, const char *buf,
     md_value.m_len = md_len;
 
     return;
+}
+
+string
+bin2str(const char *buf, int len)
+{
+    ostringstream os;
+
+    const char *hex[] = {"0", "1", "2", "3", 
+                         "4", "5", "6", "7",
+                         "8", "9", "a", "b",
+                         "c", "d", "e", "f"};
+
+    for (int i = 0; i < len; i++) {
+        os << hex[(buf[i] >> 4) & 0x0f] << hex[buf[i] & 0x0f];
+    }
+
+    return os.str();
 }

@@ -32,10 +32,17 @@ public:
         m_listener = listener;
     }
 
-    std::string get_method() {
+    cdpi_proto_type get_proto_type() const { return m_type; }
+    std::string get_method() const {
         return m_method.size() > 0 ? m_method.back() : ""; }
-    std::string get_uri() { return m_uri; }
-    std::string get_ver() { return m_ver; }
+    std::string get_uri() const { return m_uri; }
+    std::string get_ver() const { return m_ver; }
+    std::string get_res_code() const { return m_code; }
+    std::string get_res_msg() const { return m_res_msg; }
+    std::string get_header(std::string key) const;
+    std::string get_trailer(std::string key) const;
+    void get_header_keys(std::list<std::string> &keys) const;
+    void get_trailer_keys(std::list<std::string> &keys) const;
 
 private:
     enum http_state {
@@ -57,6 +64,7 @@ private:
     std::string m_code;
     std::string m_res_msg;
     std::map<std::string, std::string> m_header;
+    std::map<std::string, std::string> m_trailer;
     int m_body_read;
     int m_chunk_len;
     ptr_cdpi_http m_peer;
@@ -74,7 +82,7 @@ private:
     bool parse_chunk_el(std::list<cdpi_bytes> &bytes);
 
     void set_header(std::string key, std::string val);
-    std::string get_header(std::string key);
+    void set_trailer(std::string key, std::string val);
 };
 
 

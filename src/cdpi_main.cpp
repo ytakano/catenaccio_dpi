@@ -44,16 +44,19 @@ public:
          */
 
         ptr_cdpi_http p_http;
+        std::string id = id_dir.m_id.to_str();
 
         switch (cev) {
         case CDPI_EVENT_STREAM_OPEN:
             cout << "stream open: src = " << src << ":" << port_src
                  << ", dst = " << dst << ":" << port_dst
+                 << ", id = " << id
                  << endl;
             break;
         case CDPI_EVENT_STREAM_CLOSE:
             cout << "stream close: src = " << src << ":" << port_src
                  << ", dst = " << dst << ":" << port_dst
+                 << ", id = " << id
                  << endl;
             break;
         case CDPI_EVENT_PROTOCOL_DETECTED:
@@ -63,7 +66,9 @@ public:
             p_http = PROTO_TO_HTTP(stream.get_proto(id_dir));
 
             cout << "HTTP read method: src = " << src << ":" << port_src
-                 << ", dst = " << dst << ":" << port_dst << endl;
+                 << ", dst = " << dst << ":" << port_dst
+                 << ", id = " << id
+                 << endl;
 
             cout << "\tmethod: " << p_http->get_method()
                  << "\n\turi: " << p_http->get_uri()
@@ -71,17 +76,80 @@ public:
 
             break;
         }
-        // TODO:
         case CDPI_EVENT_HTTP_READ_RESPONSE:
+        {
+            p_http = PROTO_TO_HTTP(stream.get_proto(id_dir));
+
+            cout << "HTTP read response: src = " << src << ":" << port_src
+                 << ", dst = " << dst << ":" << port_dst
+                 << ", id = " << id
+                 << endl;
+
+            cout << "\tcode: " << p_http->get_res_code()
+                 << "\n\tmsg: " << p_http->get_res_msg()
+                 << "\n\tver: " << p_http->get_ver() << endl;
+
             break;
+        }
         case CDPI_EVENT_HTTP_READ_HEAD:
+        {
+            p_http = PROTO_TO_HTTP(stream.get_proto(id_dir));
+
+            cout << "HTTP read head: src = " << src << ":" << port_src
+                 << ", dst = " << dst << ":" << port_dst
+                 << ", id = " << id
+                 << endl;
+
+            std::list<std::string> keys;
+            std::list<std::string>::iterator it;
+
+            p_http->get_header_keys(keys);
+
+            for (it = keys.begin(); it != keys.end(); ++it) {
+                cout << "\t" << *it << ": " << p_http->get_header(*it) << endl;
+            }
+
             break;
+        }
         case CDPI_EVENT_HTTP_READ_BODY:
             break;
         case CDPI_EVENT_HTTP_READ_TRAILER:
+        {
+            p_http = PROTO_TO_HTTP(stream.get_proto(id_dir));
+
+            cout << "HTTP read trailer: src = " << src << ":" << port_src
+                 << ", dst = " << dst << ":" << port_dst
+                 << ", id = " << id
+                 << endl;
+
+            std::list<std::string> keys;
+            std::list<std::string>::iterator it;
+
+            p_http->get_trailer_keys(keys);
+
+            for (it = keys.begin(); it != keys.end(); ++it) {
+                cout << "\t" << *it << ": " << p_http->get_trailer(*it) << endl;
+            }
+
             break;
+        }
         case CDPI_EVENT_HTTP_PROXY:
+        {
+            p_http = PROTO_TO_HTTP(stream.get_proto(id_dir));
+
+            cout << "HTTP proxy connect: src = " << src << ":" << port_src
+                 << ", dst = " << dst << ":" << port_dst
+                 << ", id = " << id
+                 << endl;
+
+            if (p_http->get_proto_type() == PROTO_HTTP_CLIENT) {
+                cout << "\tmethod: " << p_http->get_method()
+                     << "\n\turi: " << p_http->get_uri()
+                     << "\n\tver: " << p_http->get_ver() << endl;
+            }
+
             break;
+        }
         default:
             break;
         }

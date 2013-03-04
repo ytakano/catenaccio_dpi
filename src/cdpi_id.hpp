@@ -1,6 +1,8 @@
 #ifndef CDPI_ID_HPP
 #define CDPI_ID_HPP
 
+#include "cdpi_bytes.hpp"
+
 #include <stdint.h>
 #include <string.h>
 
@@ -77,6 +79,15 @@ public:
                 m_l4_proto == rhs.m_l4_proto &&
                 *m_addr1 == *rhs.m_addr1 &&
                 *m_addr2 == *rhs.m_addr2);
+    }
+
+    std::string to_str() const {
+        std::string addr1, addr2;
+
+        addr1 = bin2str((char*)m_addr1.get(), sizeof(cdpi_peer));
+        addr2 = bin2str((char*)m_addr2.get(), sizeof(cdpi_peer));
+
+        return addr1 + ":" + addr2;
     }
 
     uint8_t get_l3_proto() const { return m_l3_proto; }

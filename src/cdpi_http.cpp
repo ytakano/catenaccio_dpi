@@ -205,8 +205,6 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
      // change state to HTTP_HEAD
      m_state = cdpi_http::HTTP_HEAD;
 
-     cout << m_ver << " " << m_code << " " << m_res_msg << endl;
-
      // event http response
      m_listener->in_stream(CDPI_EVENT_HTTP_READ_RESPONSE, m_id_dir, m_stream);
 
@@ -365,11 +363,12 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
 
             val = string((char*)p);
 
-            set_header(key, val);
+            if (HTTP_HEAD)
+                set_header(key, val);
+            else
+                set_trailer(key, val);
 
             skip_bytes(bytes, len);
-
-            cout << key << " = " << val << endl;
         }
     }
 }
@@ -381,10 +380,17 @@ cdpi_http::set_header(string key, string val)
     m_header[key] = val;
 }
 
-string
-cdpi_http::get_header(string key)
+void
+cdpi_http::set_trailer(string key, string val)
 {
-    map<string, string>::iterator it;
+    to_lower_str(key);
+    m_trailer[key] = val;
+}
+
+string
+cdpi_http::get_header(string key) const
+{
+    map<string, string>::const_iterator it;
 
     to_lower_str(key);
 
@@ -393,6 +399,40 @@ cdpi_http::get_header(string key)
         return "";
 
     return it->second;
+}
+
+string
+cdpi_http::get_trailer(string key) const
+{
+    map<string, string>::const_iterator it;
+
+    to_lower_str(key);
+
+    it = m_trailer.find(key);
+    if (it == m_trailer.end())
+        return "";
+
+    return it->second;
+}
+
+void
+cdpi_http::get_header_keys(list<string> &keys) const
+{
+    map<string, string>::const_iterator it;
+
+    for (it = m_header.begin(); it != m_header.end(); ++it) {
+        keys.push_back(it->first);
+    }
+}
+
+void
+cdpi_http::get_trailer_keys(list<string> &keys) const
+{
+    map<string, string>::const_iterator it;
+
+    for (it = m_trailer.begin(); it != m_trailer.end(); ++it) {
+        keys.push_back(it->first);
+    }
 }
 
 bool
@@ -419,8 +459,6 @@ cdpi_http::parse_body(list<cdpi_bytes> &bytes)
     }
 
     if (m_body_read >= content_len) {
-        m_header.clear();
-
         switch (m_type) {
         case PROTO_HTTP_CLIENT:
             m_state = cdpi_http::HTTP_METHOD;

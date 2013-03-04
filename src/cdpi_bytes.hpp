@@ -104,6 +104,7 @@ int skip_bytes(std::list<cdpi_bytes> &bytes, int len);
 int find_char(const char *buf, int len, char c);
 void get_digest(cdpi_bytes &md_value, const char *alg, const char *buf,
                 unsigned int len);
+std::string bin2str(const char *buf, int len);
 void print_binary(const char *buf, int len);
 
 

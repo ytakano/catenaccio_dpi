@@ -74,6 +74,8 @@ cdpi_id::print_id() const
 {
     char addr1[32], addr2[32];
 
+    // TODO: IPv6
+
     inet_ntop(PF_INET, &m_addr1->l3_addr.b32, addr1, sizeof(addr1));
     inet_ntop(PF_INET, &m_addr2->l3_addr.b32, addr2, sizeof(addr2));
 
