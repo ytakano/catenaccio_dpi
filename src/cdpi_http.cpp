@@ -7,6 +7,7 @@
 
 using namespace std;
 
+
 static boost::regex regex_http_req("(^[A-Z]+ .+ HTTP/1.0\r?\n.*|^[A-Z]+ .+ HTTP/1.1\r?\n(([a-zA-Z]|-)+: .+\r?\n)*.*)");
 static boost::regex regex_http_res("(^HTTP/1.0 [0-9]{3} .+\r?\n.*|^HTTP/1.1 [0-9]{3} .+\r?\n(([a-zA-Z]|-)+: .+\r?\n)*.*)");
 
@@ -110,6 +111,7 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
 
      m_header.clear();
      m_content.clear();
+     m_chunks.clear();
 
 
      // read method
@@ -169,6 +171,7 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
 
      m_header.clear();
      m_content.clear();
+     m_chunks.clear();
 
 
      // read http version

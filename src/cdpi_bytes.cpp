@@ -4,9 +4,15 @@
 
 #include <openssl/evp.h>
 
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+#include <boost/iostreams/filter/zlib.hpp>
+
 #include <sstream>
 
 using namespace std;
+namespace io = boost::iostreams; //<-- good practice
+
 
 int
 read_bytes_ec(const list<cdpi_bytes> &bytes, char *buf, int len, char c)
@@ -175,4 +181,26 @@ bin2str(const char *buf, int len)
     }
 
     return os.str();
+}
+
+void
+decompress_gzip(const char *buf, int len, vector<char> &out_buf)
+{
+    io::filtering_ostream os;
+
+    os.push(io::gzip_decompressor());
+    os.push(io::back_inserter(out_buf));
+
+    io::write(os, buf, len);
+}
+
+void
+decompress_zlib(const char *buf, int len, vector<char> &out_buf)
+{
+    io::filtering_ostream os;
+
+    os.push(io::zlib_decompressor());
+    os.push(io::back_inserter(out_buf));
+
+    io::write(os, buf, len);
 }

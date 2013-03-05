@@ -127,7 +127,23 @@ public:
             buf = p_http->get_content();
 
             if (buf.m_ptr) {
-                cout.write(buf.m_ptr.get(), buf.m_len);
+                string encoding = p_http->get_header("content-encoding");
+
+                if (encoding == "gzip") {
+                    vector<char> decompressed;
+
+                    decompress_gzip(buf.m_ptr.get(), buf.m_len, decompressed);
+
+                    cout.write(&decompressed[0], decompressed.size());
+                } else if (encoding == "deflate") {
+                    vector<char> decompressed;
+
+                    decompress_zlib(buf.m_ptr.get(), buf.m_len, decompressed);
+
+                    cout.write(&decompressed[0], decompressed.size());
+                } else {
+                    cout.write(buf.m_ptr.get(), buf.m_len);
+                }
             }
 
             break;
