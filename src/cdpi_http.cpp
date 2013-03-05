@@ -109,6 +109,7 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
 
 
      m_header.clear();
+     m_content.clear();
 
 
      // read method
@@ -167,6 +168,7 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
 
 
      m_header.clear();
+     m_content.clear();
 
 
      // read http version
@@ -446,9 +448,16 @@ cdpi_http::parse_body(list<cdpi_bytes> &bytes)
     ss << get_header("content-length");
     ss >> content_len;
 
+    if (is_in_mime_to_read() && m_content.m_len == 0) {
+        m_content.alloc(content_len);
+    }
+
     while (m_body_read < content_len) {
         len = content_len - m_body_read;
         len = len < (int)sizeof(buf) ? len : sizeof(buf);
+
+        if (m_content.m_len > 0)
+            read_bytes(bytes, &m_content.m_ptr[m_body_read], len);
 
         len = skip_bytes(bytes, len);
 
@@ -507,6 +516,11 @@ cdpi_http::parse_chunk_len(list<cdpi_bytes> &bytes)
     if (m_chunk_len == 0) {
         m_state = cdpi_http::HTTP_CHUNK_EL;
     } else {
+        if (is_in_mime_to_read()) {
+            cdpi_bytes buf;
+            buf.alloc(m_chunk_len);
+            m_chunks.push_back(buf);
+        }
         m_state = cdpi_http::HTTP_CHUNK_BODY;
     }
 
@@ -524,6 +538,12 @@ cdpi_http::parse_chunk_body(list<cdpi_bytes> &bytes)
     while (m_body_read < m_chunk_len) {
         len = m_chunk_len - m_body_read;
         len = len < (int)sizeof(buf) ? len : sizeof(buf);
+
+        if (is_in_mime_to_read()) {
+            cdpi_bytes buf = m_chunks.back();
+
+            read_bytes(bytes, &buf.m_ptr[m_body_read], len);
+        }
 
         len = skip_bytes(bytes, len);
 
@@ -561,6 +581,23 @@ cdpi_http::parse_chunk_el(list<cdpi_bytes> &bytes)
 
         m_body_read = 0;
 
+        if (m_chunks.size() > 0) {
+            list<cdpi_bytes>::iterator it;
+            int content_len = 0;
+            int pos = 0;
+
+            for (it = m_chunks.begin(); it != m_chunks.end(); ++it) {
+                content_len += it->m_len;
+            }
+
+            m_content.alloc(content_len);
+            
+            for (it = m_chunks.begin(); it != m_chunks.end(); ++it) {
+                memcpy(&m_content.m_ptr[pos], it->m_ptr.get(), it->m_len);
+                pos += it->m_len;
+            }
+        }
+
         // event body
         m_listener->in_stream(CDPI_EVENT_HTTP_READ_BODY, m_id_dir, m_stream);
 
@@ -568,4 +605,20 @@ cdpi_http::parse_chunk_el(list<cdpi_bytes> &bytes)
     }
 
     return false;
+}
+
+bool
+cdpi_http::is_in_mime_to_read()
+{
+    string ctype = get_header("content-type");
+    string mime;
+    int    n = find_char(ctype.c_str(), ctype.size(), ';');
+
+    if (n < 0) {
+        mime = ctype;
+    } else {
+        mime = string(ctype.c_str(), n);
+    }
+
+    return m_mime_to_read.find(mime) != m_mime_to_read.end();
 }

@@ -92,6 +92,12 @@ public:
         m_pos = 0;
     }
 
+    void clear() {
+        m_ptr.reset();
+        m_pos = 0;
+        m_len = 0;
+    }
+
     boost::shared_array<char> m_ptr;
     int m_pos;
     int m_len;

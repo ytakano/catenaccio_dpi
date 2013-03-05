@@ -80,6 +80,8 @@ public:
         {
             p_http = PROTO_TO_HTTP(stream.get_proto(id_dir));
 
+            p_http->add_mime_to_read("text/html");
+
             cout << "HTTP read response: src = " << src << ":" << port_src
                  << ", dst = " << dst << ":" << port_dst
                  << ", id = " << id
@@ -112,7 +114,24 @@ public:
             break;
         }
         case CDPI_EVENT_HTTP_READ_BODY:
+        {
+            p_http = PROTO_TO_HTTP(stream.get_proto(id_dir));
+
+            cout << "HTTP read body: src = " << src << ":" << port_src
+                 << ", dst = " << dst << ":" << port_dst
+                 << ", id = " << id
+                 << endl;
+
+            cdpi_bytes buf;
+
+            buf = p_http->get_content();
+
+            if (buf.m_ptr) {
+                cout.write(buf.m_ptr.get(), buf.m_len);
+            }
+
             break;
+        }
         case CDPI_EVENT_HTTP_READ_TRAILER:
         {
             p_http = PROTO_TO_HTTP(stream.get_proto(id_dir));

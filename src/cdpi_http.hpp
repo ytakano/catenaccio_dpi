@@ -10,6 +10,7 @@
 #include <list>
 #include <map>
 #include <queue>
+#include <set>
 #include <string>
 
 class cdpi_stream;
@@ -32,6 +33,9 @@ public:
         m_listener = listener;
     }
 
+    void add_mime_to_read(std::string mime) { m_mime_to_read.insert(mime); }
+    void del_mime_to_raed(std::string mime) { m_mime_to_read.erase(mime); }
+
     cdpi_proto_type get_proto_type() const { return m_type; }
     std::string get_method() const {
         return m_method.size() > 0 ? m_method.back() : ""; }
@@ -43,6 +47,7 @@ public:
     std::string get_trailer(std::string key) const;
     void get_header_keys(std::list<std::string> &keys) const;
     void get_trailer_keys(std::list<std::string> &keys) const;
+    cdpi_bytes get_content() { return m_content; }
 
 private:
     enum http_state {
@@ -65,11 +70,14 @@ private:
     std::string m_res_msg;
     std::map<std::string, std::string> m_header;
     std::map<std::string, std::string> m_trailer;
+    std::set<std::string> m_mime_to_read;
     int m_body_read;
     int m_chunk_len;
     ptr_cdpi_http m_peer;
     cdpi_id_dir   m_id_dir;
     cdpi_stream  &m_stream;
+    cdpi_bytes    m_content;
+    std::list<cdpi_bytes>   m_chunks;
     ptr_cdpi_event_listener m_listener;
 
 
@@ -83,6 +91,8 @@ private:
 
     void set_header(std::string key, std::string val);
     void set_trailer(std::string key, std::string val);
+
+    bool is_in_mime_to_read();
 };
 
 
