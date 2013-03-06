@@ -10,6 +10,8 @@
 
 #include <queue>
 
+#define PROTO_TO_BENCODE(PROTO) boost::dynamic_pointer_cast<cdpi_bencode>(PROTO)
+
 struct cdpi_udp_packet {
     cdpi_id_dir m_id_dir;
     cdpi_bytes  m_bytes;

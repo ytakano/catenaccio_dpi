@@ -50,27 +50,34 @@ cdpi_udp::run()
             packet = m_queue.front();
             m_queue.pop();
 
-            /*
+
+/*
             cout << "input UDP:" << endl;
 
             print_binary(packet.m_bytes.m_ptr.get(),
                          packet.m_bytes.m_len);
 
             cout << endl;
-            */
+*/
+
 
             // TODO: analyze data
 
             data = packet.m_bytes.m_ptr.get() + sizeof(udphdr);
             len  = packet.m_bytes.m_len - sizeof(udphdr);
 
-            cdpi_bencode  bc;
-            istringstream iss(string(data, len));
-            istream      *is = &iss;
+            {
+                ptr_cdpi_bencode bc(new cdpi_bencode);
+                istringstream    iss(string(data, len));
+                istream         *is = &iss;
 
-            if (bc.decode(*is)) {
-                m_listener->in_datagram(CDPI_EVENT_BENCODE,
-                                        packet.m_id_dir, &bc);
+                if (bc->decode(*is)) {
+                    m_listener->in_datagram(CDPI_EVENT_BENCODE,
+                                            packet.m_id_dir, 
+                                            boost::dynamic_pointer_cast<cdpi_proto>(bc));
+
+                    continue;
+                }
             }
         }
     }

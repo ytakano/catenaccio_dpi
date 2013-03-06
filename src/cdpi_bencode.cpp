@@ -38,7 +38,7 @@ cdpi_bencode::decode(istream &in)
 }
 
 bool
-cdpi_bencode::decode(istream &in, p_data &data)
+cdpi_bencode::decode(istream &in, ptr_ben_data &data)
 {
     char c;
 
@@ -58,14 +58,14 @@ cdpi_bencode::decode(istream &in, p_data &data)
 }
 
 bool
-cdpi_bencode::dec_dict(istream &in, p_data &data)
+cdpi_bencode::dec_dict(istream &in, ptr_ben_data &data)
 {
-    istream::pos_type  pos;
-    bencode_dict      *dict;
-    char               c;
+    istream::pos_type pos;
+    ptr_ben_dict      dict;
+    char              c;
 
-    data = p_data(new bencode_dict);
-    dict = dynamic_cast<bencode_dict*>(data.get());
+    data = ptr_ben_data(new bencode_dict);
+    dict = BEN_TO_DICT(data);
 
     in.ignore();
 
@@ -78,15 +78,13 @@ cdpi_bencode::dec_dict(istream &in, p_data &data)
         }
 
         if (c < '0' || c > '9') {
-            // cerr << "dec_dict(): key of dictionary isn't string" << endl;
             return false;
         }
 
 
-        p_data key, value;
+        ptr_ben_data key, value;
 
         if (! dec_str(in, key)) {
-            // cerr << "dec_dict(): invalid string format" << endl;
             return false;
         }
 
@@ -96,10 +94,11 @@ cdpi_bencode::dec_dict(istream &in, p_data &data)
             return false;
 
 
-        bencode_str *str;
+        ptr_ben_str str;
 
-        str = dynamic_cast<bencode_str*>(key.get());
-        dict->m_dict[*str] = value;
+        str = BEN_TO_STR(key);
+
+        dict->m_dict[*str] = value; 
 
 
         // for info_hash
@@ -114,16 +113,16 @@ cdpi_bencode::dec_dict(istream &in, p_data &data)
 }
 
 bool
-cdpi_bencode::dec_list(istream &in, p_data &data)
+cdpi_bencode::dec_list(istream &in, ptr_ben_data &data)
 {
-    bencode_list *ben_list;
+    ptr_ben_list ben_list;
     char c;
 
     in.ignore();
 
-    data = p_data(new bencode_list);
+    data = ptr_ben_data(new bencode_list);
 
-    ben_list = dynamic_cast<bencode_list*>(data.get());
+    ben_list = BEN_TO_LIST(data);
 
     for (;;) {
         c = in.peek();
@@ -132,7 +131,7 @@ cdpi_bencode::dec_list(istream &in, p_data &data)
             return true;
         }
 
-        p_data value;
+        ptr_ben_data value;
         if (! decode(in, value))
             return false;
 
@@ -143,23 +142,22 @@ cdpi_bencode::dec_list(istream &in, p_data &data)
 }
 
 bool
-cdpi_bencode::dec_int(istream &in, p_data &data)
+cdpi_bencode::dec_int(istream &in, ptr_ben_data &data)
 {
-    bencode_int *ben_int;
-    stringbuf    buf;
+    ptr_ben_int ben_int;
+    stringbuf   buf;
     char c;
 
     in.ignore();
 
-    data = p_data(new bencode_int);
+    data = ptr_ben_data(new bencode_int);
 
-    ben_int = dynamic_cast<bencode_int*>(data.get());
+    ben_int = BEN_TO_INT(data);
 
     in.get(buf, 'e');
 
     in.get(c);
     if (c != 'e') {
-        // cerr << "dec_int(): invalid integer format" << endl;
         return false;
     }
 
@@ -169,19 +167,19 @@ cdpi_bencode::dec_int(istream &in, p_data &data)
 }
 
 bool
-cdpi_bencode::dec_str(istream &in, p_data &data)
+cdpi_bencode::dec_str(istream &in, ptr_ben_data &data)
 {
-    bencode_str *ben_str;
+    ptr_ben_str ben_str;
 
-    data = p_data(new bencode_str);
+    data = ptr_ben_data(new bencode_str);
 
-    ben_str = dynamic_cast<bencode_str*>(data.get());
+    ben_str = BEN_TO_STR(data);
 
-    return read_str(in, ben_str->m_ptr, ben_str->m_len);
+    return read_str(in, ben_str);
 }
 
 bool
-cdpi_bencode::read_str(istream &in, p_char str, int &len)
+cdpi_bencode::read_str(istream &in, ptr_ben_str ben_str)
 {
     stringbuf num;
     char c;
@@ -192,16 +190,17 @@ cdpi_bencode::read_str(istream &in, p_char str, int &len)
     if (c != ':')
         return false;
 
-    len = (size_t)atoi(num.str().c_str());
+    ben_str->m_len = (size_t)atoi(num.str().c_str());
 
 
-    p_char buf(new char[len + 1]);
-    in.read(buf.get(), len);
+    p_char buf(new char[ben_str->m_len + 1]);
+    in.read(buf.get(), ben_str->m_len);
     if (in.bad())
         return false;
 
-    str = buf;
-    str[len] = '\0';
+    buf[ben_str->m_len] = '\0';
+
+    ben_str->m_ptr = buf;
 
     return true;
 }
@@ -213,9 +212,9 @@ cdpi_bencode::encode(ostream &out)
 }
 
 void
-cdpi_bencode::encode(ostream &out, p_data data)
+cdpi_bencode::encode(ostream &out, ptr_ben_data data)
 {
-    switch (data->m_type) {
+    switch (data->get_type()) {
     case DICT:
         encode_dict(out, data);
         break;
@@ -232,13 +231,13 @@ cdpi_bencode::encode(ostream &out, p_data data)
 }
 
 void
-cdpi_bencode::encode_dict(ostream &out, p_data data)
+cdpi_bencode::encode_dict(ostream &out, ptr_ben_data data)
 {
-    bencode_dict *ben_dict = dynamic_cast<bencode_dict*>(data.get());
+    ptr_ben_dict ben_dict = BEN_TO_DICT(data);
 
     out << "d";
 
-    pair<bencode_str, p_data> p;
+    pair<bencode_str, ptr_ben_data> p;
     BOOST_FOREACH(p, ben_dict->m_dict) {
         out << p.first.m_len << ":";
         out.write(p.first.m_ptr.get(), p.first.m_len);
@@ -249,13 +248,13 @@ cdpi_bencode::encode_dict(ostream &out, p_data data)
 }
 
 void
-cdpi_bencode::encode_list(ostream &out, p_data data)
+cdpi_bencode::encode_list(ostream &out, ptr_ben_data data)
 {
-    bencode_list *ben_list = dynamic_cast<bencode_list*>(data.get());
+    ptr_ben_list ben_list = BEN_TO_LIST(data);
 
     out << "l";
 
-    BOOST_FOREACH(p_data p, ben_list->m_list) {
+    BOOST_FOREACH(ptr_ben_data p, ben_list->m_list) {
         encode(out, p);
     }
 
@@ -263,17 +262,17 @@ cdpi_bencode::encode_list(ostream &out, p_data data)
 }
 
 void
-cdpi_bencode::encode_integer(ostream &out, p_data data)
+cdpi_bencode::encode_integer(ostream &out, ptr_ben_data data)
 {
-    bencode_int *ben_int = dynamic_cast<bencode_int*>(data.get());
+    ptr_ben_int ben_int = BEN_TO_INT(data);
 
     out << "i" << ben_int->m_int << "e";
 }
 
 void
-cdpi_bencode::encode_str(ostream &out, p_data data)
+cdpi_bencode::encode_str(ostream &out, ptr_ben_data data)
 {
-    bencode_str *ben_str = dynamic_cast<bencode_str*>(data.get());
+    ptr_ben_str ben_str = BEN_TO_STR(data);
 
     out << ben_str->m_len << ":";
     out.write(ben_str->m_ptr.get(), ben_str->m_len);
@@ -285,9 +284,9 @@ cdpi_bencode::encode(evbuffer *buf)
     encode(buf, m_data);
 }
 void
-cdpi_bencode::encode(evbuffer *buf, p_data data)
+cdpi_bencode::encode(evbuffer *buf, ptr_ben_data data)
 {
-    switch (data->m_type) {
+    switch (data->get_type()) {
     case DICT:
         encode_dict(buf, data);
         break;
@@ -304,13 +303,13 @@ cdpi_bencode::encode(evbuffer *buf, p_data data)
 }
 
 void
-cdpi_bencode::encode_dict(evbuffer *buf, p_data data)
+cdpi_bencode::encode_dict(evbuffer *buf, ptr_ben_data data)
 {
-    bencode_dict *ben_dict = dynamic_cast<bencode_dict*>(data.get());
+    ptr_ben_dict ben_dict = BEN_TO_DICT(data);
 
     evbuffer_add(buf, "d", 1);
 
-    pair<bencode_str, p_data> p;
+    pair<bencode_str, ptr_ben_data> p;
     BOOST_FOREACH(p, ben_dict->m_dict) {
         evbuffer_add_printf(buf, "%d:", (int)p.first.m_len);
         evbuffer_add(buf, p.first.m_ptr.get(), p.first.m_len);
@@ -320,13 +319,13 @@ cdpi_bencode::encode_dict(evbuffer *buf, p_data data)
     evbuffer_add(buf, "e", 1);
 }
 void
-cdpi_bencode::encode_list(evbuffer *buf, p_data data)
+cdpi_bencode::encode_list(evbuffer *buf, ptr_ben_data data)
 {
-    bencode_list *ben_list = dynamic_cast<bencode_list*>(data.get());
+    ptr_ben_list ben_list = BEN_TO_LIST(data);
 
     evbuffer_add(buf, "l", 1);
 
-    BOOST_FOREACH(p_data p, ben_list->m_list) {
+    BOOST_FOREACH(ptr_ben_data p, ben_list->m_list) {
         encode(buf, p);
     }
 
@@ -334,17 +333,17 @@ cdpi_bencode::encode_list(evbuffer *buf, p_data data)
 }
 
 void
-cdpi_bencode::encode_integer(evbuffer *buf, p_data data)
+cdpi_bencode::encode_integer(evbuffer *buf, ptr_ben_data data)
 {
-    bencode_int *ben_int = dynamic_cast<bencode_int*>(data.get());
+    ptr_ben_int ben_int = BEN_TO_INT(data);
 
     evbuffer_add_printf(buf, "i%de", ben_int->m_int);
 }
 
 void
-cdpi_bencode::encode_str(evbuffer *buf, p_data data)
+cdpi_bencode::encode_str(evbuffer *buf, ptr_ben_data data)
 {
-    bencode_str *ben_str = dynamic_cast<bencode_str*>(data.get());
+    ptr_ben_str ben_str = BEN_TO_STR(data);
 
     evbuffer_add_printf(buf, "%d:", (int)ben_str->m_len);
     evbuffer_add(buf, ben_str->m_ptr.get(), ben_str->m_len);

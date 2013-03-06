@@ -33,7 +33,7 @@ public:
     virtual void in_stream(cdpi_event cev, const cdpi_id_dir &id_dir,
                            cdpi_stream &stream) = 0;
     virtual void in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
-                             cdpi_proto *data) = 0;
+                             ptr_cdpi_proto data) = 0;
 };
 
 typedef boost::shared_ptr<cdpi_event_listener> ptr_cdpi_event_listener;

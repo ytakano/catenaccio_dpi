@@ -1,3 +1,4 @@
+#include "cdpi_bencode.hpp"
 #include "cdpi_divert.hpp"
 #include "cdpi_pcap.hpp"
 #include "cdpi_http.hpp"
@@ -44,19 +45,16 @@ public:
          */
 
         ptr_cdpi_http p_http;
-        std::string id = id_dir.m_id.to_str();
 
         switch (cev) {
         case CDPI_EVENT_STREAM_OPEN:
             cout << "stream open: src = " << src << ":" << port_src
                  << ", dst = " << dst << ":" << port_dst
-                 << ", id = " << id
                  << endl;
             break;
         case CDPI_EVENT_STREAM_CLOSE:
             cout << "stream close: src = " << src << ":" << port_src
                  << ", dst = " << dst << ":" << port_dst
-                 << ", id = " << id
                  << endl;
             break;
         case CDPI_EVENT_PROTOCOL_DETECTED:
@@ -67,7 +65,6 @@ public:
 
             cout << "HTTP read method: src = " << src << ":" << port_src
                  << ", dst = " << dst << ":" << port_dst
-                 << ", id = " << id
                  << endl;
 
             cout << "\tmethod: " << p_http->get_method()
@@ -84,7 +81,6 @@ public:
 
             cout << "HTTP read response: src = " << src << ":" << port_src
                  << ", dst = " << dst << ":" << port_dst
-                 << ", id = " << id
                  << endl;
 
             cout << "\tcode: " << p_http->get_res_code()
@@ -99,7 +95,6 @@ public:
 
             cout << "HTTP read head: src = " << src << ":" << port_src
                  << ", dst = " << dst << ":" << port_dst
-                 << ", id = " << id
                  << endl;
 
             std::list<std::string> keys;
@@ -119,7 +114,6 @@ public:
 
             cout << "HTTP read body: src = " << src << ":" << port_src
                  << ", dst = " << dst << ":" << port_dst
-                 << ", id = " << id
                  << endl;
 
             cdpi_bytes buf;
@@ -154,7 +148,6 @@ public:
 
             cout << "HTTP read trailer: src = " << src << ":" << port_src
                  << ", dst = " << dst << ":" << port_dst
-                 << ", id = " << id
                  << endl;
 
             std::list<std::string> keys;
@@ -174,7 +167,6 @@ public:
 
             cout << "HTTP proxy connect: src = " << src << ":" << port_src
                  << ", dst = " << dst << ":" << port_dst
-                 << ", id = " << id
                  << endl;
 
             if (p_http->get_proto_type() == PROTO_HTTP_CLIENT) {
@@ -191,10 +183,92 @@ public:
     }
 
     virtual void in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
-                             cdpi_proto *data) {
+                             ptr_cdpi_proto data) {
+        uint32_t addr_src = id_dir.get_ipv4_addr_src();
+        uint32_t addr_dst = id_dir.get_ipv4_addr_dst();
+        uint16_t port_src = ntohs(id_dir.get_port_src());
+        uint16_t port_dst = ntohs(id_dir.get_port_dst());
+        char src[32], dst[32];
+
+        inet_ntop(PF_INET, &addr_src, src, sizeof(src));
+        inet_ntop(PF_INET, &addr_dst, dst, sizeof(dst));
+
         switch (cev) {
         case CDPI_EVENT_BENCODE:
+        {
+            ptr_cdpi_bencode p_ben = PROTO_TO_BENCODE(data);
+
+            cout << "bencode: src = " << src << ":" << port_src 
+                 << ", dst = " << dst << ":" << port_dst << endl;
+            print_bencode(p_ben->get_data());
+            cout << endl;
+
             break;
+        }
+        default:
+            ;
+        }
+    }
+
+    void print_bencode(cdpi_bencode::ptr_ben_data data) {
+        switch (data->get_type()) {
+        case cdpi_bencode::INT:
+        {
+            cdpi_bencode::ptr_ben_int p_int = BEN_TO_INT(data);
+            cout << p_int->m_int;
+            break;
+        }
+        case cdpi_bencode::STR:
+        {
+            cdpi_bencode::ptr_ben_str p_str = BEN_TO_STR(data);
+
+            cout << "0x";
+            print_binary(p_str->m_ptr.get(), p_str->m_len);
+            break;
+        }
+        case cdpi_bencode::LIST:
+        {
+            cdpi_bencode::ptr_ben_list p_list = BEN_TO_LIST(data);
+            list<cdpi_bencode::ptr_ben_data>::iterator it;
+
+            cout << "[";
+
+            for (it = p_list->m_list.begin(); it != p_list->m_list.end();
+                 ++it) {
+                print_bencode(*it);
+
+                cout << ", ";
+            }
+
+            cout << "]";
+
+            break;
+        }
+        case cdpi_bencode::DICT:
+        {
+            cdpi_bencode::ptr_ben_dict p_dict = BEN_TO_DICT(data);
+            map<cdpi_bencode::bencode_str,
+                cdpi_bencode::ptr_ben_data>::iterator it;
+
+            cout << "{";
+
+            for (it = p_dict->m_dict.begin(); it != p_dict->m_dict.end();
+                 ++it) {
+
+                cout << "\"";
+                cout.write(it->first.m_ptr.get(), it->first.m_len);
+
+                cout << "\": ";
+
+                print_bencode(it->second);
+
+                cout << ", ";
+            }
+
+            cout << "}";
+
+            break;
+        }
         default:
             ;
         }

@@ -13,7 +13,7 @@
 
 class cdpi_bytes {
 public:
-    cdpi_bytes() : m_len(0) { }
+    cdpi_bytes() : m_pos(0), m_len(0) { }
     cdpi_bytes(const char *str) { *this = str; }
     cdpi_bytes(boost::shared_array<char> ptr, int len) : m_ptr(ptr),
                                                          m_pos(0),

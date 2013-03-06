@@ -15,6 +15,11 @@
 
 #define HASH_TYPE "SHA1"
 
+#define BEN_TO_STR(PTR) boost::dynamic_pointer_cast<cdpi_bencode::bencode_str>(PTR)
+#define BEN_TO_INT(PTR) boost::dynamic_pointer_cast<cdpi_bencode::bencode_int>(PTR)
+#define BEN_TO_DICT(PTR) boost::dynamic_pointer_cast<cdpi_bencode::bencode_dict>(PTR)
+#define BEN_TO_LIST(PTR) boost::dynamic_pointer_cast<cdpi_bencode::bencode_list>(PTR)
+
 class cdpi_bencode : public cdpi_proto {
 public:
     cdpi_bencode();
@@ -42,10 +47,13 @@ public:
         bencode_data(ben_type type) { m_type = type; }
         virtual ~bencode_data() = 0;
 
+        ben_type get_type() { return m_type; }
+
+    private:
         ben_type m_type;
     };
 
-    typedef boost::shared_ptr<bencode_data> p_data;
+    typedef boost::shared_ptr<bencode_data> ptr_ben_data;
     typedef boost::shared_array<char> p_char;
 
 
@@ -70,7 +78,7 @@ public:
 
         void add_int(const char *k, int v) {
             bencode_str  key;
-            p_data       val(new bencode_int);
+            ptr_ben_data val(new bencode_int);
             cdpi_bytes  *str = &key;
             bencode_int *num = dynamic_cast<bencode_int*>(val.get());
 
@@ -81,10 +89,10 @@ public:
         }
 
         void add_str(const char *k, const char *v, int len) {
-            bencode_str key;
-            p_data      val(new bencode_str);
-            cdpi_bytes *str1 = &key;
-            cdpi_bytes *str2 = dynamic_cast<bencode_str*>(val.get());
+            bencode_str  key;
+            ptr_ben_data val(new bencode_str);
+            cdpi_bytes  *str1 = &key;
+            cdpi_bytes  *str2 = dynamic_cast<bencode_str*>(val.get());
             
             *str1 = k;
 
@@ -94,7 +102,7 @@ public:
             m_dict[key] = val;
         }
 
-        void add_data(const char *k, p_data v) {
+        void add_data(const char *k, ptr_ben_data v) {
             bencode_str  key;
             cdpi_bytes  *str1 = &key;
 
@@ -103,7 +111,7 @@ public:
             m_dict[key] = v;
         }
 
-        void add_data(const cdpi_bytes &k, p_data v) {
+        void add_data(const cdpi_bytes &k, ptr_ben_data v) {
             bencode_str  key;
             cdpi_bytes  *str1 = &key;
 
@@ -112,8 +120,8 @@ public:
             m_dict[key] = v;
         }
 
-        p_data get_data(const char *key, int keylen = -1) {
-            std::map<bencode_str, p_data>::iterator it;
+        ptr_ben_data get_data(const char *key, int keylen = -1) {
+            std::map<bencode_str, ptr_ben_data>::iterator it;
             bencode_str  str;
             cdpi_bytes  *p;
 
@@ -128,13 +136,13 @@ public:
 
             it = m_dict.find(str);
             if (it == m_dict.end()) {
-                return p_data();
+                return ptr_ben_data();
             } else {
                 return it->second;
             }
         }
 
-        std::map<bencode_str, p_data> m_dict;
+        std::map<bencode_str, ptr_ben_data> m_dict;
     };
     
     class bencode_list : public bencode_data {
@@ -142,35 +150,40 @@ public:
         bencode_list() : bencode_data(LIST) { }
         virtual ~bencode_list() { }
 
-        void push_back(p_data data) {
+        void push_back(ptr_ben_data data) {
             m_list.push_back(data);
         }
 
-        std::list<p_data> m_list;
+        std::list<ptr_ben_data> m_list;
     };
 
-    p_data m_data;
+    ptr_ben_data get_data() { return m_data; }
+
+    typedef boost::shared_ptr<bencode_int>  ptr_ben_int;
+    typedef boost::shared_ptr<bencode_str>  ptr_ben_str;
+    typedef boost::shared_ptr<bencode_dict> ptr_ben_dict;
+    typedef boost::shared_ptr<bencode_list> ptr_ben_list;
     
 private:
-    bool decode(std::istream &in,   p_data &data);
-    bool dec_dict(std::istream &in, p_data &data);
-    bool dec_list(std::istream &in, p_data &data);
-    bool dec_int(std::istream &in,  p_data &data);
-    bool dec_str(std::istream &in,  p_data &data);
+    bool decode(std::istream &in,   ptr_ben_data &data);
+    bool dec_dict(std::istream &in, ptr_ben_data &data);
+    bool dec_list(std::istream &in, ptr_ben_data &data);
+    bool dec_int(std::istream &in,  ptr_ben_data &data);
+    bool dec_str(std::istream &in,  ptr_ben_data &data);
 
-    bool read_str(std::istream &in, p_char str, int &len);
+    bool read_str(std::istream &in, ptr_ben_str ben_str);
 
-    void encode(std::ostream &out, p_data data);
-    void encode_dict(std::ostream &out, p_data data);
-    void encode_list(std::ostream &out, p_data data);
-    void encode_str(std::ostream &out, p_data data);
-    void encode_integer(std::ostream &out, p_data data);
+    void encode(std::ostream &out, ptr_ben_data data);
+    void encode_dict(std::ostream &out, ptr_ben_data data);
+    void encode_list(std::ostream &out, ptr_ben_data data);
+    void encode_str(std::ostream &out, ptr_ben_data data);
+    void encode_integer(std::ostream &out, ptr_ben_data data);
 
-    void encode(evbuffer *buf, p_data data);
-    void encode_dict(evbuffer *buf, p_data data);
-    void encode_list(evbuffer *buf, p_data data);
-    void encode_str(evbuffer *buf, p_data data);
-    void encode_integer(evbuffer *buf, p_data data);
+    void encode(evbuffer *buf, ptr_ben_data data);
+    void encode_dict(evbuffer *buf, ptr_ben_data data);
+    void encode_list(evbuffer *buf, ptr_ben_data data);
+    void encode_str(evbuffer *buf, ptr_ben_data data);
+    void encode_integer(evbuffer *buf, ptr_ben_data data);
 
     void calc_info_hash(std::istream &in);
     
@@ -178,6 +191,11 @@ private:
     std::istream::pos_type m_dict_info_end;
 
     boost::shared_array<char> m_info_hash;
+
+    ptr_ben_data m_data;
+
 };
+
+typedef boost::shared_ptr<cdpi_bencode> ptr_cdpi_bencode;
 
 #endif // CDPI_BENCODE_HPP
