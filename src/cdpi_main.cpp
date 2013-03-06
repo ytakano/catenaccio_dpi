@@ -188,7 +188,7 @@ public:
         uint32_t addr_dst = id_dir.get_ipv4_addr_dst();
         uint16_t port_src = ntohs(id_dir.get_port_src());
         uint16_t port_dst = ntohs(id_dir.get_port_dst());
-        char src[32], dst[32];
+        char     src[32], dst[32];
 
         inet_ntop(PF_INET, &addr_src, src, sizeof(src));
         inet_ntop(PF_INET, &addr_dst, dst, sizeof(dst));

@@ -2,6 +2,7 @@
 #define CDPI_SSL_HPP
 
 #include "cdpi_bytes.hpp"
+#include "cdpi_event.hpp"
 #include "cdpi_proto.hpp"
 
 #include <stdint.h>
@@ -41,7 +42,8 @@ typedef boost::shared_ptr<cdpi_ssl> ptr_cdpi_ssl;
 
 class cdpi_ssl : public cdpi_proto {
 public:
-    cdpi_ssl(cdpi_proto_type type);
+    cdpi_ssl(cdpi_proto_type type, const cdpi_id_dir &id_dir,
+             cdpi_stream &stream, ptr_cdpi_event_listener listener);
     virtual ~cdpi_ssl();
 
     static bool is_ssl_client(std::list<cdpi_bytes> &bytes);
@@ -50,13 +52,16 @@ public:
     void parse(std::list<cdpi_bytes> &bytes);
 
 private:
-    cdpi_proto_type     m_type;
-    uint16_t            m_ver;
-    uint8_t             m_random[28];
-    uint32_t            m_gmt_unix_time;
-    cdpi_bytes          m_session_id;
-    std::list<uint16_t> m_cipher_suites;
-    std::list<uint8_t>  m_compression_methods;
+    cdpi_proto_type         m_type;
+    uint16_t                m_ver;
+    uint8_t                 m_random[28];
+    uint32_t                m_gmt_unix_time;
+    cdpi_bytes              m_session_id;
+    std::list<uint16_t>     m_cipher_suites;
+    std::list<uint8_t>      m_compression_methods;
+    cdpi_id_dir             m_id_dir;
+    cdpi_stream            &m_stream;
+    ptr_cdpi_event_listener m_listener;
 
     void parse_handshake(char *data, int len);
     void parse_client_hello(char *data, int len);

@@ -375,7 +375,13 @@ init_cipher_suites()
     cipher_suites[0xfeff] = "SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA";
 }
 
-cdpi_ssl::cdpi_ssl(cdpi_proto_type type) : m_type(type), m_ver(0)
+cdpi_ssl::cdpi_ssl(cdpi_proto_type type, const cdpi_id_dir &id_dir,
+                   cdpi_stream &stream, ptr_cdpi_event_listener listener)
+    : m_type(type),
+      m_ver(0),
+      m_id_dir(id_dir),
+      m_stream(stream),
+      m_listener(listener)
 {
     init_cipher_suites();
     init_compression_methods();
@@ -542,7 +548,7 @@ cdpi_ssl::parse_certificate(char *data, int len)
         len  -= cert_len;
     }
 
-    // TODO: event
+    // TODO: event certificate
 }
 
 void
@@ -634,7 +640,9 @@ cdpi_ssl::parse_server_hello(char *data, int len)
 
         // TODO: read extensions
 
-        // TODO: event parse server hello
+        // event parse server hello
+        m_listener->in_stream(CDPI_EVENT_SSL_SERVER_HELLO, m_id_dir,
+                              m_stream);
 
         cout << "GMT UNIX Time = " << m_gmt_unix_time
              << "\nRandom = ";
@@ -796,7 +804,9 @@ cdpi_ssl::parse_client_hello(char *data, int len)
 
         // TODO: read extensions
 
-        // TODO: event parse client Hello
+        // event parse client Hello
+        m_listener->in_stream(CDPI_EVENT_SSL_CLIENT_HELLO, m_id_dir,
+                              m_stream);
 
         cout << "GMT UNIX Time = " << m_gmt_unix_time
              << "\nRandom = ";
