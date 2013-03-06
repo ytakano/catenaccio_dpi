@@ -2,12 +2,15 @@
 #include "cdpi_divert.hpp"
 #include "cdpi_pcap.hpp"
 #include "cdpi_http.hpp"
+#include "cdpi_ssl.hpp"
 
 #include <unistd.h>
 
 #include <arpa/inet.h>
 
 #include <netinet/in.h>
+
+#include <openssl/x509.h>
 
 #include <iostream>
 #include <string>
@@ -45,6 +48,7 @@ public:
          */
 
         ptr_cdpi_http p_http;
+        ptr_cdpi_ssl  p_ssl;
 
         switch (cev) {
         case CDPI_EVENT_STREAM_OPEN:
@@ -173,6 +177,148 @@ public:
                 cout << "\tmethod: " << p_http->get_method()
                      << "\n\turi: " << p_http->get_uri()
                      << "\n\tver: " << p_http->get_ver() << endl;
+            }
+
+            break;
+        }
+        case CDPI_EVENT_SSL_CLIENT_HELLO:
+        {
+            cdpi_bytes session_id;
+
+            p_ssl = PROTO_TO_SSL(stream.get_proto(id_dir));
+
+            cout << "SSL client hello: src = " << src << ":" << port_src
+                 << ", dst = " << dst << ":" << port_dst
+                 << "\nGMT UNIX Time = " << p_ssl->get_gmt_unix_time()
+                 << "\nRandom = ";
+
+            print_binary((char*)p_ssl->get_random(), 32);
+
+            session_id = p_ssl->get_session_id();
+
+            if (session_id.m_ptr) {
+                cout << "\nSession ID = ";
+                print_binary(session_id.m_ptr.get(), session_id.m_len);
+            }
+
+            cout << "\nCipher Suites = \n";
+
+            const std::list<uint16_t> &cipher_suites = p_ssl->get_cipher_suites();
+            std::list<uint16_t>::const_iterator it;
+
+            for (it = cipher_suites.begin(); it != cipher_suites.end(); ++it) {
+                std::string cipher = p_ssl->num_to_cipher(*it);
+                uint16_t    n = htons(*it);
+
+                    if (cipher.size() == 0) {
+                        cout << "\t";
+
+                        print_binary((char*)&n, sizeof(uint16_t));
+
+                        cout << "\n";
+                    } else {
+                        cout << "\t" << cipher << ", ";
+
+                        print_binary((char*)&n, sizeof(uint16_t));
+
+                        cout << "\n";
+                    }
+            }
+
+
+            cout << "Compression Methods = ";
+
+            const std::list<uint8_t> &compression_methods = p_ssl->get_compression_methods();
+            std::list<uint8_t>::const_iterator it2;
+            for (it2 = compression_methods.begin();
+                 it2 != compression_methods.end(); ++it2) {
+                cout << p_ssl->num_to_compression(*it2) << " ";
+            }
+
+            cout << endl;
+
+            break;
+        }
+        case CDPI_EVENT_SSL_SERVER_HELLO:
+        {
+            cdpi_bytes session_id;
+
+            p_ssl = PROTO_TO_SSL(stream.get_proto(id_dir));
+
+            cout << "SSL server hello: src = " << src << ":" << port_src
+                 << ", dst = " << dst << ":" << port_dst
+                 << "\nGMT UNIX Time = " << p_ssl->get_gmt_unix_time()
+                 << "\nRandom = ";
+
+            print_binary((char*)p_ssl->get_random(), 32);
+
+            session_id = p_ssl->get_session_id();
+
+            if (session_id.m_ptr) {
+                cout << "\nSession ID = ";
+                print_binary(session_id.m_ptr.get(), session_id.m_len);
+            }
+
+            cout << "\nCipher Suites = ";
+
+            const std::list<uint16_t> &cipher_suites = p_ssl->get_cipher_suites();
+            std::list<uint16_t>::const_iterator it;
+
+            for (it = cipher_suites.begin(); it != cipher_suites.end(); ++it) {
+                std::string cipher = p_ssl->num_to_cipher(*it);
+                uint16_t    n = htons(*it);
+
+                    if (cipher.size() == 0) {
+                        print_binary((char*)&n, sizeof(uint16_t));
+
+                        cout << "\n";
+                    } else {
+                        cout << cipher << ", ";
+
+                        print_binary((char*)&n, sizeof(uint16_t));
+
+                        cout << "\n";
+                    }
+            }
+
+
+            cout << "Compression Methods = ";
+
+            const std::list<uint8_t> &compression_methods = p_ssl->get_compression_methods();
+            std::list<uint8_t>::const_iterator it2;
+            for (it2 = compression_methods.begin();
+                 it2 != compression_methods.end(); ++it2) {
+                cout << p_ssl->num_to_compression(*it2) << " ";
+            }
+
+            cout << endl;
+
+            break;
+        }
+        case CDPI_EVENT_SSL_CERTIFICATE:
+        {
+            p_ssl = PROTO_TO_SSL(stream.get_proto(id_dir));
+
+            cout << "SSL certificate: src = " << src << ":" << port_src
+                 << ", dst = " << dst << ":" << port_dst << endl;
+
+
+            const std::list<cdpi_bytes> &certs = p_ssl->get_certificats();
+            std::list<cdpi_bytes>::const_iterator it;
+
+            for (it = certs.begin(); it != certs.end(); ++it) {
+                // decode X509 certification
+                X509 *cert;
+                const unsigned char *p = (const unsigned char*)it->m_ptr.get();
+
+                cert = d2i_X509(NULL, &p, it->m_len);
+
+                if (cert == NULL)
+                    return;
+
+                X509_print_fp(stdout, cert);
+
+                X509_free(cert);
             }
 
             break;

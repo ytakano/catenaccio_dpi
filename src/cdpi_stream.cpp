@@ -150,12 +150,16 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
         } else if (cdpi_ssl::is_ssl_client(it->second->m_bytes)) {
             it->second->m_type  = PROTO_SSL_CLIENT;
             it->second->m_proto = ptr_cdpi_proto(new cdpi_ssl(PROTO_SSL_CLIENT,
+                                                              id_dir,
+                                                              *this,
                                                               m_listener));
 
             m_listener->in_stream(CDPI_EVENT_PROTOCOL_DETECTED, id_dir, *this);
         } else if (cdpi_ssl::is_ssl_server(it->second->m_bytes)) {
             it->second->m_type  = PROTO_SSL_SERVER;
             it->second->m_proto = ptr_cdpi_proto(new cdpi_ssl(PROTO_SSL_SERVER,
+                                                              id_dir,
+                                                              *this,
                                                               m_listener));
 
             m_listener->in_stream(CDPI_EVENT_PROTOCOL_DETECTED, id_dir, *this);

@@ -1,8 +1,6 @@
 #include "cdpi_ssl.hpp"
 #include "cdpi_stream.hpp"
 
-#include <openssl/x509.h>
-
 #include <arpa/inet.h>
 
 #include <boost/regex.hpp>
@@ -520,7 +518,7 @@ cdpi_ssl::parse_certificate(char *data, int len)
         uint32_t  cert_len = 0;
 
         if (len < 3)
-            return;
+            break;
 
         memcpy(&cert_len, data, 3);
         cert_len = ntohl(cert_len) >> 8;
@@ -531,24 +529,19 @@ cdpi_ssl::parse_certificate(char *data, int len)
         if ((int)cert_len > len)
             return;
 
-        // decode X509 certification
-        X509 *cert;
-        unsigned char *p = (unsigned char*)data;
 
-        cert = d2i_X509(NULL, (const unsigned char**)&p, cert_len);
+        cdpi_bytes cert;
 
-        if (cert == NULL)
-            return;
+        cert.set_buf(data, (int)cert_len);
 
-        X509_print_fp(stdout, cert);
-
-        X509_free(cert);
+        m_certificates.push_back(cert);
 
         data += cert_len;
         len  -= cert_len;
     }
 
-    // TODO: event certificate
+    // event certificate
+    m_listener->in_stream(CDPI_EVENT_SSL_CERTIFICATE, m_id_dir, m_stream);
 }
 
 void
@@ -643,47 +636,6 @@ cdpi_ssl::parse_server_hello(char *data, int len)
         // event parse server hello
         m_listener->in_stream(CDPI_EVENT_SSL_SERVER_HELLO, m_id_dir,
                               m_stream);
-
-        cout << "GMT UNIX Time = " << m_gmt_unix_time
-             << "\nRandom = ";
-
-        print_binary((char*)&m_random, sizeof(m_random));
-
-        if (m_session_id.m_ptr) {
-            cout << "\nSession ID = ";
-            print_binary(m_session_id.m_ptr.get(), m_session_id.m_len);
-        }
-
-        cout << "\nCipher Suites = ";
-
-        std::list<uint16_t>::iterator it;
-        for (it = m_cipher_suites.begin(); it != m_cipher_suites.end(); ++it) {
-            if (cipher_suites.find(*it) == cipher_suites.end()) {
-                uint16_t n = htons(*it);
-
-                print_binary((char*)&n, sizeof(uint16_t));
-
-                cout << "\n";
-            } else {
-                uint16_t n = htons(*it);
-
-                cout << cipher_suites[*it] << ", ";
-
-                print_binary((char*)&n, sizeof(uint16_t));
-
-                cout << "\n";
-            }
-        }
-
-        cout << "Compression Methods = ";
-
-        std::list<uint8_t>::iterator it2;
-        for (it2 = m_compression_methods.begin();
-             it2 != m_compression_methods.end(); ++it2) {
-            cout << compression_methods[*it2] << " ";
-        }
-
-        cout << endl;
 
         break;
     }
@@ -808,50 +760,6 @@ cdpi_ssl::parse_client_hello(char *data, int len)
         m_listener->in_stream(CDPI_EVENT_SSL_CLIENT_HELLO, m_id_dir,
                               m_stream);
 
-        cout << "GMT UNIX Time = " << m_gmt_unix_time
-             << "\nRandom = ";
-
-        print_binary((char*)&m_random, sizeof(m_random));
-
-
-        if (m_session_id.m_ptr) {
-            cout << "\nSession ID = ";
-            print_binary(m_session_id.m_ptr.get(), m_session_id.m_len);
-        }
-
-        cout << "\nCipher Suites = \n";
-
-        std::list<uint16_t>::iterator it;
-        for (it = m_cipher_suites.begin(); it != m_cipher_suites.end(); ++it) {
-            if (cipher_suites.find(*it) == cipher_suites.end()) {
-                uint16_t n = htons(*it);
-
-                cout << "\t";
-
-                print_binary((char*)&n, sizeof(uint16_t));
-
-                cout << "\n";
-            } else {
-                uint16_t n = htons(*it);
-
-                cout << "\t" << cipher_suites[*it] << ", ";
-
-                print_binary((char*)&n, sizeof(uint16_t));
-
-                cout << "\n";
-            }
-        }
-
-        cout << "Compression Methods = ";
-
-        std::list<uint8_t>::iterator it2;
-        for (it2 = m_compression_methods.begin();
-             it2 != m_compression_methods.end(); ++it2) {
-            cout << compression_methods[*it2] << " ";
-        }
-
-        cout << endl;
-
         break;
     }
     case SSL20_VER:
@@ -859,4 +767,16 @@ cdpi_ssl::parse_client_hello(char *data, int len)
     default:
         ;
     }
+}
+
+std::string
+cdpi_ssl::num_to_cipher(uint16_t num)
+{
+    return cipher_suites[num];
+}
+
+std::string
+cdpi_ssl::num_to_compression(uint8_t num)
+{
+    return compression_methods[num];
 }

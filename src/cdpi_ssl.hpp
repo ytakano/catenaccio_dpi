@@ -51,12 +51,24 @@ public:
 
     void parse(std::list<cdpi_bytes> &bytes);
 
+    uint16_t get_ver() { return m_ver; }
+    const uint8_t* get_random() { return m_random; }
+    cdpi_bytes get_session_id() { return m_session_id; }
+    uint32_t get_gmt_unix_time() { return m_gmt_unix_time; }
+    const std::list<uint16_t>& get_cipher_suites() { return m_cipher_suites; }
+    const std::list<uint8_t>& get_compression_methods() { return m_compression_methods; }
+    const std::list<cdpi_bytes>& get_certificats() { return m_certificates; }
+
+    std::string num_to_cipher(uint16_t num);
+    std::string num_to_compression(uint8_t num);
+
 private:
     cdpi_proto_type         m_type;
     uint16_t                m_ver;
     uint8_t                 m_random[28];
     uint32_t                m_gmt_unix_time;
     cdpi_bytes              m_session_id;
+    std::list<cdpi_bytes>   m_certificates;
     std::list<uint16_t>     m_cipher_suites;
     std::list<uint8_t>      m_compression_methods;
     cdpi_id_dir             m_id_dir;
