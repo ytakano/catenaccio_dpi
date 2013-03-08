@@ -1,6 +1,8 @@
 #ifndef CDPI_COMMON_HPP
 #define CDPI_COMMON_HPP
 
+#include <stdio.h>
+
 #include "cdpi_bytes.hpp"
 
 #define PERROR() do {                                           \
