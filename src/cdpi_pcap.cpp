@@ -10,42 +10,18 @@
 
 using namespace std;
 
-boost::shared_ptr<cdpi_pcap> pcp;
-bool m_is_running = false;
+boost::shared_ptr<cdpi_pcap> pcap_inst;
+bool pcap_is_running = false;
 
 struct vlanhdr {
     uint16_t m_tci;
     uint16_t m_type;
 };
 
-
-void
-run_pcap(string dev, ptr_cdpi_event_listener listener)
-{
-    for (;;) {
-        if (m_is_running) {
-            stop_pcap();
-            sleep(1);
-        } else {
-            break;
-        }
-    }
-
-    m_is_running = true;
-
-    pcp = boost::shared_ptr<cdpi_pcap>(new cdpi_pcap);
-
-    pcp->set_event_listener(listener);
-    pcp->set_dev(dev);
-    pcp->run();
-
-    m_is_running = false;
-}
-
 void
 stop_pcap()
 {
-    pcp->stop();
+    pcap_inst->stop();
 }
 
 void

@@ -1,8 +1,4 @@
-#include "cdpi_bencode.hpp"
-#include "cdpi_divert.hpp"
-#include "cdpi_pcap.hpp"
-#include "cdpi_http.hpp"
-#include "cdpi_ssl.hpp"
+#include "cdpi.hpp"
 
 #include <unistd.h>
 
@@ -464,11 +460,9 @@ main(int argc, char *argv[])
     }
 
     if (is_pcap) {
-        boost::shared_ptr<my_event_listener> listener(new my_event_listener);
-        run_pcap(dev, boost::dynamic_pointer_cast<cdpi_event_listener>(listener));
+        run_pcap<my_event_listener>(dev);
     } else {
-        boost::shared_ptr<my_event_listener> listener(new my_event_listener);
-        run_divert(dvt_port, boost::dynamic_pointer_cast<cdpi_event_listener>(listener));
+        run_divert<my_event_listener>(dvt_port);
     }
 
     return 0;

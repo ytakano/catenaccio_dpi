@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <event.h>
 
+#include <iostream>
 #include <string>
 
 #include <boost/shared_ptr.hpp>
@@ -41,7 +42,23 @@ private:
     friend void callback_ipv6(evutil_socket_t fd, short what, void *arg);
 };
 
-void run_divert(int port, ptr_cdpi_event_listener listener);
+template <class LISTENER>
+void
+run_divert(int port)
+{
+    event_base *ev_base = event_base_new();
+    cdpi_divert dvt;
 
+    if (!ev_base) {
+        std::cerr << "couldn't new event_base" << std::endl;
+        exit(-1);
+    }
+
+    dvt.set_event_listener(ptr_cdpi_event_listener(new LISTENER));
+    dvt.set_ev_base(ev_base);
+    dvt.run(port, 0);
+
+    event_base_dispatch(ev_base);
+}
 
 #endif // CDPI_DIVERT_HPP

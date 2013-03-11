@@ -40,7 +40,33 @@ private:
     cdpi_callback m_callback;
 };
 
-void run_pcap(std::string dev, ptr_cdpi_event_listener listener);
+extern boost::shared_ptr<cdpi_pcap> pcap_inst;
+extern bool pcap_is_running;
+
 void stop_pcap();
+
+template <class LISTENER>
+void
+run_pcap(std::string dev)
+{
+    for (;;) {
+        if (pcap_is_running) {
+            stop_pcap();
+            sleep(1);
+        } else {
+            break;
+        }
+    }
+
+    pcap_is_running = true;
+
+    pcap_inst = boost::shared_ptr<cdpi_pcap>(new cdpi_pcap);
+
+    pcap_inst->set_event_listener(ptr_cdpi_event_listener(new LISTENER));
+    pcap_inst->set_dev(dev);
+    pcap_inst->run();
+
+    pcap_is_running = false;
+}
 
 #endif // CDPI_PCAP_HPP
