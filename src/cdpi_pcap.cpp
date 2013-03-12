@@ -88,7 +88,7 @@ cdpi_pcap::run()
 
     cout << "start capturing " << m_dev << endl;
 
-    m_handle = pcap_open_live(m_dev.c_str(), 1518, 1, 1000, errbuf);
+    m_handle = pcap_open_live(m_dev.c_str(), 65535, 1, 1000, errbuf);
 
     if (m_handle == NULL) {
         cerr << "Couldn't open device " << m_dev << ": " << errbuf << endl;

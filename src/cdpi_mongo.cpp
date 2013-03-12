@@ -5,6 +5,7 @@
 using namespace std;
 
 string mongo_server("localhost");
+const char *dht_nodes = "DHT.nodes";
 
 my_event_listener::my_event_listener()
 {
@@ -49,11 +50,107 @@ void
 my_event_listener::in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
                               ptr_cdpi_proto data)
 {
-
+    switch (cev) {
+    case CDPI_EVENT_BENCODE:
+        in_bencode(id_dir, PROTO_TO_BENCODE(data));
+        break;
+    default:
+        ;
+    }
 }
 
 void
-my_event_listener::open_tcp(cdpi_id_dir id_dir)
+my_event_listener::in_bencode(const cdpi_id_dir &id_dir, ptr_cdpi_bencode bc)
+{
+    cdpi_bencode::ptr_ben_data data = bc->get_data();
+    cdpi_bencode::ptr_ben_dict dict;
+    cdpi_bencode::ptr_ben_str  y_val;
+
+    if (! data || data->get_type() != cdpi_bencode::DICT)
+        return;
+
+    dict = BEN_TO_DICT(data);
+
+    data = dict->get_data("y", 1);
+
+    if (! data || data->get_type() != cdpi_bencode::STR)
+        return;
+
+    y_val = BEN_TO_STR(data);
+
+    switch (y_val->m_ptr[0]) {
+    case 'r': // response
+    {
+        cdpi_bencode::ptr_ben_dict r_val;
+        cdpi_bencode::ptr_ben_str  nodes_val; 
+
+        // get response dictionary
+        data = dict->get_data("r", 1);
+
+        if (! data || data->get_type() != cdpi_bencode::DICT)
+            return;
+
+        r_val = BEN_TO_DICT(data);
+
+
+        // get nodes
+        data = r_val->get_data("nodes", 5);
+
+        if (! data || data->get_type() != cdpi_bencode::STR)
+            return;
+
+        nodes_val = BEN_TO_STR(data);
+
+        break;
+    }
+    case 'q': // query
+    case 'e': // error
+    default:
+        ;
+    }
+}
+
+void
+my_event_listener::in_dht_nodes(const cdpi_id_dir &id_dir,
+                                cdpi_bencode::ptr_ben_str bstr)
+{
+    int   len   = bstr->m_len;
+    char *nodes = bstr->m_ptr.get();
+
+    for (int i = 0; i < len / 26; i++) {
+        uint32_t ip;
+        uint16_t port;
+        char     id[20];
+        char     id_str[41];
+        char     ip_str[64];
+        char     port_str[8];
+
+        const char hex[] = {'0', '1', '2', '3', 
+                            '4', '5', '6', '7',
+                            '8', '9', 'a', 'b',
+                            'c', 'd', 'e', 'f'};
+
+        memcpy(id, nodes, sizeof(id));
+        nodes += sizeof(id);
+
+        memcpy(&ip, nodes, sizeof(ip));
+        nodes += sizeof(ip);
+
+        memcpy(&port, nodes, sizeof(port));
+        nodes += sizeof(port);
+
+        id_str[40] = '\0';
+        for (int j = 0; j < sizeof(id); j++) {
+            id_str[j * 2]     = hex[(id[j] >> 4) & 0x0f];
+            id_str[j * 2 + 1] = hex[id[j] & 0x0f];
+        }
+
+        // TODO: add to mongoDB
+    }
+}
+
+void
+my_event_listener::open_tcp(const cdpi_id_dir &id_dir)
 {
     map<cdpi_id, tcp_info>::iterator it;
 
@@ -70,7 +167,7 @@ my_event_listener::open_tcp(cdpi_id_dir id_dir)
 }
 
 void
-my_event_listener::close_tcp(cdpi_id_dir id_dir, cdpi_stream &stream)
+my_event_listener::close_tcp(const cdpi_id_dir &id_dir, cdpi_stream &stream)
 {
     map<cdpi_id, tcp_info>::iterator it;
 

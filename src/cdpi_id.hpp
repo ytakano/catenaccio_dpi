@@ -3,6 +3,8 @@
 
 #include "cdpi_bytes.hpp"
 
+#include <arpa/inet.h>
+
 #include <stdint.h>
 #include <string.h>
 
@@ -120,6 +122,22 @@ struct cdpi_id_dir {
     }
 
 
+    void get_addr_src(char *buf, int len) const {
+        boost::shared_ptr<cdpi_peer> addr;
+
+        addr = FROM_ADDR1 ? m_id.m_addr1 : m_id.m_addr2;
+
+        get_addr(addr, buf, len);
+    }
+
+    void get_addr_dst(char *buf, int len) const {
+        boost::shared_ptr<cdpi_peer> addr;
+
+        addr = FROM_ADDR1 ? m_id.m_addr2 : m_id.m_addr1;
+
+        get_addr(addr, buf, len);
+    }
+
     uint32_t get_ipv4_addr_src() const {
         return m_dir == FROM_ADDR1 ?
             m_id.m_addr1->l3_addr.b32 :
@@ -146,6 +164,15 @@ struct cdpi_id_dir {
 
     uint8_t get_l3_proto() const { return m_id.get_l3_proto(); }
     uint8_t get_l4_proto() const { return m_id.get_l4_proto(); }
+
+private:
+    void get_addr(boost::shared_ptr<cdpi_peer> addr, char *buf, int len) const {
+        if (m_id.get_l3_proto() == IPPROTO_IP) {
+            inet_ntop(AF_INET, &addr->l3_addr.b32, buf, len);
+        } else if (m_id.get_l3_proto() == IPPROTO_IPV6) {
+            inet_ntop(AF_INET6, addr->l3_addr.b128, buf, len);
+        }
+    }
 };
 
 #endif // CDPI_ID_HPP

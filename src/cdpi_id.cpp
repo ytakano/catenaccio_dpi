@@ -2,8 +2,6 @@
 
 #include <sys/socket.h>
 
-#include <arpa/inet.h>
-
 #ifdef __linux__
     #define __FAVOR_BSD
 #endif

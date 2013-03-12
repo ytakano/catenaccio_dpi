@@ -34,8 +34,11 @@ private:
     mongo::DBClientConnection   m_mongo;
     std::map<cdpi_id, tcp_info> m_tcp;
 
-    void open_tcp(cdpi_id_dir id_dir);
-    void close_tcp(cdpi_id_dir id_dir, cdpi_stream &stream);
+    void open_tcp(const cdpi_id_dir &id_dir);
+    void close_tcp(const cdpi_id_dir &id_dir, cdpi_stream &stream);
+    void in_bencode(const cdpi_id_dir &id_dir, ptr_cdpi_bencode bc);
+    void in_dht_nodes(const cdpi_id_dir &id_dir,
+                      cdpi_bencode::ptr_ben_str bstr);
 };
 
 #endif // CDPI_MONGO_HPP

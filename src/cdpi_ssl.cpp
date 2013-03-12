@@ -445,7 +445,7 @@ cdpi_ssl::parse(list<cdpi_bytes> &bytes)
 
         read_len = read_bytes(bytes, data.get(), len + sizeof(head));
 
-        if (read_len < len)
+        if (read_len < len + sizeof(head))
             return;
 
         skip_bytes(bytes, read_len);

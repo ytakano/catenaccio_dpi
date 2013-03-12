@@ -20,15 +20,13 @@ public:
 
         
         // How to get IPv4 address and Port number
-        
-        uint32_t addr_src = id_dir.get_ipv4_addr_src();
-        uint32_t addr_dst = id_dir.get_ipv4_addr_dst();
+
         uint16_t port_src = ntohs(id_dir.get_port_src());
         uint16_t port_dst = ntohs(id_dir.get_port_dst());
-        char src[32], dst[32];
+        char src[64], dst[64];
 
-        inet_ntop(PF_INET, &addr_src, src, sizeof(src));
-        inet_ntop(PF_INET, &addr_dst, dst, sizeof(dst));
+        id_dir.get_addr_src(src, sizeof(src));
+        id_dir.get_addr_dst(dst, sizeof(dst));
 
         /*
          * // L3 and L4 protocol
