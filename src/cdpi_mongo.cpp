@@ -15,11 +15,25 @@ my_event_listener::my_event_listener()
         cerr << errmsg << endl;
         exit(-1);
     }
+
+    m_mongo.ensureIndex(dht_nodes,
+                        mongo::fromjson("{ID: 1}"), true);
 }
 
 my_event_listener::~my_event_listener()
 {
 
+}
+
+void
+my_event_listener::get_epoch_millis(mongo::Date_t &date)
+{
+    struct timeval tv;
+
+    gettimeofday(&tv, NULL);
+
+    date.millis = ((unsigned long long)(tv.tv_sec) * 1000 +
+                   (unsigned long long)(tv.tv_usec) / 1000);
 }
 
 void
@@ -101,6 +115,8 @@ my_event_listener::in_bencode(const cdpi_id_dir &id_dir, ptr_cdpi_bencode bc)
 
         nodes_val = BEN_TO_STR(data);
 
+        in_dht_nodes(id_dir, nodes_val);
+
         break;
     }
     case 'q': // query
@@ -122,7 +138,7 @@ my_event_listener::in_dht_nodes(const cdpi_id_dir &id_dir,
         uint16_t port;
         char     id[20];
         char     id_str[41];
-        char     ip_str[64];
+        char     ip_str[16];
         char     port_str[8];
 
         const char hex[] = {'0', '1', '2', '3', 
@@ -145,7 +161,36 @@ my_event_listener::in_dht_nodes(const cdpi_id_dir &id_dir,
             id_str[j * 2 + 1] = hex[id[j] & 0x0f];
         }
 
-        // TODO: add to mongoDB
+        inet_ntop(AF_INET, &ip, ip_str, sizeof(ip_str));
+
+        // add to mongoDB
+
+        mongo::BSONObjBuilder b1, b2, b3;
+        mongo::BSONObj doc1, doc2, doc3;
+        mongo::Date_t  date;
+
+        get_epoch_millis(date);
+
+        // insert ID
+        b1.append("ID", id_str);
+        doc1 = b1.obj();
+
+        cout << doc1.toString() << endl;
+
+        m_mongo.insert(dht_nodes, doc1);
+
+        // update ip, port, date
+        b2.append("ip", ip_str);
+        b2.append("port", port);
+        b2.append("date", date);
+        doc2 = b2.obj();
+
+        b3.append("$set", doc2);
+        doc3 = b3.obj();
+
+        cout << doc3.toString() << endl;
+
+        m_mongo.update(dht_nodes, doc1, doc3);
     }
 }
 
@@ -194,7 +239,9 @@ print_usage(char *cmd)
     cout << "if you want to use divert socket (FreeBSD/MacOS X only), use -d option\n\t"
          << cmd << " -d -4 [divert port for IPv4]\n\n"
          << "if you want to use pcap, use -p option\n\t"
-         << cmd << " -p -i [NIF]"
+         << cmd << " -p -i [NIF]\n\n"
+         << "if you want to speficy IP address and port number of mongoDB, use -m option\n\t"
+         << cmd << " -m localhost:27017 -p -i en0"
          << endl;
 }
 

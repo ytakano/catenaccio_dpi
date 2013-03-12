@@ -39,6 +39,7 @@ private:
     void in_bencode(const cdpi_id_dir &id_dir, ptr_cdpi_bencode bc);
     void in_dht_nodes(const cdpi_id_dir &id_dir,
                       cdpi_bencode::ptr_ben_str bstr);
+    void get_epoch_millis(mongo::Date_t &date);
 };
 
 #endif // CDPI_MONGO_HPP
