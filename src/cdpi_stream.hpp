@@ -67,6 +67,7 @@ public:
         m_listener = listener;
     }
 
+    uint64_t get_sent_bytes(cdpi_id_dir id_dir);
     double get_bps(cdpi_id_dir id_dir);
 
     ptr_cdpi_proto get_proto(cdpi_id_dir id_dir);

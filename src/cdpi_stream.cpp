@@ -208,6 +208,18 @@ cdpi_stream::in_data(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
     }
 }
 
+uint64_t
+cdpi_stream::get_sent_bytes(cdpi_id_dir id_dir)
+{
+    map<cdpi_id_dir, ptr_cdpi_stream_info>::iterator it;
+
+    it = m_info.find(id_dir);
+    if (it == m_info.end())
+        return 0.0;
+
+    return it->second->m_total_size;
+}
+
 double
 cdpi_stream::get_bps(cdpi_id_dir id_dir)
 {

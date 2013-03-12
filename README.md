@@ -26,7 +26,7 @@ If you want to compile as debug mode, set a option of CMAKE_BUILD_YPE=Debug when
 
 If you want to build with mongoDB, set a option of USE_MONGO.
 
-    $ cmake -DUSE_MONGO=1 CMAKE_BUILD_TYPE=Release CMakeLists.txt
+    $ cmake -DUSE_MONGO=1 -DCMAKE_BUILD_TYPE=Release CMakeLists.txt
     $ make
 
 You can use a verbose mode when compiling.

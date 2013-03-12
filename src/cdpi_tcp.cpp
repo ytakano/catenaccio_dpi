@@ -78,6 +78,7 @@ cdpi_tcp::garbage_collector()
 
             std::map<cdpi_id, ptr_cdpi_tcp_flow>::iterator it;
 
+            // close half opened connections
             for (it = m_flow.begin(); it != m_flow.end(); ++it) {
                 if (((it->second->m_flow1.m_is_syn &&
                       ! it->second->m_flow2.m_is_syn) ||

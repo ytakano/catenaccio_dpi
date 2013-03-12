@@ -243,6 +243,10 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
                     // event trailer
                     m_listener->in_stream(CDPI_EVENT_HTTP_READ_TRAILER,
                                           m_id_dir, m_stream);
+
+                    // event read
+                    m_listener->in_stream(CDPI_EVENT_HTTP_READ,
+                                          m_id_dir, m_stream);
                 } else if (m_method.back() == "CONNECT") {
                     cout << "proxy: connect" << endl;
 
@@ -268,6 +272,10 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
                         m_state = cdpi_http::HTTP_CHUNK_LEN;
                     } else {
                         m_state = cdpi_http::HTTP_METHOD;
+
+                        // event read
+                        m_listener->in_stream(CDPI_EVENT_HTTP_READ,
+                                              m_id_dir, m_stream);
                     }
 
                     // event head
@@ -300,6 +308,10 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
                     m_listener->in_stream(CDPI_EVENT_HTTP_READ_TRAILER,
                                           m_id_dir, m_stream);
 
+                    // event read
+                    m_listener->in_stream(CDPI_EVENT_HTTP_READ,
+                                          m_id_dir, m_stream);
+
                 } else if (method == "CONNECT" && m_code == "200") {
                     cout << "proxy: connection established" << endl;
 
@@ -307,6 +319,7 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
                     m_listener->in_stream(CDPI_EVENT_HTTP_READ_HEAD,
                                           m_id_dir, m_stream);
 
+                    // event read
                     m_listener->in_stream(CDPI_EVENT_HTTP_PROXY,
                                           m_id_dir, m_stream);
 
@@ -314,6 +327,10 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
                 } else if (method == "HEAD" || m_code == "204" ||
                            m_code == "205" || m_code == "304") {
                     m_state = HTTP_RESPONSE;
+
+                    // event read
+                    m_listener->in_stream(CDPI_EVENT_HTTP_READ,
+                                          m_id_dir, m_stream);
                 } else {
                     string tr_enc;
 
@@ -474,9 +491,17 @@ cdpi_http::parse_body(list<cdpi_bytes> &bytes)
         switch (m_type) {
         case PROTO_HTTP_CLIENT:
             m_state = cdpi_http::HTTP_METHOD;
+
+            // event read
+            m_listener->in_stream(CDPI_EVENT_HTTP_READ, m_id_dir, m_stream);
+
             break;
         case PROTO_HTTP_SERVER:
             m_state = cdpi_http::HTTP_RESPONSE;
+
+            // event read
+            m_listener->in_stream(CDPI_EVENT_HTTP_READ, m_id_dir, m_stream);
+
             break;
         default:
             // not to reach

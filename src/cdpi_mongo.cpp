@@ -1,38 +1,92 @@
-#include "cdpi.hpp"
+#include "cdpi_mongo.hpp"
 
 #include <unistd.h>
-
-#include <mongo/client/dbclient.h>
 
 using namespace std;
 
 string mongo_server("localhost");
 
-class my_event_listener : public cdpi_event_listener {
-public:
-    my_event_listener() {
-        string errmsg;
+my_event_listener::my_event_listener()
+{
+    string errmsg;
 
-        if (! m_mongo.connect(mongo_server, errmsg)) {
-            cerr << errmsg << endl;
-            exit(-1);
-        }
+    if (! m_mongo.connect(mongo_server, errmsg)) {
+        cerr << errmsg << endl;
+        exit(-1);
+    }
+}
+
+my_event_listener::~my_event_listener()
+{
+
+}
+
+void
+my_event_listener::in_stream(cdpi_event cev, const cdpi_id_dir &id_dir,
+                            cdpi_stream &stream)
+{
+    switch (cev) {
+    case CDPI_EVENT_STREAM_OPEN:
+        open_tcp(id_dir);
+        break;
+    case CDPI_EVENT_STREAM_CLOSE:
+        close_tcp(id_dir, stream);
+        break;
+    case CDPI_EVENT_PROTOCOL_DETECTED:
+    {
+        break;
+    }
+    case CDPI_EVENT_HTTP_READ:
+    {
+        break;
+    }
+    default:
+        ;
+    };
+}
+
+void
+my_event_listener::in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
+                              ptr_cdpi_proto data)
+{
+
+}
+
+void
+my_event_listener::open_tcp(cdpi_id_dir id_dir)
+{
+    map<cdpi_id, tcp_info>::iterator it;
+
+    it = m_tcp.find(id_dir.m_id);
+    if (it == m_tcp.end()) {
+        m_tcp[id_dir.m_id].m_num_open++;
+        it = m_tcp.find(id_dir.m_id);
+    } else {
+        it->second.m_num_open++;
     }
 
-    virtual ~my_event_listener() {
-    }
+    if (it->second.m_num_open == 2)
+        it->second.m_is_opened = true;
+}
 
-    virtual void in_stream(cdpi_event cev, const cdpi_id_dir &id_dir,
-                           cdpi_stream &stream) {
-    }
+void
+my_event_listener::close_tcp(cdpi_id_dir id_dir, cdpi_stream &stream)
+{
+    map<cdpi_id, tcp_info>::iterator it;
 
-    virtual void in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
-                             ptr_cdpi_proto data) {
-    }
+    it = m_tcp.find(id_dir.m_id);
+    if (it == m_tcp.end())
+        return;
 
-private:
-    mongo::DBClientConnection m_mongo;
-};
+    it->second.m_num_open--;
+
+    if (it->second.m_num_open == 0) {
+        // TODO: add to mongoDB
+
+        m_tcp.erase(it);
+    }
+}
+
 
 extern char *optarg;
 extern int   optind, opterr, optopt;

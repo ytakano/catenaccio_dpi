@@ -1,7 +1,7 @@
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
 
-option(USE_MONGO "Use MongoDB" OFF)
+option(USE_MONGO "Use MongoDB" 0)
 
 FILE(GLOB CPPSources *.cpp)
 FILE(GLOB CPPHeaders *.hpp)
@@ -19,7 +19,7 @@ IF(APPLE)
     set_property(TARGET cdpi_static_i386 PROPERTY COMPILE_FLAGS "-arch i386")
 ENDIF(APPLE)
 
-set(LIBS event boost_thread-mt boost_system-mt boost_regex-mt boost_iostreams-mt pcap crypto mongoclient)
+set(LIBS event boost_thread-mt boost_system-mt boost_regex-mt boost_iostreams-mt pcap crypto)
 
 target_link_libraries(cattenacio_dpi ${LIBS})
 target_link_libraries(cdpi ${LIBS})
