@@ -36,7 +36,6 @@ public:
     void add_mime_to_read(std::string mime) { m_mime_to_read.insert(mime); }
     void del_mime_to_raed(std::string mime) { m_mime_to_read.erase(mime); }
 
-    cdpi_proto_type get_proto_type() const { return m_type; }
     std::string get_method() const {
         return m_method.size() > 0 ? m_method.back() : ""; }
     std::string get_uri() const { return m_uri; }
@@ -61,7 +60,6 @@ private:
         HTTP_CHUNK_TRAILER,
     };
 
-    cdpi_proto_type m_type;
     http_state m_state;
     std::queue<std::string> m_method;
     std::string m_uri;

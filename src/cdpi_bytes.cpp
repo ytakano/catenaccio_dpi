@@ -184,7 +184,7 @@ bin2str(const char *buf, int len)
 }
 
 void
-decompress_gzip(const char *buf, int len, vector<char> &out_buf)
+decompress_gzip(const char *buf, int len, std::string &out_buf)
 {
     io::filtering_ostream os;
 
@@ -195,7 +195,7 @@ decompress_gzip(const char *buf, int len, vector<char> &out_buf)
 }
 
 void
-decompress_zlib(const char *buf, int len, vector<char> &out_buf)
+decompress_zlib(const char *buf, int len, std::string &out_buf)
 {
     io::filtering_ostream os;
 

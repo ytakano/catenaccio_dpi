@@ -63,7 +63,6 @@ public:
     std::string num_to_compression(uint8_t num);
 
 private:
-    cdpi_proto_type         m_type;
     uint16_t                m_ver;
     uint8_t                 m_random[28];
     uint32_t                m_gmt_unix_time;

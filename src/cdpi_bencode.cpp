@@ -11,7 +11,7 @@
 
 using namespace std;
 
-cdpi_bencode::cdpi_bencode()
+cdpi_bencode::cdpi_bencode() : cdpi_proto(PROTO_BENCODE)
 {
 
 }

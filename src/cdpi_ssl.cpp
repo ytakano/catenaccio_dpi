@@ -375,7 +375,7 @@ init_cipher_suites()
 
 cdpi_ssl::cdpi_ssl(cdpi_proto_type type, const cdpi_id_dir &id_dir,
                    cdpi_stream &stream, ptr_cdpi_event_listener listener)
-    : m_type(type),
+    : cdpi_proto(type),
       m_ver(0),
       m_id_dir(id_dir),
       m_stream(stream),
@@ -445,7 +445,7 @@ cdpi_ssl::parse(list<cdpi_bytes> &bytes)
 
         read_len = read_bytes(bytes, data.get(), len + sizeof(head));
 
-        if (read_len < len + sizeof(head))
+        if (read_len < len + (int)sizeof(head))
             return;
 
         skip_bytes(bytes, read_len);

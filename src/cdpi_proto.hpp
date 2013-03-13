@@ -22,8 +22,13 @@ enum cdpi_proto_type {
 
 class cdpi_proto {
 public:
-    cdpi_proto();
+    cdpi_proto(cdpi_proto_type proto);
     virtual ~cdpi_proto() = 0;
+
+    cdpi_proto_type get_proto_type() const { return m_type; }
+
+private:
+    cdpi_proto_type m_type;
 };
 
 typedef boost::shared_ptr<cdpi_proto> ptr_cdpi_proto;

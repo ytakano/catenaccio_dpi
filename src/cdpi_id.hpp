@@ -125,7 +125,7 @@ struct cdpi_id_dir {
     void get_addr_src(char *buf, int len) const {
         boost::shared_ptr<cdpi_peer> addr;
 
-        addr = FROM_ADDR1 ? m_id.m_addr1 : m_id.m_addr2;
+        addr = (m_dir == FROM_ADDR1) ? m_id.m_addr1 : m_id.m_addr2;
 
         get_addr(addr, buf, len);
     }
@@ -133,7 +133,7 @@ struct cdpi_id_dir {
     void get_addr_dst(char *buf, int len) const {
         boost::shared_ptr<cdpi_peer> addr;
 
-        addr = FROM_ADDR1 ? m_id.m_addr2 : m_id.m_addr1;
+        addr = (m_dir == FROM_ADDR1) ? m_id.m_addr2 : m_id.m_addr1;
 
         get_addr(addr, buf, len);
     }

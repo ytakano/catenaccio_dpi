@@ -120,19 +120,14 @@ public:
 
             if (buf.m_ptr) {
                 string encoding = p_http->get_header("content-encoding");
+                string decompressed;
 
                 if (encoding == "gzip") {
-                    vector<char> decompressed;
-
                     decompress_gzip(buf.m_ptr.get(), buf.m_len, decompressed);
-
-                    cout.write(&decompressed[0], decompressed.size());
+                    cout << decompressed << endl;
                 } else if (encoding == "deflate") {
-                    vector<char> decompressed;
-
                     decompress_zlib(buf.m_ptr.get(), buf.m_len, decompressed);
-
-                    cout.write(&decompressed[0], decompressed.size());
+                    cout << decompressed << endl;
                 } else {
                     cout.write(buf.m_ptr.get(), buf.m_len);
                 }
