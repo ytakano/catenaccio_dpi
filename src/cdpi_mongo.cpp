@@ -21,11 +21,9 @@ my_event_listener::my_event_listener()
         exit(-1);
     }
 
-    m_mongo.ensureIndex(dht_nodes,
-                        mongo::fromjson("{ID: 1}"), true);
-
-    m_mongo.ensureIndex(http_requests,
-                        mongo::fromjson("{uri: 1, referer: 1, date: 1}"));
+    m_mongo.ensureIndex(http_requests, mongo::fromjson("{uri: 1}"));
+    m_mongo.ensureIndex(http_requests, mongo::fromjson("{referer: 1}"));
+    m_mongo.ensureIndex(http_requests, mongo::fromjson("{date: 1}"));
 }
 
 my_event_listener::~my_event_listener()
@@ -381,7 +379,7 @@ my_event_listener::in_dht_nodes(const cdpi_id_dir &id_dir,
         get_epoch_millis(date);
 
         // insert ID
-        b1.append("ID", id_str);
+        b1.append("_id", id_str);
         doc1 = b1.obj();
 
         cout << doc1.toString() << endl;
