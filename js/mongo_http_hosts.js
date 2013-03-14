@@ -1,3 +1,13 @@
+var ex_domains = {'ac.jp': true,
+                  'ad.jp': true,
+                  'co.jp': true,
+                  'ed.jp': true,
+                  'go.jp': true,
+                  'gr.jp': true,
+                  'lg.jp': true,
+                  'ne.jp': true,
+                  'or.jp': true}
+
 function map() {
     var uri = this.uri.split('/')[2];
     emit(uri, 1);
@@ -18,20 +28,17 @@ function trunc_host() {
     var trunc = {};
 
     for (var c = db.hosts.find(); c.hasNext(); ) {
-        var host = c.next()['_id'].split('.').reverse();
-        if (host.length <= 2)
-            continue;
-
-        hosts.push(host);
+        hosts.push(c.next()['_id'].split('.').reverse());
     }
 
     for (var i = 0; i < hosts.length; i++) {
         for (var j = 0; j < hosts.length; j++) {
-            if (hosts[i] == hosts[j])
+            if (hosts[i].join() == hosts[j].join())
                 continue;
 
             var n = 0;
-            var len = hosts[i].length < hosts[j].length ? hosts[i].length : hosts[j].length;
+            var len = ((hosts[i].length < hosts[j].length) ?
+                       hosts[i].length : hosts[j].length);
 
             for (var k = 0; k < len; k++) {
                 if (hosts[i][k] == hosts[j][k])
@@ -51,21 +58,21 @@ function trunc_host() {
 
                 tr_host = tr_host.reverse().join('.');
 
-                var h = hosts[i].reverse().join('.');
+                if (tr_host in ex_domains)
+                    continue;
 
-                shellPrint([h, tr_host, corr]);
+                var host = hosts[i].reverse().join('.');
+                hosts[i].reverse();
 
-                if (h in trunc) {
-                    if (tr_host.length < trunc[h].length)
-                        trunc[h] = tr_host;
+                if (host in trunc) {
+                    if (tr_host.length < trunc[host].length)
+                        trunc[host] = tr_host;
                 } else {
-                    trunc[h] = tr_host;
+                    trunc[host] = tr_host;
                 }
             }
         }
     }
-
-    shellPrint(trunc);
 
     db.trunc_hosts.remove();
     for (var key in trunc) {

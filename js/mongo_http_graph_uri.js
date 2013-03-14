@@ -1,14 +1,9 @@
 function map() {
     if ('referer' in this) {
         var referers = {};
-        var uri = this.uri.split('/')[2];
-        var referer = this.referer.split('/')[2];
 
-        if (uri == referer)
-            return;
-
-        referers[referer] = 1;
-        emit(uri, referers);
+        referers[this.referer] = 1;
+        emit(this.uri, referers);
     }
 }
 
@@ -27,6 +22,6 @@ function reduce(key, values) {
     return referers;
 }
 
-var res = db.requests.mapReduce(map, reduce, {out: {replace: 'host_graph'}});
+var res = db.requests.mapReduce(map, reduce, {out: {replace: "graph_uri"}});
 
 shellPrint(res);

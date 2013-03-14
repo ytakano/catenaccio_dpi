@@ -35,6 +35,6 @@ function reduce(key, values) {
     return referers;
 }
 
-var res = db.requests.mapReduce(map, reduce, {out: {replace: 'trunc_host_graph'}});
+var res = db.requests.mapReduce(map, reduce, {out: {replace: 'graph_trunc_host'}});
 
 shellPrint(res);
