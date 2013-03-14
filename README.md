@@ -9,9 +9,10 @@ Required:
 * [Boost C++ Library](http://www.boost.org/ "Boost")
 * [libpcap](http://www.tcpdump.org/ "tcpdump/libpcap")
 * [OpenSSL libcrypto](http://www.openssl.org/ "OpenSSL")
+* [libevent 2.0 or later (If you use divert socket)](http://libevent.org/ "libevent")
 
 Optional:
-* [libevent 2.0 or later (If you use divert socket)](http://libevent.org/ "libevent")
+
 * [mongoDB's Client Driver for C++ (If you use mongoDB)](http://www.mongodb.org/ "mongoDB")
 
 ### How to Compile

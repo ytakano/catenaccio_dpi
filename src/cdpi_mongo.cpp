@@ -208,12 +208,10 @@ my_event_listener::in_http(const cdpi_id_dir &id_dir, ptr_cdpi_http p_http)
 string
 my_event_listener::get_full_uri(string host, string server_ip, string uri)
 {
-    if (host.size() == 0) {
-        if (boost::regex_match(uri, regex_http_uri)) {
-            return uri;
-        } else {
-            return "http://" + server_ip + uri;
-        }
+    if (boost::regex_match(uri, regex_http_uri)) {
+        return uri;
+    } else if (host.size() == 0) {
+        return "http://" + server_ip + uri;
     } else {
         return "http://" + host + uri;
     }
