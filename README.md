@@ -15,6 +15,7 @@ Optional for MongoDB:
 
 * [MongoDB](http://www.mongodb.org/ "MongoDB")
 * [matplotlib of Python](http://matplotlib.org/ "matplotlib")
+* [pydot of Python](http://code.google.com/p/pydot/ "pydot")
 
 ### How to Compile
 
@@ -53,15 +54,15 @@ Example:
 
 ### How to run with MongoDB
 
-Before running, please start up MongoDB server. Then run cattenacio_dpi_mongo like this.
+Before running, please start up MongoDB server. After satrting up MongoDB, run cattenacio_dpi_mongo like this.
 
     $ ./src/cattenacio_dpi_mongo -p -i eth0
 
-You can specify IP address and port number of MongoDB by -m option. If you didn't pass -m option, it connect to localhost:27017 as default.
+You can specify IP address and port number of MongoDB by -m option. If you donn't pass -m option, it connects to localhost:27017 by default.
 
     $ ./src/cattenacio_dpi_mongo -p -i eth0 -m localhost:27017
 
-Then, run mongo.sh for statistics.
+Then, run js/mongo.sh for statistics.
 
     $ ./js/mongo.sh
 
@@ -69,11 +70,13 @@ You can specify MongoDB's address like this.
 
     $ ./js/mongo.sh localhost:27017
 
-Next, run http_stats.py for visualize like this. http_stats.py requires MongoDB's driver for python and matplotlib. -o option specifies output directory.
+Next, run py/http_stats.py for visualize like this. py/http_stats.py requires MongoDB's driver for python and matplotlib. -o option specifies output directory.
 
     $ ./py/http_stats.py -o output_direcotry
 
-At the end, open http_stats.py by your web browser.
+Finally, you can see HTTP statistics by opening http_stats.html with your web browser.
 
     $ ls output_directory/http_stats.html
     output_directory/http_stats.html
+
+js/mongo.sh and py/http_stats.py should be run periodically for statistics. cron can help you to periodically update information.
