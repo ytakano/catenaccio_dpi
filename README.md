@@ -11,9 +11,10 @@ Required:
 * [OpenSSL libcrypto](http://www.openssl.org/ "OpenSSL")
 * [libevent 2.0 or later (If you use divert socket)](http://libevent.org/ "libevent")
 
-Optional:
+Optional for MongoDB:
 
-* [mongoDB's Client Driver for C++ (If you use mongoDB)](http://www.mongodb.org/ "mongoDB")
+* [MongoDB](http://www.mongodb.org/ "MongoDB")
+* [matplotlib of Python](http://matplotlib.org/ "matplotlib")
 
 ### How to Compile
 
@@ -34,18 +35,45 @@ You can use a verbose mode when compiling.
 
     $ make VERBOSE=1
 
-### How to run
+### How to run as console
 
 If you want to use pcap for capturing packets, use -p option.
 You can specify a network interface by -i option.
 
 Example:
 
-    $ ./cattenacio_dpi -p -i eth0
+    $ ./src/cattenacio_dpi -p -i eth0
 
 If you want to use divert socket (FreeBSD/MacOS X only), use -d option.
 You can specify a port number of divert socket by -4 option.
 
 Example:
 
-    $ ./cattenacio_dpi -d -4 100
+    $ ./src/cattenacio_dpi -d -4 100
+
+### How to run with MongoDB
+
+Before running, please start up MongoDB server. Then run cattenacio_dpi_mongo like this.
+
+    $ ./src/cattenacio_dpi_mongo -p -i eth0
+
+You can specify IP address and port number of MongoDB by -m option. If you didn't pass -m option, it connect to localhost:27017 as default.
+
+    $ ./src/cattenacio_dpi_mongo -p -i eth0 -m localhost:27017
+
+Then, run mongo.sh for statistics.
+
+    $ ./js/mongo.sh
+
+You can specify MongoDB's address like this.
+
+    $ ./js/mongo.sh localhost:27017
+
+Next, run http_stats.py for visualize like this. http_stats.py requires MongoDB's driver for python and matplotlib. -o option specifies output directory.
+
+    $ ./py/http_stats.py -o output_direcotry
+
+At the end, open http_stats.py by your web browser.
+
+    $ ls output_directory/http_stats.html
+    output_directory/http_stats.html

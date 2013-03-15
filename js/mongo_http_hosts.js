@@ -32,7 +32,7 @@ function trunc_host() {
     }
 
     for (var i = 0; i < hosts.length; i++) {
-        for (var j = 0; j < hosts.length; j++) {
+        for (var j = i + 1; j < hosts.length; j++) {
             if (hosts[i].join() == hosts[j].join())
                 continue;
 
@@ -75,6 +75,8 @@ function trunc_host() {
     }
 
     db.trunc_hosts.remove();
+    db.trunc_hosts.ensureIndex({key: 1});
+
     for (var key in trunc) {
         db.trunc_hosts.save({_id: key, value: trunc[key]});
     }
