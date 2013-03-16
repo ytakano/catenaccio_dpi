@@ -5,19 +5,13 @@ import pymongo
 import json
 import getopt, sys
 import os
+import subprocess
 
 try:
     import matplotlib.pyplot as plt
     is_plt = True
 except ImportError:
     is_plt = False
-
-try:
-    import pydot
-    is_dot = True
-except ImportError:
-    is_dot = False
-
 
 html = ''
 odir = './'
@@ -47,6 +41,53 @@ def top_n_uri(graph, num):
 
     return [(k, v) for k, v in sorted(graph.items(), key = lambda x:len(x[1]),
                                       reverse = True)[0:num]]
+
+def print_tld(db):
+    global odir
+    global is_plt
+    global html
+
+    if not is_plt:
+        return
+
+    total = 0
+    tlds  = {}
+
+    for tld in db.tld.find():
+        total += tld['value']
+        tlds[tld['_id']] = tld['value']
+
+    total = float(total)
+
+    tlds['others'] = 0
+
+    for k in tlds.keys():
+        if k == 'others':
+            continue
+
+        per = tlds[k] / total
+        if per < 0.1:
+            tlds['others'] += tlds[k]
+            del tlds[k]
+
+    labels = [k for k, v in sorted(tlds.items(), key = lambda x:x[1],
+                                   reverse = True)]
+    values = [tlds[k] for k in labels]
+
+    plt.clf()
+    plt.figure(figsize=(6,6))
+
+    plt.pie(values, labels = labels, autopct = '%1.1f%%', shadow = True,
+            colors = [(1.0, 1.0, 1.0)] * len(labels))
+    plt.savefig(os.path.join(odir, 'tld_dist.png'), dpi = 80)
+
+    html += """
+<hr>
+<h2>TLD Distribution</h2>
+<div class="content">
+  <div style="text-align: center;"><img src="tld_dist.png"></div>
+</div>
+"""
 
 def print_top_50(db):
     global html
@@ -130,7 +171,7 @@ function show_stats(uri, hosts, trds) {
 
         trd_hosts = []
 
-        for trd in db.trunc_hosts.find({"value": dst}):
+        for trd in db.trunc_hosts.find({"value": src}):
             trd_hosts.append(trd['_id'])
 
         html += '<span style="font-size: %d%%;">' % (70.0 + 200.0 * len(dst) / max_out)
@@ -156,7 +197,6 @@ def print_degree():
     global html
     global odir
     global is_plt
-    global is_dot
     global ref_graph
     global out_graph
 
@@ -205,21 +245,21 @@ def print_degree():
         plt.xlabel('degree')
         plt.ylabel('count')
         plt.legend(('incoming', 'outgoing'), loc='upper right')
-        plt.savefig(os.path.join(odir, 'http_dist.png'))
+        plt.savefig(os.path.join(odir, 'http_dist.png'), dpi = 80)
 
     html += """
 <h2>Referred graph and degree distribution</h2>
 <div class="content">
 """
-    if is_dot:
-        try:
-            graph = pydot.graph_from_dot_file(os.path.join(odir,
-                                                           'http_graph.dot'))
-            graph.write(os.path.join(odir, 'http_graph.png'), prog = 'fdp',
-                        format = 'png')
-            html += '<p><a href="http_graph.png">download HTTP graph</a></p>'
-        except:
-            pass
+
+    try:
+        cmd = 'fdp -Tpng %s -o %s' % (os.path.join(odir, 'http_graph.dot'),
+                                          os.path.join(odir, 'http_graph.png'))
+
+        subprocess.call(cmd, shell=True)
+        html += '<p><a href="http_graph.png">download HTTP graph</a></p>'
+    except:
+        pass
 
     html += """
 <p><a href="http_graph.dot">download GraphViz dot file</a></p>
@@ -273,6 +313,7 @@ def print_html():
     html += '<hr>'
 
     print_degree()
+    print_tld(db)
 
     html += """
   </body>

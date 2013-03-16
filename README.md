@@ -15,7 +15,8 @@ Optional for MongoDB:
 
 * [MongoDB](http://www.mongodb.org/ "MongoDB")
 * [matplotlib of Python](http://matplotlib.org/ "matplotlib")
-* [pydot of Python](http://code.google.com/p/pydot/ "pydot")
+* [Graphviz](http://www.graphviz.org/ "Graphviz")
+
 
 ### How to Compile
 
