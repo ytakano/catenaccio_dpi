@@ -16,11 +16,9 @@ Optional for MongoDB:
 * [matplotlib of Python](http://matplotlib.org/ "matplotlib")
 * [Graphviz](http://www.graphviz.org/ "Graphviz")
 
-Optional for Divert Socket
+Optional for Divert Socket:
 
-If you want to use divert socket to captuer packets, install libevent.
-
-* [libevent 2.0 or later (If you use divert socket)](http://libevent.org/ "libevent")
+* [libevent 2.0 or later](http://libevent.org/ "libevent")
 
 ### How to Compile
 
