@@ -1,3 +1,5 @@
+#ifdef USE_DIVERT
+
 #include "cdpi_divert.hpp"
 
 #include <iostream>
@@ -145,3 +147,4 @@ cdpi_divert::run(uint16_t ipv4_port, uint16_t ipv6_port)
         event_add(m_ev_ipv6, NULL);
     }
 }
+#endif // USE_DIVERT

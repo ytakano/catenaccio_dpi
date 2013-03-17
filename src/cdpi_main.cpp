@@ -416,11 +416,16 @@ extern int optind, opterr, optopt;
 void
 print_usage(char *cmd)
 {
+#ifdef USE_DIVERT
     cout << "if you want to use divert socket (FreeBSD/MacOS X only), use -d option\n\t"
          << cmd << " -d -4 [divert port for IPv4]\n\n"
          << "if you want to use pcap, use -p option\n\t"
          << cmd << " -p -i [NIF]"
          << endl;
+#else
+    cout << "-i option tells a network interface to capture\n\t"
+         << cmd << "-i [NIF]" << endl;
+#endif
 }
 
 int
@@ -428,11 +433,18 @@ main(int argc, char *argv[])
 {
     int opt;
     int dvt_port = 100;
-    int is_pcap  = true;
     string dev;
-    
-    while ((opt = getopt(argc, argv, "d4:pi:h")) != -1) {
+
+#ifdef USE_DIVERT
+    bool is_pcap  = true;
+    const char *optstr = "d4:pi:h";
+#else
+    const char *optstr = "i:h";
+#endif // USE_DIVERT
+
+    while ((opt = getopt(argc, argv, optstr)) != -1) {
         switch (opt) {
+#ifdef USE_DIVER
         case 'd':
             is_pcap = false;
             break;
@@ -442,6 +454,7 @@ main(int argc, char *argv[])
         case 'p':
             is_pcap = true;
             break;
+#endif // USE_DIVERT
         case 'i':
             dev = optarg;
             break;
@@ -452,11 +465,15 @@ main(int argc, char *argv[])
         }
     }
 
+#ifdef USE_DIVERT
     if (is_pcap) {
         run_pcap<my_event_listener>(dev);
     } else {
         run_divert<my_event_listener>(dvt_port);
     }
+#else
+    run_pcap<my_event_listener>(dev);
+#endif // USE_DIVERT
 
     return 0;
 }

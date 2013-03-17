@@ -2,11 +2,16 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
 
 option(USE_MONGO "Use MongoDB" 0)
+option(USE_DIVERT "Use Divert" 0)
 
 FILE(GLOB CPPSources *.cpp)
 FILE(GLOB CPPHeaders *.hpp)
 FILE(GLOB CPPMain cdpi_main.cpp)
 FILE(GLOB CPPMongo cdpi_mongo.cpp)
+
+IF(USE_DIVERT)
+  add_definitions(-DUSE_DIVERT)
+ENDIF(USE_DIVERT)
 
 list(REMOVE_ITEM CPPSources ${CPPMain} ${CPPMongo})
 

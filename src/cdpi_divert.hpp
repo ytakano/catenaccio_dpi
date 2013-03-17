@@ -1,6 +1,8 @@
 #ifndef CDPI_DIVERT_HPP
 #define CDPI_DIVERT_HPP
 
+#ifdef USE_DIVERT
+
 #include "cdpi_id.hpp"
 #include "cdpi_callback.hpp"
 #include "cdpi_tcp.hpp"
@@ -60,5 +62,7 @@ run_divert(int port)
 
     event_base_dispatch(ev_base);
 }
+
+#endif // USE_DIVERT
 
 #endif // CDPI_DIVERT_HPP

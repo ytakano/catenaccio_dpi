@@ -276,7 +276,12 @@ def print_degree():
 """ % (len(nodes), total_links)
 
     if is_plt:
-        html += '<div style="text-align: center;"><img src="http_dist.png"></div>'
+        html += """
+<div style="text-align: center;">
+  <img src="http_dist.png"><br>
+  Degree Distribution
+</div>
+"""
 
     html += '</div>'
 
