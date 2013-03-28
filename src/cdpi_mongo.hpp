@@ -50,7 +50,7 @@ private:
         std::string m_ver;
         std::string m_code;
         std::string m_msg;
-        std::string m_html;
+        std::string m_content;
         std::string m_ip;
         uint16_t    m_port;
     };

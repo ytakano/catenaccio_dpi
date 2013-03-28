@@ -63,6 +63,7 @@ my_event_listener::in_stream(cdpi_event cev, const cdpi_id_dir &id_dir,
             ptr_cdpi_http p_http = PROTO_TO_HTTP(proto);
 
             p_http->add_mime_to_read("text/html");
+            p_http->add_mime_to_read("image/gif");
 
             break;
         }
@@ -153,12 +154,12 @@ my_event_listener::in_http(const cdpi_id_dir &id_dir, ptr_cdpi_http p_http)
             string encoding = p_http->get_header("content-encoding");
             if (encoding == "gzip") {
                 decompress_gzip(content.m_ptr.get(), content.m_len,
-                                server->m_html);
+                                server->m_content);
             } else if (encoding == "deflate") {
                 decompress_zlib(content.m_ptr.get(), content.m_len,
-                                server->m_html);
+                                server->m_content);
             } else {
-                server->m_html = string(content.m_ptr.get(), content.m_len);
+                server->m_content = string(content.m_ptr.get(), content.m_len);
             }
         }
 

@@ -1,16 +1,46 @@
-var ex_domains = {'ac.jp': true,
-                  'ad.jp': true,
-                  'co.jp': true,
-                  'ed.jp': true,
-                  'go.jp': true,
-                  'gr.jp': true,
-                  'lg.jp': true,
-                  'ne.jp': true,
-                  'or.jp': true}
+var gtlds ={ 'com':  true,
+             'net':  true,
+             'org':  true,
+             'info': true,
+             'biz':  true,
+             'name': true,
+             'coop': true,
+             'edu':  true,
+             'gov':  true,
+             'aero': true,
+             'asia': true,
+             'cat':  true,
+             'int':  true,
+             'jobs': true,
+             'mil':  true,
+             'mobi': true,
+             'xxx':  true,
+             'tel':  true,
+             'museum': true,
+             'travel': true };
+
+var jp_second_domains = { 'ac': true,
+                          'ad': true,
+                          'co': true,
+                          'ed': true,
+                          'go': true,
+                          'gr': true,
+                          'lg': true,
+                          'ne': true,
+                          'or': true };
 
 function map() {
-    var uri = this.uri.split('/')[2];
+    var uri     = this.uri.split('/')[2];
+
     emit(uri, 1);
+
+    if (this.referer) {
+        var referer = this.referer;
+
+        shellPrint(referer);
+
+        emit(referer, 1);
+    }
 }
 
 function reduce(key, values) {
@@ -23,59 +53,48 @@ function reduce(key, values) {
     return n;
 }
 
-function trunc_host() {
-    var hosts = [];
-    var trunc = {};
+function trunc_domain(domain) {
+    var sp  = domain.split('.').reverse();
+    var tld;
+    var result;
 
-    for (var c = db.hosts.find(); c.hasNext(); ) {
-        hosts.push(c.next()['_id'].split('.').reverse());
-    }
+    if (sp.length < 2)
+        return false;
 
-    for (var i = 0; i < hosts.length; i++) {
-        for (var j = i + 1; j < hosts.length; j++) {
-            var n = 0;
-            var len = ((hosts[i].length < hosts[j].length) ?
-                       hosts[i].length : hosts[j].length);
+    tld = sp[0];
 
-            for (var k = 0; k < len; k++) {
-                if (hosts[i][k] == hosts[j][k])
-                    n++;
-                else
-                    break;
-            }
+    if (tld in gtlds) {
+        return sp.slice(0, 2).reverse().join('.');
+    } else if (tld == 'jp') {
+        var sld = sp[1];
 
-            var corr = n / len;
-
-            if (corr > 0.5) {
-                var tr_host = [];
-
-                for (var p = 0; p < n; p++) {
-                    tr_host.push(hosts[i][p]);
-                }
-
-                tr_host = tr_host.reverse().join('.');
-
-                if (tr_host in ex_domains)
-                    continue;
-
-                var host = hosts[i].reverse().join('.');
-                hosts[i].reverse();
-
-                if (host in trunc) {
-                    if (tr_host.length < trunc[host].length)
-                        trunc[host] = tr_host;
-                } else {
-                    trunc[host] = tr_host;
-                }
-            }
+        if (sld in jp_second_domains) {
+            return sp.slice(0, 3).reverse().join('.');
+        } else {
+            return sp.slice(0, 2).reverse().join('.');
         }
     }
 
+    if (sp.length > 3) {
+        return sp.slice(0, 3).reverse().join('.');
+    }
+
+    return domain;
+}
+
+function trunc_hosts() {
     db.trunc_hosts.remove();
     db.trunc_hosts.ensureIndex({value: 1});
 
-    for (var key in trunc) {
-        db.trunc_hosts.save({_id: key, value: trunc[key]});
+    for (var c = db.hosts.find(); c.hasNext(); ) {
+        var domain = c.next()['_id'];
+        var tr_domain = trunc_domain(domain);
+
+        shellPrint([domain, tr_domain]);
+
+        if (domain != tr_domain) {
+            db.trunc_hosts.save({_id: domain, value: tr_domain});
+        }
     }
 }
 
@@ -83,4 +102,4 @@ var res = db.requests.mapReduce(map, reduce, {out: {replace: "hosts"}});
 
 shellPrint(res);
 
-trunc_host();
+trunc_hosts();
