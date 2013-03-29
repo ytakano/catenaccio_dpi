@@ -44,7 +44,7 @@ You can use a verbose mode when compiling.
 
     $ make VERBOSE=1
 
-### How to run as console
+### How to run outputting to console
 
 You can specify a network interface by -i option.
 
