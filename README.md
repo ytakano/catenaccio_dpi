@@ -63,11 +63,11 @@ Example:
 
 Before running, please start up MongoDB server. After satrting up MongoDB, run cattenacio_dpi_mongo like this.
 
-    $ ./src/cattenacio_dpi_mongo -i eth0
+    $ ./src/cdpi_mongo -i eth0
 
 You can specify IP address and port number of MongoDB by -m option. If you donn't pass -m option, it connects to localhost:27017 by default.
 
-    $ ./src/cattenacio_dpi_mongo -i eth0 -m localhost:27017
+    $ ./src/cdpi_mongo -i eth0 -m localhost:27017
 
 Then, run js/mongo.sh for statistics.
 

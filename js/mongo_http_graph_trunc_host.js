@@ -1,8 +1,8 @@
 function map() {
     if ('referer' in this) {
         var referers   = {};
-        var uri        = this.uri.split('/')[2];
-        var referer    = this.referer.split('/')[2];
+        var uri        = this.uri.split('/')[2].split(':')[0];
+        var referer    = this.referer.split('/')[2].split(':')[0];
         var tr_uri     = db.trunc_hosts.findOne({_id: uri});
         var tr_referer = db.trunc_hosts.findOne({_id: referer});
 

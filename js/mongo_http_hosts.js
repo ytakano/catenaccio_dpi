@@ -111,13 +111,27 @@ var uk_second_domains = { 'ac':     true,
                           'police': true,
                           'sch':    true };
 
+var st_second_domains = { 'nic':       true,
+                          'gov':       true,
+                          'saotome':   true,
+                          'principle': true,
+                          'consulado': true,
+                          'embaixada': true,
+                          'org':       true,
+                          'edu':       true,
+                          'net':       true,
+                          'com':       true,
+                          'sotre':     true,
+                          'mil':       true,
+                          'co':        true }
+
 function map() {
-    var uri     = this.uri.split('/')[2];
+    var uri     = this.uri.split('/')[2].split(':')[0];
 
     emit(uri, 1);
 
     if (this.referer) {
-        var referer = this.referer.split('/')[2];
+        var referer = this.referer.split('/')[2].split(':')[0];
 
         emit(referer, 1);
     }
@@ -217,6 +231,16 @@ function trunc_domain(domain) {
         } else {
             return sp.slice(0, 2).reverse().join('.');
         }
+    } else if (tld == 'st') {
+        var sld = sp[1];
+
+        if (sld in st_second_domains) {
+            return sp.slice(0, 3).reverse().join('.');
+        } else {
+            return sp.slice(0, 2).reverse().join('.');
+        }
+    } else if (parseInt(tld) != NaN) {
+        return domain;
     }
 
     if (sp.length > 3) {
