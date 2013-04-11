@@ -13,6 +13,7 @@ Required:
 Optional for MongoDB:
 
 * [MongoDB](http://www.mongodb.org/ "MongoDB")
+* [libunbound](http://unbound.net/ "Unbound")
 * [matplotlib of Python](http://matplotlib.org/ "matplotlib")
 * [Graphviz](http://www.graphviz.org/ "Graphviz")
 

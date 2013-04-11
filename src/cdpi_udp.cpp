@@ -50,17 +50,6 @@ cdpi_udp::run()
             packet = m_queue.front();
             m_queue.pop();
 
-
-/*
-            cout << "input UDP:" << endl;
-
-            print_binary(packet.m_bytes.m_ptr.get(),
-                         packet.m_bytes.m_len);
-
-            cout << endl;
-*/
-
-
             // TODO: analyze data
 
             data = packet.m_bytes.m_ptr.get() + sizeof(udphdr);

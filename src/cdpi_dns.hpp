@@ -159,7 +159,14 @@
  *  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
  */
 
-#define SIZEOF_DNS_HEADER (sizeof(cdpi_dns_header) - sizeof(cdpi_dns_header::m_padding))
+#include <stdint.h>
+
+#include <list>
+#include <string>
+
+#include <boost/shared_ptr.hpp>
+
+#define SIZEOF_DNS_HEADER 12
 
 enum cdpi_dns_class {
     DNS_CLASS_IN = 1, // the Internet
@@ -197,26 +204,49 @@ struct cdpi_dns_header {
     uint32_t m_padding; // for alignment
 };
 
+struct cdpi_dns_question {
+    std::string m_qname;
+    uint16_t    m_qtype;
+    uint16_t    m_qclass;
+};
+
+struct cdpi_dns_rdata { };
+
+typedef boost::shared_ptr<cdpi_dns_rdata> ptr_cdpi_dns_rdata;
+
+// resource record header
 struct cdpi_dns_rr {
     std::string m_name;
     uint16_t    m_type;
     uint16_t    m_class;
     uint32_t    m_ttl;
-    uint16_t    m_rdlen;
-    char       *m_rdata;
+    ptr_cdpi_dns_rdata m_rdata;
 };
 
-struct cdpi_dns_hinfo {
+// data of resource record
+struct cdpi_dns_cname : public cdpi_dns_rdata {
+    std::string m_cname;
+};
+
+struct cdpi_dns_hinfo : public cdpi_dns_rdata {
     std::string m_cpu;
     std::string m_os;
 };
 
-struct cdpi_dns_mx {
+struct cdpi_dns_mx : public cdpi_dns_rdata {
     uint16_t    m_preference;
     std::string m_exchange;
 };
 
-struct cdpi_dns_soa {
+struct cdpi_dns_ns : public cdpi_dns_rdata {
+    std::string m_ns;
+};
+
+struct cdpi_dns_ptr : public cdpi_dns_rdata {
+    std::string m_ptr;
+};
+
+struct cdpi_dns_soa : public cdpi_dns_rdata {
     std::string m_mname;
     std::string m_rname;
     uint32_t    m_serial;
@@ -224,6 +254,38 @@ struct cdpi_dns_soa {
     uint32_t    m_retry;
     uint32_t    m_expire;
     uint32_t    m_minumum;
+};
+
+struct cdpi_dns_txt : public cdpi_dns_rdata {
+    std::string m_txt;
+};
+
+struct cdpi_dns_a : public cdpi_dns_rdata {
+    uint32_t m_a;
+};
+
+struct cdpi_dns_aaaa : public cdpi_dns_rdata {
+    char m_aaaa[16];
+};
+
+class cdpi_dns {
+public:
+    cdpi_dns();
+    virtual ~cdpi_dns();
+
+    bool decode(char *buf, int len);
+
+private:
+    cdpi_dns_header               m_header;
+    std::list<cdpi_dns_question>  m_quesiton;
+    std::list<cdpi_dns_rr>        m_answer;
+    std::list<cdpi_dns_rr>        m_authority;
+    std::list<cdpi_dns_rr>        m_additional;
+
+    int decode_question(char *head, int total_len, char *buf, int buf_len,
+                        int num);
+    int read_domain(char *head, int total_len, char* buf, int buf_len,
+                    std::string &domain);
 };
 
 #endif // CDPI_DNS_HPP
