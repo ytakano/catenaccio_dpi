@@ -166,6 +166,8 @@
 
 #include <boost/shared_ptr.hpp>
 
+#include "cdpi_proto.hpp"
+
 #define SIZEOF_DNS_HEADER 12
 
 enum cdpi_dns_class {
@@ -268,7 +270,7 @@ struct cdpi_dns_aaaa : public cdpi_dns_rdata {
     char m_aaaa[16];
 };
 
-class cdpi_dns {
+class cdpi_dns : public cdpi_proto {
 public:
     cdpi_dns();
     virtual ~cdpi_dns();
@@ -284,6 +286,8 @@ private:
 
     int decode_question(char *head, int total_len, char *buf, int buf_len,
                         int num);
+    int decode_rr(char *head, int total_len, char *buf, int buf_len, int num,
+                  std::list<cdpi_dns_rr> &rr_list);
     int read_domain(char *head, int total_len, char* buf, int buf_len,
                     std::string &domain);
 };

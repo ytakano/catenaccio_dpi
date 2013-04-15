@@ -6,7 +6,7 @@
 
 using namespace std;
 
-cdpi_dns::cdpi_dns()
+cdpi_dns::cdpi_dns() : cdpi_proto(PROTO_DNS)
 {
 
 }
@@ -26,18 +26,134 @@ cdpi_dns::decode(char *buf, int len)
     if (len < SIZEOF_DNS_HEADER)
         return false;
 
+
+    // read header section
     memcpy(&m_header, buf, SIZEOF_DNS_HEADER);
 
     buf += SIZEOF_DNS_HEADER;
     len -= SIZEOF_DNS_HEADER;
 
-    readlen = decode_question(head, total_len,
-                              buf, len, ntohs(m_header.m_qd_count));
+
+    // read question section
+    readlen = decode_question(head, total_len, buf, len,
+                              ntohs(m_header.m_qd_count));
 
     if (readlen < 0)
         return false;
 
+    buf += readlen;
+    len -= readlen;
+
+
+    // read answer section
+    readlen = decode_rr(head, total_len, buf, len, ntohs(m_header.m_an_count),
+                        m_answer);
+
+    if (readlen < 0)
+        return false;
+
+    buf += readlen;
+    len -= readlen;
+
+
+    // read authority section
+    readlen = decode_rr(head, total_len, buf, len, ntohs(m_header.m_an_count),
+                        m_authority);
+
+    if (readlen < 0)
+        return false;
+
+    buf += readlen;
+    len -= readlen;
+
+
+    // read additional section
+    readlen = decode_rr(head, total_len, buf, len, ntohs(m_header.m_an_count),
+                        m_additional);
+
+    if (readlen < 0)
+        return false;
+
+    buf += readlen;
+    len -= readlen;
+
+
     return true;
+}
+
+int
+cdpi_dns::decode_rr(char *head, int total_len, char *buf, int buf_len, int num,
+                    list<cdpi_dns_rr> &rr_list)
+{
+    int readlen = 0;
+
+    for (int i = 0; i < num; i++) {
+        cdpi_dns_rr rr;
+        int dlen = read_domain(head, total_len, buf, buf_len, rr.m_name);
+        int rdlen;
+        uint16_t type;
+
+        if (dlen < 0)
+            return -1;
+
+        buf += dlen;
+        buf_len -= dlen;
+        readlen += dlen;
+
+        if (buf_len < 10)
+            return -1;
+
+        memcpy(&rr.m_type, buf, 2);
+        buf +=2;
+
+        memcpy(&rr.m_class, buf, 2);
+        buf +=2;
+
+        memcpy(&rr.m_ttl, buf, 4);
+        buf += 4;
+
+        memcpy(&rdlen, buf, 2);
+        buf += 2;
+
+        buf_len -= 10;
+        readlen += 10;
+
+        type  = ntohs(rr.m_type);
+        rdlen = ntohs(rdlen);
+
+        if (buf_len < rdlen)
+            return -1;
+
+        switch (type) {
+        case DNS_TYPE_A:
+        case DNS_TYPE_NS:
+        case DNS_TYPE_MD:
+        case DNS_TYPE_MF:
+        case DNS_TYPE_CNAME:
+        case DNS_TYPE_SOA:
+        case DNS_TYPE_MB:
+        case DNS_TYPE_MG:
+        case DNS_TYPE_MR:
+        case DNS_TYPE_NULL:
+        case DNS_TYPE_WKS:
+        case DSN_TYPE_PTR:
+        case DNS_TYPE_HINFO:
+        case DNS_TYPE_MINFO:
+        case DNS_TYPE_MX:
+        case DNS_TYPE_TXT:
+        case DNS_TYPE_AAAA:
+        default:
+            ;
+        }
+
+        rr_list.push_back(rr);
+
+        buf += rdlen;
+        buf_len -= rdlen;
+        readlen += rdlen;
+    }
+
+    return readlen;
 }
 
 int
@@ -68,6 +184,8 @@ cdpi_dns::decode_question(char *head, int total_len,
 
         buf_len -= 4;
         readlen += 4;
+
+        m_quesiton.push_back(question);
     }
 
     return readlen;

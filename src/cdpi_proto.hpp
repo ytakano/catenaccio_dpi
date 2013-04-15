@@ -15,6 +15,7 @@ enum cdpi_proto_type {
 
     // UDP datagram
     PROTO_BENCODE,
+    PROTO_DNS,
 
     // others
     PROTO_NONE,

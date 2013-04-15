@@ -432,10 +432,10 @@ int
 main(int argc, char *argv[])
 {
     int opt;
-    int dvt_port = 100;
     string dev;
 
 #ifdef USE_DIVERT
+    int  dvt_port = 100;
     bool is_pcap  = true;
     const char *optstr = "d4:pi:h";
 #else
