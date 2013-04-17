@@ -27,6 +27,9 @@ enum cdpi_event {
     CDPI_EVENT_SSL_SERVER_HELLO,
     CDPI_EVENT_SSL_CERTIFICATE,
 
+    // DNS
+    CDPI_EVENT_DNS,
+
     // UDP datagram
     CDPI_EVENT_BENCODE,
 };

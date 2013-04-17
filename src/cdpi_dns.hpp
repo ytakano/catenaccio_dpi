@@ -292,4 +292,6 @@ private:
                     std::string &domain);
 };
 
+typedef boost::shared_ptr<cdpi_dns> ptr_cdpi_dns;
+
 #endif // CDPI_DNS_HPP

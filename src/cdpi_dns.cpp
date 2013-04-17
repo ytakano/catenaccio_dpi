@@ -1,5 +1,7 @@
 #include "cdpi_dns.hpp"
 
+#include "cdpi_bytes.hpp"
+
 #include <string.h>
 
 #include <arpa/inet.h>
@@ -57,7 +59,7 @@ cdpi_dns::decode(char *buf, int len)
 
 
     // read authority section
-    readlen = decode_rr(head, total_len, buf, len, ntohs(m_header.m_an_count),
+    readlen = decode_rr(head, total_len, buf, len, ntohs(m_header.m_ns_count),
                         m_authority);
 
     if (readlen < 0)
@@ -68,7 +70,7 @@ cdpi_dns::decode(char *buf, int len)
 
 
     // read additional section
-    readlen = decode_rr(head, total_len, buf, len, ntohs(m_header.m_an_count),
+    readlen = decode_rr(head, total_len, buf, len, ntohs(m_header.m_ar_count),
                         m_additional);
 
     if (readlen < 0)
@@ -78,7 +80,10 @@ cdpi_dns::decode(char *buf, int len)
     len -= readlen;
 
 
-    return true;
+    if (len == 0)
+        return true;
+    else
+        return false;
 }
 
 int
@@ -234,14 +239,16 @@ cdpi_dns::read_domain(char *head, int total_len, char* buf, int buf_len,
                 return -1;
             }
         } else {
-            if (dlen == 0)
+            if (dlen == 0) {
+                readlen++;
                 break;
+            }
 
             buf++;
             buf_len--;
             readlen++;
 
-            if (buf_len < (int)dlen)
+            if ((unsigned int)buf_len < dlen)
                 return -1;
 
             if (domain == "") {

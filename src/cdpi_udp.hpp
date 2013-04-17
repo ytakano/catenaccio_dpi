@@ -11,6 +11,7 @@
 #include <queue>
 
 #define PROTO_TO_BENCODE(PROTO) boost::dynamic_pointer_cast<cdpi_bencode>(PROTO)
+#define PROTO_TO_DNS(PROTO) boost::dynamic_pointer_cast<cdpi_dns>(PROTO)
 
 struct cdpi_udp_packet {
     cdpi_id_dir m_id_dir;

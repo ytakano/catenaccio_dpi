@@ -340,6 +340,12 @@ public:
 
             break;
         }
+        case CDPI_EVENT_DNS:
+        {
+            ptr_cdpi_dns p_dns = PROTO_TO_DNS(data);
+
+            cout << "**** DNS ****" << endl;
+        }
         default:
             ;
         }
