@@ -30,8 +30,9 @@ set(LIBS event boost_thread-mt boost_system-mt boost_regex-mt boost_iostreams-mt
 target_link_libraries(cattenacio_dpi ${LIBS})
 target_link_libraries(cdpi ${LIBS})
 
-INSTALL(TARGETS cdpi cdpi_static LIBRARY DESTINATION lib
-                                 ARCHIVE DESTINATION lib)
+INSTALL(TARGETS cdpi cdpi_static cattenacio_dpi RUNTIME DESTINATION bin
+                                                LIBRARY DESTINATION lib
+                                                ARCHIVE DESTINATION lib)
 INSTALL(FILES ${CPPHeaders} DESTINATION include/cdpi)
 
 IF(APPLE)
@@ -43,4 +44,5 @@ IF(USE_MONGO)
     add_executable(cdpi_mongo_soa ${CPPMongoSOA})
     target_link_libraries(cdpi_mongo ${LIBS} mongoclient boost_filesystem-mt)
     target_link_libraries(cdpi_mongo_soa ${LIBS} unbound mongoclient boost_filesystem-mt cdpi)
+    INSTALL(TARGETS cdpi_mongo cdpi_mongo_soa RUNTIME DESTINATION bin)
 ENDIF(USE_MONGO)

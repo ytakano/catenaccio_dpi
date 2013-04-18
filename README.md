@@ -45,7 +45,7 @@ You can use a verbose mode when compiling.
 
     $ make VERBOSE=1
 
-### How to run outputting to console
+### How to run console mode application
 
 You can specify a network interface by -i option.
 
@@ -66,7 +66,7 @@ Before running, please start up MongoDB server. After satrting up MongoDB, run c
 
     $ ./src/cdpi_mongo -i eth0
 
-You can specify IP address and port number of MongoDB by -m option. If you donn't pass -m option, it connects to localhost:27017 by default.
+You can specify IP address and port number of MongoDB by -m option. If you don't pass -m option, it connects to localhost:27017 by default.
 
     $ ./src/cdpi_mongo -i eth0 -m localhost:27017
 
