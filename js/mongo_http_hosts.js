@@ -74,7 +74,7 @@ var es_second_domains = { 'com': true,
                           'nom': true,
                           'org': true,
                           'gob': true,
-                          'edu': true }
+                          'edu': true };
 
 var fr_second_domains = { 'tm':     true,
                           'asso':   true,
@@ -123,7 +123,7 @@ var st_second_domains = { 'nic':       true,
                           'com':       true,
                           'sotre':     true,
                           'mil':       true,
-                          'co':        true }
+                          'co':        true };
 
 function map() {
     var uri     = this.uri.split('/')[2].split(':')[0];
@@ -131,7 +131,11 @@ function map() {
     emit(uri, 1);
 
     if (this.referer) {
-        var referer = this.referer.split('/')[2].split(':')[0];
+        try {
+            var referer = this.referer.split('/')[2].split(':')[0];
+        } catch (e) {
+            return;
+        }
 
         emit(referer, 1);
     }
@@ -150,6 +154,7 @@ function reduce(key, values) {
 function trunc_domain(domain) {
     var sp  = domain.split('.').reverse();
     var tld;
+    var sld;
     var result;
 
     if (sp.length < 2)
@@ -160,7 +165,7 @@ function trunc_domain(domain) {
     if (tld in gtlds) {
         return sp.slice(0, 2).reverse().join('.');
     } else if (tld == 'jp') {
-        var sld = sp[1];
+        sld = sp[1];
 
         if (sld in jp_second_domains) {
             return sp.slice(0, 3).reverse().join('.');
@@ -168,7 +173,7 @@ function trunc_domain(domain) {
             return sp.slice(0, 2).reverse().join('.');
         }
     } else if (tld == 'ae') {
-        var sld = sp[1];
+        sld = sp[1];
 
         if (sld in ae_second_domains) {
             return sp.slice(0, 3).reverse().join('.');
@@ -176,7 +181,7 @@ function trunc_domain(domain) {
             return sp.slice(0, 2).reverse().join('.');
         }
     } else if (tld == 'au') {
-        var sld = sp[1];
+        sld = sp[1];
 
         if (sld in au_second_domains) {
             return sp.slice(0, 3).reverse().join('.');
@@ -184,7 +189,7 @@ function trunc_domain(domain) {
             return sp.slice(0, 2).reverse().join('.');
         }
     } else if (tld == 'co') {
-        var sld = sp[1];
+        sld = sp[1];
 
         if (sld in co_second_domains) {
             return sp.slice(0, 3).reverse().join('.');
@@ -192,7 +197,7 @@ function trunc_domain(domain) {
             return sp.slice(0, 2).reverse().join('.');
         }
     } else if (tld == 'es') {
-        var sld = sp[1];
+        sld = sp[1];
 
         if (sld in es_second_domains) {
             return sp.slice(0, 3).reverse().join('.');
@@ -200,7 +205,7 @@ function trunc_domain(domain) {
             return sp.slice(0, 2).reverse().join('.');
         }
     } else if (tld == 'fr') {
-        var sld = sp[1];
+        sld = sp[1];
 
         if (sld in fr_second_domains) {
             return sp.slice(0, 3).reverse().join('.');
@@ -208,7 +213,7 @@ function trunc_domain(domain) {
             return sp.slice(0, 2).reverse().join('.');
         }
     } else if (tld == 'it') {
-        var sld = sp[1];
+        sld = sp[1];
 
         if (sld in it_second_domains) {
             return sp.slice(0, 3).reverse().join('.');
@@ -216,7 +221,7 @@ function trunc_domain(domain) {
             return sp.slice(0, 2).reverse().join('.');
         }
     } else if (tld == 'ly') {
-        var sld = sp[1];
+        sld = sp[1];
 
         if (sld in ly_second_domains) {
             return sp.slice(0, 3).reverse().join('.');
@@ -224,7 +229,7 @@ function trunc_domain(domain) {
             return sp.slice(0, 2).reverse().join('.');
         }
     } else if (tld == 'uk') {
-        var sld = sp[1];
+        sld = sp[1];
 
         if (sld in uk_second_domains) {
             return sp.slice(0, 3).reverse().join('.');
@@ -232,14 +237,14 @@ function trunc_domain(domain) {
             return sp.slice(0, 2).reverse().join('.');
         }
     } else if (tld == 'st') {
-        var sld = sp[1];
+        sld = sp[1];
 
         if (sld in st_second_domains) {
             return sp.slice(0, 3).reverse().join('.');
         } else {
             return sp.slice(0, 2).reverse().join('.');
         }
-    } else if (parseInt(tld) != NaN) {
+    } else if (parseInt(tld, 10) != NaN) {
         return domain;
     }
 

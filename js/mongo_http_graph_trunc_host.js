@@ -1,10 +1,20 @@
 function map() {
     if ('referer' in this) {
-        var referers   = {};
-        var uri        = this.uri.split('/')[2].split(':')[0];
-        var referer    = this.referer.split('/')[2].split(':')[0];
-        var tr_uri     = db.trunc_hosts.findOne({_id: uri});
-        var tr_referer = db.trunc_hosts.findOne({_id: referer});
+        var referers = {};
+        var uri;
+        var referer;
+        var tr_uri;
+        var tr_referer;
+
+        try {
+            uri     = this.uri.split('/')[2].split(':')[0];
+            referer = this.referer.split('/')[2].split(':')[0];
+        } catch (e) {
+            return;
+        }
+
+        tr_uri     = db.trunc_hosts.findOne({_id: uri});
+        tr_referer = db.trunc_hosts.findOne({_id: referer});
 
         if (tr_uri != null)
             uri = tr_uri['value'];
