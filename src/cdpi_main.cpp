@@ -344,10 +344,67 @@ public:
         {
             ptr_cdpi_dns p_dns = PROTO_TO_DNS(data);
 
-            cout << "**** DNS ****" << endl;
+            cout << "dns: src = " << src << ":" << port_src 
+                 << ", dst = " << dst << ":" << port_dst << endl;
+            print_dns(p_dns);
         }
         default:
             ;
+        }
+    }
+
+    void print_dns(ptr_cdpi_dns p_dns) {
+        cout << "\tQuestion Section:" << endl;
+
+        const std::list<cdpi_dns_question> &question = p_dns->get_question();
+        std::list<cdpi_dns_question>::const_iterator it_q;
+
+        for (it_q = question.begin(); it_q != question.end(); ++it_q) {
+            cout << "\t\tname: " << it_q->m_qname
+                 << "\n\t\ttype: " << ntohs(it_q->m_qtype)
+                 << "\n\t\tclass: " << ntohs(it_q->m_qclass)
+                 << endl;
+        }
+
+        cout << "\tAnswer Section:" << endl;
+
+        const std::list<cdpi_dns_rr> &answer = p_dns->get_answer();
+        std::list<cdpi_dns_rr>::const_iterator it_ans;
+
+        for (it_ans = answer.begin(); it_ans != answer.end(); ++it_ans) {
+            cout << "\t\tname: " << it_ans->m_name
+                 << "\n\t\ttype: " << ntohs(it_ans->m_type)
+                 << "\n\t\tclass: " << ntohs(it_ans->m_class)
+                 << "\n\t\tttl: " << ntohl(it_ans->m_ttl)
+                 << endl;
+        }
+
+        cout << "\tAuthority Section:" << endl;
+
+        const std::list<cdpi_dns_rr> &authority = p_dns->get_authority();
+        std::list<cdpi_dns_rr>::const_iterator it_auth;
+
+        for (it_auth = authority.begin(); it_auth != authority.end();
+             ++it_auth) {
+            cout << "\t\tname: " << it_auth->m_name
+                 << "\n\t\ttype: " << ntohs(it_auth->m_type)
+                 << "\n\t\tclass: " << ntohs(it_auth->m_class)
+                 << "\n\t\tttl: " << ntohl(it_auth->m_ttl)
+                 << endl;
+        }
+
+        cout << "\tAdditional Section:" << endl;
+
+        const std::list<cdpi_dns_rr> &additional = p_dns->get_additional();
+        std::list<cdpi_dns_rr>::const_iterator it_addi;
+
+        for (it_addi = additional.begin(); it_addi != additional.end();
+             ++it_addi) {
+            cout << "\t\tname: " << it_addi->m_name
+                 << "\n\t\ttype: " << ntohs(it_addi->m_type)
+                 << "\n\t\tclass: " << ntohs(it_addi->m_class)
+                 << "\n\t\tttl: " << ntohl(it_addi->m_ttl)
+                 << endl;
         }
     }
 

@@ -212,7 +212,10 @@ struct cdpi_dns_question {
     uint16_t    m_qclass;
 };
 
-struct cdpi_dns_rdata { };
+struct cdpi_dns_rdata {
+    cdpi_dns_rdata() { }
+    virtual ~cdpi_dns_rdata() { }
+};
 
 typedef boost::shared_ptr<cdpi_dns_rdata> ptr_cdpi_dns_rdata;
 
@@ -255,7 +258,7 @@ struct cdpi_dns_soa : public cdpi_dns_rdata {
     uint32_t    m_refresh;
     uint32_t    m_retry;
     uint32_t    m_expire;
-    uint32_t    m_minumum;
+    uint32_t    m_minimum;
 };
 
 struct cdpi_dns_txt : public cdpi_dns_rdata {
@@ -270,12 +273,21 @@ struct cdpi_dns_aaaa : public cdpi_dns_rdata {
     char m_aaaa[16];
 };
 
+typedef boost::shared_ptr<cdpi_dns_soa> ptr_cdpi_dns_soa;
+
+#define DNS_RDATA_TO_SOA(RDATA) boost::dynamic_pointer_cast<cdpi_dns_soa>(RDATA)
+
 class cdpi_dns : public cdpi_proto {
 public:
     cdpi_dns();
     virtual ~cdpi_dns();
 
     bool decode(char *buf, int len);
+
+    const std::list<cdpi_dns_question>& get_question() { return m_quesiton; }
+    const std::list<cdpi_dns_rr>& get_answer() { return m_answer; }
+    const std::list<cdpi_dns_rr>& get_authority() { return m_authority; }
+    const std::list<cdpi_dns_rr>& get_additional() { return m_additional; }
 
 private:
     cdpi_dns_header               m_header;
@@ -288,6 +300,8 @@ private:
                         int num);
     int decode_rr(char *head, int total_len, char *buf, int buf_len, int num,
                   std::list<cdpi_dns_rr> &rr_list);
+    int decode_soa(char *head, int total_len, char *buf, int buf_len,
+                   ptr_cdpi_dns_soa p_soa);
     int read_domain(char *head, int total_len, char* buf, int buf_len,
                     std::string &domain);
 };

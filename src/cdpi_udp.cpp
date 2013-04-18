@@ -61,6 +61,8 @@ cdpi_udp::run()
                      ntohs(packet.m_id_dir.get_port_dst()) == 53)) {
                     ptr_cdpi_dns p_dns(new cdpi_dns);
 
+                    cout << "parse dns" << endl;
+
                     if (p_dns->decode(data, len)) {
                         m_listener->in_datagram(CDPI_EVENT_DNS,
                                                 packet.m_id_dir,
@@ -78,10 +80,6 @@ cdpi_udp::run()
                 istream         *is = &iss;
 
                 if (bc->decode(*is)) {
-                    print_binary(data, len);
-
-                    cout << endl;
-
                     m_listener->in_datagram(CDPI_EVENT_BENCODE,
                                             packet.m_id_dir, 
                                             boost::dynamic_pointer_cast<cdpi_proto>(bc));

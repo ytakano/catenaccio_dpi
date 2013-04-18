@@ -130,12 +130,21 @@ cdpi_dns::decode_rr(char *head, int total_len, char *buf, int buf_len, int num,
             return -1;
 
         switch (type) {
+        case DNS_TYPE_SOA:
+        {
+            ptr_cdpi_dns_soa p_soa(new cdpi_dns_soa);
+            if(decode_soa(head, total_len, buf, buf_len, p_soa) < 0)
+                return -1;
+
+            rr.m_rdata = boost::dynamic_pointer_cast<cdpi_dns_rdata>(p_soa);
+
+            break;
+        }
         case DNS_TYPE_A:
         case DNS_TYPE_NS:
         case DNS_TYPE_MD:
         case DNS_TYPE_MF:
         case DNS_TYPE_CNAME:
-        case DNS_TYPE_SOA:
         case DNS_TYPE_MB:
         case DNS_TYPE_MG:
         case DNS_TYPE_MR:
@@ -207,8 +216,9 @@ cdpi_dns::read_domain(char *head, int total_len, char* buf, int buf_len,
         uint8_t  dlen;
         uint8_t  flag;
 
-        if (buf_len < 1)
+        if (buf_len < 1) {
             return -1;
+        }
 
         dlen = (uint8_t)buf[0];
 
@@ -226,11 +236,12 @@ cdpi_dns::read_domain(char *head, int total_len, char* buf, int buf_len,
 
                 readlen += 2;
 
-                if (pos >= total_len)
+                if (pos >= total_len) {
                     return -1;
+                }
 
                 if (read_domain(head, total_len,
-                                &head[pos], total_len - pos, domain)) {
+                                &head[pos], total_len - pos, domain) < 0) {
                     return -1;
                 }
 
@@ -248,8 +259,9 @@ cdpi_dns::read_domain(char *head, int total_len, char* buf, int buf_len,
             buf_len--;
             readlen++;
 
-            if ((unsigned int)buf_len < dlen)
+            if ((unsigned int)buf_len < dlen) {
                 return -1;
+            }
 
             if (domain == "") {
                 domain = string(buf, dlen);
@@ -264,4 +276,58 @@ cdpi_dns::read_domain(char *head, int total_len, char* buf, int buf_len,
     }
 
     return readlen;
+}
+
+int
+cdpi_dns::decode_soa(char *head, int total_len, char *buf, int buf_len,
+                     ptr_cdpi_dns_soa p_soa)
+{
+    int readlen = 0;
+    int dlen;
+
+    dlen = read_domain(head, total_len, buf, buf_len, p_soa->m_mname);
+
+    if (dlen < 0)
+        return -1;
+
+    buf += dlen;
+    buf_len -= dlen;
+    readlen += dlen;
+
+    dlen = read_domain(head, total_len, buf, buf_len, p_soa->m_rname);
+
+    if (dlen < 0)
+        return -1;
+
+    buf += dlen;
+    buf_len -= dlen;
+    readlen += dlen;
+
+    if (buf_len < sizeof(p_soa->m_serial))
+        return -1;
+
+    memcpy(&p_soa->m_serial, buf, sizeof(p_soa->m_serial));
+    buf += sizeof(p_soa->m_serial);
+    buf_len -= sizeof(p_soa->m_serial);
+    readlen += sizeof(p_soa->m_serial);
+
+    memcpy(&p_soa->m_refresh, buf, sizeof(p_soa->m_refresh));
+    buf += sizeof(p_soa->m_refresh);
+    buf_len -= sizeof(p_soa->m_refresh);
+    readlen += sizeof(p_soa->m_refresh);
+
+    memcpy(&p_soa->m_retry, buf, sizeof(p_soa->m_retry));
+    buf += sizeof(p_soa->m_retry);
+    buf_len -= sizeof(p_soa->m_retry);
+    readlen += sizeof(p_soa->m_retry);
+
+    memcpy(&p_soa->m_expire, buf, sizeof(p_soa->m_expire));
+    buf += sizeof(p_soa->m_expire);
+    buf_len -= sizeof(p_soa->m_expire);
+    readlen += sizeof(p_soa->m_expire);
+
+    memcpy(&p_soa->m_minimum, buf, sizeof(p_soa->m_minimum));
+    buf += sizeof(p_soa->m_minimum);
+    buf_len -= sizeof(p_soa->m_minimum);
+    readlen += sizeof(p_soa->m_minimum);
 }
