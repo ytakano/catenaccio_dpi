@@ -73,6 +73,7 @@ private:
     void in_bencode(const cdpi_id_dir &id_dir, ptr_cdpi_bencode bc);
     void in_dht_nodes(const cdpi_id_dir &id_dir,
                       cdpi_bencode::ptr_ben_str bstr);
+    void in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns);
     void in_http(const cdpi_id_dir &id_dir, ptr_cdpi_http p_http);
     void insert_http(ptr_http_client_info client, ptr_http_server_info server);
 

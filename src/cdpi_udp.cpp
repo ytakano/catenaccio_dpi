@@ -54,14 +54,11 @@ cdpi_udp::run()
             data = packet.m_bytes.m_ptr.get() + sizeof(udphdr);
             len  = packet.m_bytes.m_len - sizeof(udphdr);
 
-
             {
                 // try to read DNS when port is 53
                 if ((ntohs(packet.m_id_dir.get_port_src()) == 53 ||
                      ntohs(packet.m_id_dir.get_port_dst()) == 53)) {
                     ptr_cdpi_dns p_dns(new cdpi_dns);
-
-                    cout << "parse dns" << endl;
 
                     if (p_dns->decode(data, len)) {
                         m_listener->in_datagram(CDPI_EVENT_DNS,

@@ -28,7 +28,6 @@ cdpi_dns::decode(char *buf, int len)
     if (len < SIZEOF_DNS_HEADER)
         return false;
 
-
     // read header section
     memcpy(&m_header, buf, SIZEOF_DNS_HEADER);
 
@@ -95,7 +94,7 @@ cdpi_dns::decode_rr(char *head, int total_len, char *buf, int buf_len, int num,
     for (int i = 0; i < num; i++) {
         cdpi_dns_rr rr;
         int dlen = read_domain(head, total_len, buf, buf_len, rr.m_name);
-        int rdlen;
+        uint16_t rdlen;
         uint16_t type;
 
         if (dlen < 0)
@@ -136,7 +135,18 @@ cdpi_dns::decode_rr(char *head, int total_len, char *buf, int buf_len, int num,
             if(decode_soa(head, total_len, buf, buf_len, p_soa) < 0)
                 return -1;
 
-            rr.m_rdata = boost::dynamic_pointer_cast<cdpi_dns_rdata>(p_soa);
+            rr.m_rdata = DNS_TO_RDATA(p_soa);
+
+            break;
+        }
+        case DNS_TYPE_TXT:
+        {
+            ptr_cdpi_dns_txt p_txt(new cdpi_dns_txt);
+
+            if (decode_txt(head, total_len, buf, buf_len, p_txt, rdlen) < 0)
+                return -1;
+
+            rr.m_rdata = DNS_TO_RDATA(p_txt);
 
             break;
         }
@@ -154,7 +164,6 @@ cdpi_dns::decode_rr(char *head, int total_len, char *buf, int buf_len, int num,
         case DNS_TYPE_HINFO:
         case DNS_TYPE_MINFO:
         case DNS_TYPE_MX:
-        case DNS_TYPE_TXT:
         case DNS_TYPE_AAAA:
         default:
             ;
@@ -279,6 +288,15 @@ cdpi_dns::read_domain(char *head, int total_len, char* buf, int buf_len,
 }
 
 int
+cdpi_dns::decode_txt(char *head, int total_len, char *buf, int buf_len,
+                     ptr_cdpi_dns_txt p_txt, uint16_t rdlen)
+{
+    p_txt->m_txt = string(buf, rdlen);
+
+    return rdlen;
+}
+
+int
 cdpi_dns::decode_soa(char *head, int total_len, char *buf, int buf_len,
                      ptr_cdpi_dns_soa p_soa)
 {
@@ -303,7 +321,7 @@ cdpi_dns::decode_soa(char *head, int total_len, char *buf, int buf_len,
     buf_len -= dlen;
     readlen += dlen;
 
-    if (buf_len < sizeof(p_soa->m_serial))
+    if ((uint32_t)buf_len < sizeof(p_soa->m_serial))
         return -1;
 
     memcpy(&p_soa->m_serial, buf, sizeof(p_soa->m_serial));
@@ -330,4 +348,6 @@ cdpi_dns::decode_soa(char *head, int total_len, char *buf, int buf_len,
     buf += sizeof(p_soa->m_minimum);
     buf_len -= sizeof(p_soa->m_minimum);
     readlen += sizeof(p_soa->m_minimum);
+
+    return readlen;
 }

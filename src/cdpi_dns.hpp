@@ -274,8 +274,11 @@ struct cdpi_dns_aaaa : public cdpi_dns_rdata {
 };
 
 typedef boost::shared_ptr<cdpi_dns_soa> ptr_cdpi_dns_soa;
+typedef boost::shared_ptr<cdpi_dns_txt> ptr_cdpi_dns_txt;
 
 #define DNS_RDATA_TO_SOA(RDATA) boost::dynamic_pointer_cast<cdpi_dns_soa>(RDATA)
+
+#define DNS_TO_RDATA(A) boost::dynamic_pointer_cast<cdpi_dns_rdata>(A)
 
 class cdpi_dns : public cdpi_proto {
 public:
@@ -302,6 +305,8 @@ private:
                   std::list<cdpi_dns_rr> &rr_list);
     int decode_soa(char *head, int total_len, char *buf, int buf_len,
                    ptr_cdpi_dns_soa p_soa);
+    int decode_txt(char *head, int total_len, char *buf, int buf_len,
+                   ptr_cdpi_dns_txt p_txt, uint16_t rdlen);
     int read_domain(char *head, int total_len, char* buf, int buf_len,
                     std::string &domain);
 };

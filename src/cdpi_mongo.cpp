@@ -9,6 +9,7 @@ using namespace std;
 string mongo_server("localhost");
 static const char *dht_nodes = "DHT.nodes";
 static const char *http_requests = "HTTP.requests";
+static const char *dns_servers = "DNS.servers";
 
 static boost::regex regex_http_uri("^http://.+/.*$");
 
@@ -277,8 +278,49 @@ my_event_listener::in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
     case CDPI_EVENT_BENCODE:
         in_bencode(id_dir, PROTO_TO_BENCODE(data));
         break;
+    case CDPI_EVENT_DNS:
+        in_dns(id_dir, PROTO_TO_DNS(data));
+        break;
     default:
         ;
+    }
+}
+
+void
+my_event_listener::in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns)
+{
+    mongo::BSONObjBuilder b1, b2, b3, b4;
+    mongo::BSONObj        doc1, doc2, doc3;
+    mongo::Date_t         date;
+
+    char ip_str[128];
+
+    if (ntohs(id_dir.get_port_src()) == 53) {
+        id_dir.get_addr_src(ip_str, sizeof(ip_str));
+
+        get_epoch_millis(date);
+
+        b1.append("_id", ip_str);
+        b1.append("created", date);
+
+        doc1 = b1.obj();
+
+        cout << doc1.toString() << endl;
+
+        m_mongo.insert(dns_servers, doc1);
+
+        // update
+        b2.append("_id", ip_str);
+
+        b3.append("updated", date);
+        b4.append("$set", b3.obj());
+
+        doc2 = b2.obj();
+        doc3 = b4.obj();
+
+        cout << doc2.toString() << ", " << doc3.toString() << endl;
+
+        m_mongo.update(dns_servers, doc2, doc3);
     }
 }
 
@@ -431,8 +473,6 @@ my_event_listener::close_tcp(const cdpi_id_dir &id_dir, cdpi_stream &stream)
     it->second.m_num_open--;
 
     if (it->second.m_num_open == 0) {
-        // TODO: add to mongoDB
-
         m_tcp.erase(it);
         m_http.erase(id_dir.m_id);
     }
@@ -467,10 +507,10 @@ int
 main(int argc, char *argv[])
 {
     int opt;
-    int dvt_port = 100;
     string dev;
 
 #ifdef USE_DIVERT
+    int  dvt_port = 100;
     bool is_pcap  = true;
     const char *optstr = "d4:pi:h";
 #else
