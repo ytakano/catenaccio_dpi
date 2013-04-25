@@ -289,7 +289,7 @@ my_event_listener::in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
 void
 my_event_listener::in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns)
 {
-    mongo::BSONObjBuilder b1, b2, b3, b4;
+    mongo::BSONObjBuilder b1, b2, b3, b4, b5;
     mongo::BSONObj        doc1, doc2, doc3;
     mongo::Date_t         date;
 
@@ -302,6 +302,7 @@ my_event_listener::in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns)
 
         b1.append("_id", ip_str);
         b1.append("created", date);
+        b1.append("counter", 1);
 
         doc1 = b1.obj();
 
@@ -313,10 +314,12 @@ my_event_listener::in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns)
         b2.append("_id", ip_str);
 
         b3.append("updated", date);
-        b4.append("$set", b3.obj());
+        b4.append("counter", 1);
+        b5.append("$set", b3.obj());
+        b5.append("$inc", b4.obj());
 
         doc2 = b2.obj();
-        doc3 = b4.obj();
+        doc3 = b5.obj();
 
         cout << doc2.toString() << ", " << doc3.toString() << endl;
 
