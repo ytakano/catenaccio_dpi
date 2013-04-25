@@ -487,7 +487,7 @@ print_usage(char *cmd)
          << endl;
 #else
     cout << "-i option tells a network interface to capture\n\t"
-         << cmd << "-i [NIF]" << endl;
+         << cmd << " -i [NIF]" << endl;
 #endif
 }
 

@@ -291,7 +291,17 @@ int
 cdpi_dns::decode_txt(char *head, int total_len, char *buf, int buf_len,
                      ptr_cdpi_dns_txt p_txt, uint16_t rdlen)
 {
-    p_txt->m_txt = string(buf, rdlen);
+    unsigned char n;
+
+    if (rdlen <= 1)
+        return rdlen;
+
+    n = (unsigned char)buf[0];
+
+    if (n != rdlen - 1)
+        return -1;
+
+    p_txt->m_txt = string(buf + 1, n);
 
     return rdlen;
 }

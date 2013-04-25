@@ -134,9 +134,12 @@ resolve_soa() {
 }
 
 void
-print_usage()
+print_usage(char *cmd)
 {
-
+    cout << "usage: " << cmd << " -m localhost:27017"
+         << "\n\t -m: an address of MongoDB. localhost:27017 is a default value"
+         << "\n\t -h: show this help"
+         << endl;
 }
 
 int
@@ -153,7 +156,7 @@ main(int argc, char *argv[]) {
             break;
         case 'h':
         default:
-            print_usage();
+            print_usage(argv[0]);
             return 0;
         }
     }

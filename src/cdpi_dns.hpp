@@ -277,6 +277,7 @@ typedef boost::shared_ptr<cdpi_dns_soa> ptr_cdpi_dns_soa;
 typedef boost::shared_ptr<cdpi_dns_txt> ptr_cdpi_dns_txt;
 
 #define DNS_RDATA_TO_SOA(RDATA) boost::dynamic_pointer_cast<cdpi_dns_soa>(RDATA)
+#define DNS_RDATA_TO_TXT(RDATA) boost::dynamic_pointer_cast<cdpi_dns_txt>(RDATA)
 
 #define DNS_TO_RDATA(A) boost::dynamic_pointer_cast<cdpi_dns_rdata>(A)
 
