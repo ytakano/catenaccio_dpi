@@ -156,11 +156,24 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
                 for (it = ans.begin(); it != ans.end(); ++it) {
                     if (ntohs(it->m_type) == DNS_TYPE_TXT &&
                         ntohs(it->m_class) == DNS_CLASS_CH) {
-                        ptr_cdpi_dns_txt p_txt;
+                        mongo::BSONObjBuilder b1, b2, b3;
+                        mongo::BSONObj        doc1, doc2;
+                        ptr_cdpi_dns_txt      p_txt;
 
                         p_txt = DNS_RDATA_TO_TXT(it->m_rdata);
 
+                        b1.append("_id", addr);
+                        b2.append("ver", p_txt->m_txt);
+                        b3.append("$set", b2.obj());
+
+                        doc1 = b1.obj();
+                        doc2 = b3.obj();
+
+                        mongo_conn.update("DNS.servers", doc1, doc2);
+
                         cout << p_txt->m_txt << endl;
+
+                        break;
                     }
                 }
             }
