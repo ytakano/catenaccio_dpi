@@ -18,7 +18,6 @@
 
 using namespace std;
 
-#define MAX_UDP_SOCK 4096
 #define QUERY_CYCLE  200 // [ms]
 #define CYCLE_PER_QUERY 10000
 
@@ -40,7 +39,7 @@ uint8_t arr2[256];
 uint8_t arr3[256];
 uint8_t arr4[256];
 
-int send_total = 0;
+unsigned int send_total = 0;
 
 void callback_dns(evutil_socket_t fd, short what, void *arg);
 
