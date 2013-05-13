@@ -470,28 +470,34 @@ cdpi_ssl::parse(list<cdpi_bytes> &bytes)
 void
 cdpi_ssl::parse_handshake(char *data, int len)
 {
-    uint32_t msg_len;
-    uint8_t  type = data[0];
+    char *eoc = data + len;
 
-    memcpy(&msg_len, data, sizeof(msg_len));
+    for (;;) {
+        uint32_t msg_len;
+        uint8_t  type = data[0];
 
-    msg_len = ntohl(msg_len) & 0x00ffffff;
+        memcpy(&msg_len, data, sizeof(msg_len));
 
-    if (msg_len + 4 != (uint32_t)len)
-        return;
+        msg_len = ntohl(msg_len) & 0x00ffffff;
 
-    switch (type) {
-    case SSL_CLIENT_HELLO:
-        parse_client_hello(data + 4, msg_len);
-        break;
-    case SSL_SERVER_HELLO:
-        parse_server_hello(data + 4, msg_len);
-        break;
-    case SSL_CERTIFICATE:
-        parse_certificate(data + 4, msg_len);
-        break;
-    default:
-        ;
+        if (data + msg_len + 4 >= eoc)
+            throw cdpi_parse_error(__FILE__, __LINE__);
+
+        switch (type) {
+        case SSL_CLIENT_HELLO:
+            parse_client_hello(data + 4, msg_len);
+            break;
+        case SSL_SERVER_HELLO:
+            parse_server_hello(data + 4, msg_len);
+            break;
+        case SSL_CERTIFICATE:
+            parse_certificate(data + 4, msg_len);
+            break;
+        default:
+            ;
+        }
+
+        data += msg_len + 4;
     }
 }
 
