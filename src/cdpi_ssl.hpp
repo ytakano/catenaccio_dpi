@@ -73,11 +73,13 @@ private:
     cdpi_id_dir             m_id_dir;
     cdpi_stream            &m_stream;
     ptr_cdpi_event_listener m_listener;
+    bool                    m_is_change_cipher_spec;
 
     void parse_handshake(char *data, int len);
     void parse_client_hello(char *data, int len);
     void parse_server_hello(char *data, int len);
     void parse_certificate(char *data, int len);
+    void parse_change_cipher_spec(char *data, int len);
 
 };
 
