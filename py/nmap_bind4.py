@@ -27,7 +27,7 @@ for i in addr:
 
     print i
 
-    cmd = 'nmap -O --osscan-limit -PN -n --host_timeout 120 %s > nmap_log/%s.log' % (i, i)
+    cmd = 'nmap -O --osscan-limit -PN -n --host_timeout 120000 %s > nmap_log/%s.log' % (i, i)
 
     print cmd
 
