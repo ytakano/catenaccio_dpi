@@ -11,15 +11,20 @@ mongo = 'localhost:27017'
 con   = pymongo.Connection(mongo)
 db    = con.DNSCrawl
 
+addr = []
+
 for i in db.servers_bind4.find():
     if not 'ver' in i:
         continue
 
     if bind4_re.match(i['ver']) != None:
-        print i['_id'], i['ver']
+	addr.append(i['_id'])
 
-        cmd = 'nmap -O -PN -n %s > nmap_log/%s.log' % (i['_id'], i['_id'])
+for i in addr:
+    print i
 
-        print cmd
+    cmd = 'nmap -O --osscan-limit -PN -n %s > nmap_log/%s.log' % (i, i)
 
-        subprocess.call(cmd, shell=True)
+    print cmd
+
+    subprocess.call(cmd, shell=True)
