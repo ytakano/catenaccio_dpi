@@ -4,6 +4,7 @@
 import pymongo
 import subprocess
 import re
+import os
 
 bind4_re = re.compile('^4\.[0-9]\.[0-9]')
 
@@ -21,9 +22,12 @@ for i in db.servers_bind4.find():
 	addr.append(i['_id'])
 
 for i in addr:
+    if os.path.exists('nmap_log/%s.log' % i):
+        continue
+
     print i
 
-    cmd = 'nmap -O --osscan-limit -PN -n %s > nmap_log/%s.log' % (i, i)
+    cmd = 'nmap -O --osscan-limit -PN -n --host_timeout 120 %s > nmap_log/%s.log' % (i, i)
 
     print cmd
 
