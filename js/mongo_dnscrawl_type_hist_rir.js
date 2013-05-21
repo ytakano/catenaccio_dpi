@@ -1,6 +1,6 @@
 function map() {
     try {
-        if ('rir' in this && this.rir == 'AFRINIC') {
+        if ('rir' in this && this.rir == 'other') {
             if ('ver' in this) {
                 if ('type' in this) {
                     if (this.type == 'BIND') {
@@ -44,6 +44,6 @@ function reduce(key, values) {
     return count;
 }
 
-var res = db.servers.mapReduce(map, reduce, {out: {replace: "type_hist_afrinic"}});
+var res = db.servers.mapReduce(map, reduce, {out: {replace: "type_hist_other"}});
 
 shellPrint(res);

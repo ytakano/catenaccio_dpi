@@ -132,10 +132,17 @@ db.servers.find().forEach(function(doc) {
     try {
         var prefix = doc['_id'].split('.')[0];
 
-        db.servers.update(
-            {_id: doc['_id']},
-            {$set: {rir: rirmap[prefix]}}
-        );
+        if (prefix in rirmap) {
+            db.servers.update(
+                {_id: doc['_id']},
+                {$set: {rir: rirmap[prefix]}}
+            );
+        } else {
+            db.servers.update(
+                {_id: doc['_id']},
+                {$set: {rir: 'other'}}
+            );
+        }
     } catch (e) {
     }
 });
