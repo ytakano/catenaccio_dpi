@@ -18,7 +18,7 @@
 
 using namespace std;
 
-#define MAX_UDP_SOCK 4096
+#define MAX_UDP_SOCK 64
 
 string mongo_server("localhost:27017");
 mongo::DBClientConnection mongo_conn;
