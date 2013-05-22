@@ -379,7 +379,8 @@ cdpi_ssl::cdpi_ssl(cdpi_proto_type type, const cdpi_id_dir &id_dir,
       m_ver(0),
       m_id_dir(id_dir),
       m_stream(stream),
-      m_listener(listener)
+      m_listener(listener),
+      m_is_change_cipher_spec(false)
 {
     init_cipher_suites();
     init_compression_methods();
@@ -457,6 +458,8 @@ cdpi_ssl::parse(list<cdpi_bytes> &bytes)
             parse_handshake(p, len);
             break;
         case SSL_CHANGE_CIPHER_SPEC:
+            parse_change_cipher_spec(p, len);
+            break;
         case SSL_ALERT:
         case SSL_APPLICATION_DATA:
         case SSL_HEARTBEAT:
@@ -468,30 +471,57 @@ cdpi_ssl::parse(list<cdpi_bytes> &bytes)
 }
 
 void
+cdpi_ssl::parse_change_cipher_spec(char *data, int len)
+{
+    if (len != 1)
+        throw cdpi_parse_error(__FILE__, __LINE__);
+
+    if (data[0] == 1)
+        m_is_change_cipher_spec = true;
+}
+
+void
 cdpi_ssl::parse_handshake(char *data, int len)
 {
-    uint32_t msg_len;
-    uint8_t  type = data[0];
 
-    memcpy(&msg_len, data, sizeof(msg_len));
-
-    msg_len = ntohl(msg_len) & 0x00ffffff;
-
-    if (msg_len + 4 != (uint32_t)len)
+    if (m_is_change_cipher_spec)
         return;
 
-    switch (type) {
-    case SSL_CLIENT_HELLO:
-        parse_client_hello(data + 4, msg_len);
-        break;
-    case SSL_SERVER_HELLO:
-        parse_server_hello(data + 4, msg_len);
-        break;
-    case SSL_CERTIFICATE:
-        parse_certificate(data + 4, msg_len);
-        break;
-    default:
-        ;
+    char *eoc = data + len;
+
+    for (;;) {
+        uint32_t msg_len;
+        uint8_t  type = data[0];
+
+        if (data + 4 > eoc)
+            throw cdpi_parse_error(__FILE__, __LINE__);
+            
+        memcpy(&msg_len, data, sizeof(msg_len));
+
+        msg_len = ntohl(msg_len) & 0x00ffffff;
+
+        if (data + msg_len + 4 > eoc)
+            throw cdpi_parse_error(__FILE__, __LINE__);
+
+        switch (type) {
+        case SSL_CLIENT_HELLO:
+            parse_client_hello(data + 4, msg_len);
+            break;
+        case SSL_SERVER_HELLO:
+            parse_server_hello(data + 4, msg_len);
+            break;
+        case SSL_CERTIFICATE:
+            parse_certificate(data + 4, msg_len);
+            break;
+        default:
+            ;
+        }
+
+        data += msg_len + 4;
+
+        if (data == eoc) {
+            break;
+        }
     }
 }
 
