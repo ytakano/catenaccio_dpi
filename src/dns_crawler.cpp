@@ -247,7 +247,8 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
             mongo::BSONObj        p, doc;
             mongo::Date_t         recv_date, send_date;
 
-            cur = mongo_conn.query("DNSCrawl.tmp_send_date", QUERY("_id" << addr));
+            cur = mongo_conn.query("DNSCrawl.tmp_send_date",
+                                   QUERY("_id" << addr));
             p   = cur->next();
 
             send_date = p.getField("date").Date();
@@ -295,8 +296,7 @@ init()
         exit(-1);
     }
 
-    mongo_conn.dropDatabase("DNSCrawl.servers");
-    mongo_conn.dropDatabase("DNSCrawl.tmp_send_date");
+    mongo_conn.dropDatabase("DNSCrawl");
     mongo_conn.ensureIndex("DNSCrawl.servers", mongo::fromjson("{date: 1}"));
 
     ev_base = event_base_new();
