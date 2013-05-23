@@ -153,8 +153,10 @@ send_query(evutil_socket_t fd, short what, void *arg)
                          16 <= arr3[k] && arr3[k] <= 31)   || // class B private
                         (arr4[m] == 192 && arr3[k] == 168) || // class C private
                         (arr4[m] == 169 && arr3[k] == 254) || // link local
-                        (arr4[m] == 150 && arr3[k] == 26)  || // 農林水産省
-                        (arr4[m] == 166 && arr3[k] == 119)) { // 農林水産省
+                        (arr4[m] == 202 && arr3[k] == 241 &&
+                         arr2[j] == 109)                   || // 農林水産省
+                        (arr4[m] == 166 && arr3[k] == 119) || // 農林水産省
+                        (arr4[m] == 128 && arr3[k] == 100)) { // トロント大学
                         continue;
                     }
 
@@ -299,7 +301,10 @@ init()
     }
 
     mongo_conn.dropDatabase("DNSCrawl");
-    mongo_conn.ensureIndex("DNSCrawl.servers", mongo::fromjson("{date: 1}"));
+    mongo_conn.ensureIndex("DNSCrawl.servers",
+                           mongo::fromjson("{send_date: 1}"));
+    mongo_conn.ensureIndex("DNSCrawl.servers",
+                           mongo::fromjson("{recv_date: 1}"));
 
     ev_base = event_base_new();
     if (! ev_base) {
