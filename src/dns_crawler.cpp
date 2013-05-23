@@ -181,6 +181,8 @@ send_query(evutil_socket_t fd, short what, void *arg)
                     b.append("_id", addr);
                     b.append("date", date);
 
+                    doc = b.obj();
+
                     mongo_conn.insert("DNSCrawl.tmp_send_date", doc);
 
                     send_total++;
