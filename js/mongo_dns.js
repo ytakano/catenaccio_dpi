@@ -1,62 +1,19 @@
 var rirmap = {
-    '0': 'IANA - Local Identification',
     '1': 'APNIC',
     '2': 'RIPE NCC',
-    '3': 'General Electric Company',
-    '4': 'Level 3 Communications, Inc.',
     '5': 'RIPE NCC',
-    '6': 'Army Information Systems Center',
-    '7': 'Administered by ARIN',
-    '8': 'Level 3 Communications, Inc.',
-    '9': 'IBM',
-    '10': 'IANA - Private Use',
-    '11': 'DoD Intel Information Systems',
-    '12': 'AT&T Bell Laboratories',
-    '13': 'Xerox Corporation',
     '14': 'APNIC',
-    '15': 'Hewlett-Packard Company',
-    '16': 'Digital Equipment Corporation',
-    '17': 'Apple Computer Inc.',
-    '18': 'MIT',
-    '19': 'Ford Motor Company',
-    '20': 'Computer Sciences Corporation',
-    '21': 'DDN-RVN',
-    '22': 'Defense Information Systems Agency',
     '23': 'ARIN',
     '24': 'ARIN',
-    '25': 'UK Ministry of Defence',
-    '26': 'Defense Information Systems Agency',
     '27': 'APNIC',
-    '28': 'DSI-North',
-    '29': 'Defense Information Systems Agency',
-    '30': 'Defense Information Systems Agency',
     '31': 'RIPE NCC',
-    '32': 'AT&T Global Network Services',
-    '33': 'DLA Systems Automation Center',
-    '34': 'Halliburton Company',
-    '35': 'Administered by ARIN',
     '36': 'APNIC',
-    '37': 'RIPE NCC',
-    '38': 'PSINet, Inc.',
     '39': 'APNIC',
-    '40': 'Administered by ARIN',
     '41': 'AFRINIC',
     '42': 'APNIC',
-    '43': 'Administered by APNIC',
-    '44': 'Amateur Radio Digital Communications',
-    '45': 'Administered by ARIN',
     '46': 'RIPE NCC',
-    '47': 'Administered by ARIN',
-    '48': 'Prudential Securities Inc.',
     '49': 'APNIC',
     '50': 'ARIN',
-    '51': 'UK Government Department for Work and Pensions',
-    '52': 'E.I. duPont de Nemours and Co., Inc.',
-    '53': 'Cap Debis CCS',
-    '54': 'Administered by ARIN',
-    '55': 'DoD Network Information Center',
-    '56': 'US Postal Service',
-    '57': 'SITA',
     '58': 'APNIC',
     '59': 'APNIC',
     '60': 'APNIC',
@@ -126,52 +83,6 @@ var rirmap = {
     '124': 'APNIC',
     '125': 'APNIC',
     '126': 'APNIC',
-    '127': 'IANA - Loopback',
-    '128': 'Administered by ARIN',
-    '129': 'Administered by ARIN',
-    '130': 'Administered by ARIN',
-    '131': 'Administered by ARIN',
-    '132': 'Administered by ARIN',
-    '133': 'Administered by APNIC',
-    '134': 'Administered by ARIN',
-    '135': 'Administered by ARIN',
-    '136': 'Administered by ARIN',
-    '137': 'Administered by ARIN',
-    '138': 'Administered by ARIN',
-    '139': 'Administered by ARIN',
-    '140': 'Administered by ARIN',
-    '141': 'Administered by RIPE NCC',
-    '142': 'Administered by ARIN',
-    '143': 'Administered by ARIN',
-    '144': 'Administered by ARIN',
-    '145': 'Administered by RIPE NCC',
-    '146': 'Administered by ARIN',
-    '147': 'Administered by ARIN',
-    '148': 'Administered by ARIN',
-    '149': 'Administered by ARIN',
-    '150': 'Administered by APNIC',
-    '151': 'Administered by RIPE NCC',
-    '152': 'Administered by ARIN',
-    '153': 'Administered by APNIC',
-    '154': 'Administered by AFRINIC',
-    '155': 'Administered by ARIN',
-    '156': 'Administered by ARIN',
-    '157': 'Administered by ARIN',
-    '158': 'Administered by ARIN',
-    '159': 'Administered by ARIN',
-    '160': 'Administered by ARIN',
-    '161': 'Administered by ARIN',
-    '162': 'Administered by ARIN',
-    '163': 'Administered by APNIC',
-    '164': 'Administered by ARIN',
-    '165': 'Administered by ARIN',
-    '166': 'Administered by ARIN',
-    '167': 'Administered by ARIN',
-    '168': 'Administered by ARIN',
-    '169': 'Administered by ARIN',
-    '170': 'Administered by ARIN',
-    '171': 'Administered by APNIC',
-    '172': 'Administered by ARIN',
     '173': 'ARIN',
     '174': 'ARIN',
     '175': 'APNIC',
@@ -187,17 +98,12 @@ var rirmap = {
     '185': 'RIPE NCC',
     '186': 'LACNIC',
     '187': 'LACNIC',
-    '188': 'Administered by RIPE NCC',
     '189': 'LACNIC',
     '190': 'LACNIC',
-    '191': 'Administered by LACNIC',
-    '192': 'Administered by ARIN',
     '193': 'RIPE NCC',
     '194': 'RIPE NCC',
     '195': 'RIPE NCC',
-    '196': 'Administered by AFRINIC',
     '197': 'AFRINIC',
-    '198': 'Administered by ARIN',
     '199': 'ARIN',
     '200': 'LACNIC',
     '201': 'LACNIC',
@@ -213,8 +119,6 @@ var rirmap = {
     '211': 'APNIC',
     '212': 'RIPE NCC',
     '213': 'RIPE NCC',
-    '214': 'US-DOD',
-    '215': 'US-DOD',
     '216': 'ARIN',
     '217': 'RIPE NCC',
     '218': 'APNIC',
@@ -223,44 +127,27 @@ var rirmap = {
     '221': 'APNIC',
     '222': 'APNIC',
     '223': 'APNIC',
-    '224': 'Multicast',
-    '225': 'Multicast',
-    '226': 'Multicast',
-    '227': 'Multicast',
-    '228': 'Multicast',
-    '229': 'Multicast',
-    '230': 'Multicast',
-    '231': 'Multicast',
-    '232': 'Multicast',
-    '233': 'Multicast',
-    '234': 'Multicast',
-    '235': 'Multicast',
-    '236': 'Multicast',
-    '237': 'Multicast',
-    '238': 'Multicast',
-    '239': 'Multicast',
-    '240': 'Future use',
-    '241': 'Future use',
-    '242': 'Future use',
-    '243': 'Future use',
-    '244': 'Future use',
-    '245': 'Future use',
-    '246': 'Future use',
-    '247': 'Future use',
-    '248': 'Future use',
-    '249': 'Future use',
-    '250': 'Future use',
-    '251': 'Future use',
-    '252': 'Future use',
-    '253': 'Future use',
-    '254': 'Future use',
-    '255': 'Future use'
 };
+
+db.servers.ensureIndex({rir: 1});
 
 db.servers.find().forEach(function(doc) {
     var ver;
 
     try {
+        var prefix = doc['_id'].split('.')[0];
+        if (prefix in rirmap) {
+            db.servers.update(
+                {_id: doc['_id']},
+                {$set: {rir: rirmap[prefix]}}
+            );
+        } else {
+            db.servers.update(
+                {_id: doc['_id']},
+                {$set: {rir: 'other'}}
+            );
+        }
+
         if (doc['ver'].match(/^dnsmasq-/)) {
             // DNS masquerade
             ver = doc['ver'].split('-')[1];
@@ -341,14 +228,6 @@ db.servers.find().forEach(function(doc) {
                 {$set: {type: 'BIND 9.x', type_ver: ver}}
             );
         }
-
-        var prefix = doc['_id'].split('.')[0];
-        if (prefix in rirmap) {
-            db.servers.update(
-                {_id: doc['_id']},
-                {$set: {rir: rirmap[prefix]}}
-            );
-        }
     } catch (e) {
     }
 });
@@ -391,3 +270,69 @@ function get_type_ver_bind9(ver) {
 
     return type_ver;
 }
+
+function map_type_dist() {
+    try {
+        if ('type' in this) {
+            emit(this.type, 1);
+        } else if ('ver' in this) {
+            emit("can't detect", 1);
+        } else {
+            emit("no version info", 1);
+        }
+    } catch (e) {
+        emit("can't detect", 1);
+    }
+
+    emit('total', 1);
+}
+
+function reduce_type_dist(key, values) {
+    var n = 0;
+
+    values.forEach(function(value) {
+        n += value;
+    });
+
+    return n;
+}
+
+function map_type_dist_all() {
+    map_type_dist('all', this);
+}
+
+var res;
+
+res = db.servers.mapReduce(map_type_dist, reduce_type_dist,
+                           {out: {replace: 'type_dist_all'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_type_dist, reduce_type_dist,
+                           {out: {replace: 'type_dist_apnic'},
+                            query: {rir: 'APNIC'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_type_dist, reduce_type_dist,
+                           {out: {replace: 'type_dist_ripe'},
+                            query: {rir: 'RIPE NCC'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_type_dist, reduce_type_dist,
+                           {out: {replace: 'type_dist_arin'},
+                            query: {rir: 'ARIN'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_type_dist, reduce_type_dist,
+                           {out: {replace: 'type_dist_lacnic'},
+                            query: {rir: 'LACNIC'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_type_dist, reduce_type_dist,
+                           {out: {replace: 'type_dist_afrinic'},
+                            query: {rir: 'AFRINIC'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_type_dist, reduce_type_dist,
+                           {out: {replace: 'type_dist_other'},
+                            query: {rir: 'other'}});
+shellPrint(res);
