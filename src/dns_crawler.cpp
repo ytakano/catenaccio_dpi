@@ -295,6 +295,8 @@ init()
         exit(-1);
     }
 
+    mongo_conn.dropDatabase("DNSCrawl.servers");
+    mongo_conn.dropDatabase("DNSCrawl.tmp_send_date");
     mongo_conn.ensureIndex("DNSCrawl.servers", mongo::fromjson("{date: 1}"));
 
     ev_base = event_base_new();
