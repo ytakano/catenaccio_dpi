@@ -1,17 +1,26 @@
 #!/bin/sh
 
-js_files="mongo_http_hosts.js mongo_http_graph_trunc_host.js mongo_http_tld.js"
+js_http_files="mongo_http_hosts.js mongo_http_graph_trunc_host.js mongo_http_tld.js"
+js_dns_files="mongo_dns.js"
 
 js_path=`dirname $0`
 
 if [ $# -ge 1 ]; then
-    host=$1/HTTP
+    host_http=$1/HTTP
+    host_dns=$1/DNS
 else
-    host=HTTP
+    host_http=HTTP
+    host_dns=DNS
 fi
 
-for i in ${js_files}
+for i in ${js_http_files}
 do
-    echo "${host} ${js_path}/${i}"
-    mongo ${host} ${js_path}/${i}
+    echo "${host_http} ${js_path}/${i}"
+    mongo ${host_http} ${js_path}/${i}
+done
+
+for i in ${js_dns_files}
+do
+    echo "${host_dns} ${js_path}/${i}"
+    mongo ${host_dns} ${js_path}/${i}
 done
