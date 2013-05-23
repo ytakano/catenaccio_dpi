@@ -15,6 +15,10 @@ function map() {
                         emit('dnsmasq', 1);
                     } else if (this.type == 'Nominum Vantio') {
                         emit('Nominum Vantio', 1);
+                    } else if (this.type == 'Nominum ANS') {
+                        emit('Nominum ANS', 1);
+                    } else if (this.type == 'NSD') {
+                        emit('NSD', 1);
                     } else if (this.type == 'unbound') {
                         emit('unbound', 1);
                     } else if (this.type == 'Windows') {

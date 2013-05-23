@@ -93,7 +93,6 @@ void
 send_query(evutil_socket_t fd, short what, void *arg)
 {
     sockaddr_in saddr;
-    int i, j, k, m;
     int n = 0;
 
     memset(&saddr, 0, sizeof(saddr));

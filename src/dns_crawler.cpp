@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <time.h>
 
+#include <sys/time.h>
+
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
@@ -42,6 +44,17 @@ uint8_t arr4[256];
 unsigned int send_total = 0;
 
 void callback_dns(evutil_socket_t fd, short what, void *arg);
+
+void
+get_epoch_millis(mongo::Date_t &date)
+{
+    struct timeval tv;
+
+    gettimeofday(&tv, NULL);
+
+    date.millis = ((unsigned long long)(tv.tv_sec) * 1000 +
+                   (unsigned long long)(tv.tv_usec) / 1000);
+}
 
 char query[30];
 
@@ -155,6 +168,21 @@ send_query(evutil_socket_t fd, short what, void *arg)
                     sendto(sockfd, query, sizeof(query), 0,
                            (sockaddr*)&saddr, sizeof(saddr));
 
+                    mongo::BSONObjBuilder b;
+                    mongo::BSONObj        doc;
+                    mongo::Date_t         date;
+
+                    char addr[128];
+
+                    inet_ntop(AF_INET, &saddr.sin_addr, addr, sizeof(addr));
+
+                    get_epoch_millis(date);
+
+                    b.append("_id", addr);
+                    b.append("date", date);
+
+                    mongo_conn.insert("DNSCrawl.tmp_send_date", doc);
+
                     send_total++;
                     n++;
                     if (n >= CYCLE_PER_QUERY) {
@@ -214,10 +242,21 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
             const list<cdpi_dns_rr> &ans = dns.get_answer();
             list<cdpi_dns_rr>::const_iterator it;
 
+            auto_ptr<mongo::DBClientCursor> cur;
             mongo::BSONObjBuilder b;
-            mongo::BSONObj        doc;
+            mongo::BSONObj        p, doc;
+            mongo::Date_t         recv_date, send_date;
+
+            cur = mongo_conn.query("DNSCrawl.tmp_send_date", QUERY("_id" << addr));
+            p   = cur->next();
+
+            send_date = p.getField("date").Date();
+
+            get_epoch_millis(recv_date);
 
             b.append("_id", addr);
+            b.append("recv_date", recv_date);
+            b.append("send_date", send_date);
 
             for (it = ans.begin(); it != ans.end(); ++it) {
                 if (ntohs(it->m_type) == DNS_TYPE_TXT &&
@@ -255,6 +294,8 @@ init()
         cerr << errmsg << endl;
         exit(-1);
     }
+
+    mongo_conn.ensureIndex("DNSCrawl.servers", mongo::fromjson("{date: 1}"));
 
     ev_base = event_base_new();
     if (! ev_base) {

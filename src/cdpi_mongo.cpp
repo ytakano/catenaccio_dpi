@@ -25,6 +25,8 @@ my_event_listener::my_event_listener()
     m_mongo.ensureIndex(http_requests, mongo::fromjson("{uri: 1}"));
     m_mongo.ensureIndex(http_requests, mongo::fromjson("{referer: 1}"));
     m_mongo.ensureIndex(http_requests, mongo::fromjson("{date: 1}"));
+    m_mongo.ensureIndex(dns_servers, mongo::fromjson("{created: 1}"));
+    m_mongo.ensureIndex(dns_servers, mongo::fromjson("{updated: 1}"));
 }
 
 my_event_listener::~my_event_listener()

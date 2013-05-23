@@ -18,6 +18,14 @@ db.servers.find().forEach(function(doc) {
                 {_id: doc['_id']},
                 {$set: {type: 'Nominum Vantio', type_ver: ver}}
             );
+        } else if (doc['ver'].match(/^Nominum ANS /)) {
+            // Nominum ANS
+            ver = doc['ver'].split(' ')[2];
+
+            db.servers.update(
+                {_id: doc['_id']},
+                {$set: {type: 'Nominum ANS', type_ver: ver}}
+            );
         } else if (doc['ver'].match(/^unbound/)) {
             // unbound
             ver = doc['ver'].split(' ')[1];
@@ -25,6 +33,14 @@ db.servers.find().forEach(function(doc) {
             db.servers.update(
                 {_id: doc['_id']},
                 {$set: {type: 'unbound', type_ver: ver}}
+            );
+        } else if (doc['ver'].match(/^NSD/)) {
+            // NSD
+            ver = doc['ver'].split(' ')[1];
+
+            db.servers.update(
+                {_id: doc['_id']},
+                {$set: {type: 'NSD', type_ver: ver}}
             );
         } else if (doc['ver'].match(/.*Windows/)) {
             // Windows
