@@ -21,7 +21,9 @@ class dns_stats:
       a:hover {color: red}
 
       div.content { margin: 20px; margin-top: 0px; text-align: center; }
-      table { text-align: right; width: 80%%; border-collapse: collapse; margin-left: auto; margin-right: auto;}
+      table { text-align: right; border-collapse: collapse; margin-left: auto; margin-right: auto;}
+      table.wide { width: 80%%; }
+      table.ver_dist { width: 40%%; }
       td, th { border: 2px #c0c0c0 solid; }
     </style>
 
@@ -31,6 +33,9 @@ class dns_stats:
     <h1>DNS Statistics</h1>
 %(type_dist)s
 %(top_n)s
+%(dist_bind9)s
+%(dist_bind8)s
+%(dist_nsd)s
   </body>
 </html>
 """
@@ -40,6 +45,7 @@ class dns_stats:
     <div class="content">
 %(type_dist_table)s
     </div>
+    <hr>
 """
 
         self._html_top_n = """
@@ -47,6 +53,31 @@ class dns_stats:
     <div class="content">
 %(top_n_table)s
     </div>
+    <hr>
+"""
+
+        self._html_dist_bind9 = """
+    <h2>Version Distribution of BIND 9.x</h2>
+    <div class="content">
+%s
+    </div>
+    <hr>
+"""
+
+        self._html_dist_bind8 = """
+    <h2>Version Distribution of BIND 8.x</h2>
+    <div class="content">
+%s
+    </div>
+    <hr>
+"""
+
+        self._html_dist_nsd = """
+    <h2>Version Distribution of NSD</h2>
+    <div class="content">
+%s
+    </div>
+    <hr>
 """
 
     def print_type_dist(self):
@@ -82,7 +113,7 @@ class dns_stats:
             dist_other[data['_id']] = data['value']
 
         html = """
-      <table class="type_dist">
+      <table class="wide">
         <tr>
           <td></td>
           <th>All</th>
@@ -153,7 +184,7 @@ class dns_stats:
         n = 0
 
         html = """
-      <table>
+      <table class="wide">
         <tr>
           <th>IP Address</th>
           <th>FQDN</th>
@@ -186,12 +217,53 @@ class dns_stats:
 
         self._html_top_n = self._html_top_n % {'top_n_table': html}
 
+    def print_dist_ver(self, collection, html_dist):
+        db = self._con.DNS
+
+        html = """
+      <table class="ver_dist">
+        <tr>
+          <th>Version</th>
+          <th>Count</th>
+        </tr>
+%s
+      </table>
+"""
+
+        elm = ''
+
+        n = 0;
+
+        for data in db[collection].find().sort('value', -1):
+            elm += "        <tr><td>%s</td><td>%d</td></tr>\n" % (data['_id'], data['value'])
+            n += 1
+
+            if n >= 100:
+                break
+
+        if elm == '':
+            return ''
+
+        html = html % elm
+
+        return html_dist % html
+
     def print_html(self):
         self.print_type_dist()
         self.print_top_n(50)
 
-        print self._html % {'type_dist': self._html_type_dist,
-                            'top_n': self._html_top_n}
+        self._html_dist_bind9 = self.print_dist_ver('ver_dist_bind9',
+                                                    self._html_dist_bind9)
+        self._html_dist_bind8 = self.print_dist_ver('ver_dist_bind8',
+                                                    self._html_dist_bind8)
+        self._html_dist_nsd   = self.print_dist_ver('ver_dist_nsd',
+                                                    self._html_dist_nsd)
+
+        print self._html % {'type_dist':  self._html_type_dist,
+                            'top_n':      self._html_top_n,
+                            'dist_bind9': self._html_dist_bind9,
+                            'dist_bind8': self._html_dist_bind8,
+                            'dist_nsd'  : self._html_dist_nsd}
 
 
 def usage():
