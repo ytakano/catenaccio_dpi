@@ -57,21 +57,21 @@ db.servers.find().forEach(function(doc) {
                 {_id: doc['_id']},
                 {$set: {type: 'PowerDNS', type_ver: ver}}
             );
-        } else if (doc['ver'].match(/^4\.[0-9]\.[0-9]/)) {
+        } else if (doc['ver'].match(/^4(\.[0-9])+/)) {
             // BIND 4.x
 
             db.servers.update(
                 {_id: doc['_id']},
                 {$set: {type: 'BIND', type_ver: '4.x'}}
             );
-        } else if (doc['ver'].match(/^8\.[0-9]\.[0-9]/)) {
+        } else if (doc['ver'].match(/^8(\.[0-9])+/)) {
             // BIND 8.x
 
             db.servers.update(
                 {_id: doc['_id']},
                 {$set: {type: 'BIND', type_ver: '8.x'}}
             );
-        } else if (doc['ver'].match(/^9\.[0-9]\.[0-9]/)) {
+        } else if (doc['ver'].match(/^9(\.[0-9])+/)) {
             // BIND 9.x
 
             db.servers.update(

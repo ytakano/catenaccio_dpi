@@ -34,6 +34,8 @@ function map() {
     } catch (e) {
         emit('other', 1);
     }
+
+    emit('total', 1);
 }
 
 function reduce(key, values) {

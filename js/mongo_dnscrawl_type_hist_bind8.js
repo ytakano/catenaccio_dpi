@@ -13,6 +13,10 @@ function map() {
                 ver += '-REL';
             }
 
+            if (this.ver.match(/.*NOESW/)) {
+                ver += '-NOESW';
+            }
+
             emit(ver, 1);
         }
     } catch (e) {
