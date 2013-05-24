@@ -304,8 +304,8 @@ def print_html():
     </style>
     <title>HTTP Statistics</title>
   </head>
-  <h1>HTTP Statistics</h1>
   <body>
+  <h1>HTTP Statistics</h1>
 """
 
     con = pymongo.Connection(mongo)
