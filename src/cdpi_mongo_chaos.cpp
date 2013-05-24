@@ -220,6 +220,18 @@ init()
         exit(-1);
     }
 
+    mongo::BSONObjBuilder b1, b2;
+    mongo::BSONObj        doc1, doc2;
+
+    b1.append("ver", 1);
+    b1.append("type", 1);
+    b1.append("type_ver", 1);
+    b2.append("$unset", b1.obj());
+
+    doc2 = b2.obj();
+
+    mongo_conn.update("DNS.servers", doc1, doc2, false, true);
+
     ev_base = event_base_new();
     if (! ev_base) {
         std::cerr << "couldn't new event_base" << std::endl;
