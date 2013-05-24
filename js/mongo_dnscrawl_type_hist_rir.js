@@ -1,6 +1,6 @@
 function map() {
     try {
-        if ('rir' in this && this.rir == 'other') {
+        if ('rir' in this) {
             if ('ver' in this) {
                 if ('type' in this) {
                     if (this.type == 'BIND') {
@@ -36,6 +36,8 @@ function map() {
     } catch (e) {
         emit('other', 1);
     }
+
+    emit('total', 1);
 }
 
 function reduce(key, values) {
@@ -48,6 +50,34 @@ function reduce(key, values) {
     return count;
 }
 
-var res = db.servers.mapReduce(map, reduce, {out: {replace: "type_hist_other"}});
+var res;
 
+res = db.servers.mapReduce(map, reduce,
+                           {out: {replace: "type_hist_apnic"},
+                            query: {rir: "APNIC"}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map, reduce,
+                           {out: {replace: "type_hist_ripe"},
+                            query: {rir: "RIPE"}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map, reduce,
+                           {out: {replace: "type_hist_arin"},
+                            query: {rir: "ARIN"}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map, reduce,
+                           {out: {replace: "type_hist_lacnic"},
+                            query: {rir: "LACNIC"}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map, reduce,
+                           {out: {replace: "type_hist_afrinic"},
+                            query: {rir: "AFRINIC"}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map, reduce,
+                           {out: {replace: "type_hist_other"},
+                            query: {rir: "other"}});
 shellPrint(res);

@@ -15,18 +15,18 @@ width = 1.0
 data  = {}
 x     = []
 n     = 0
-xmin  = 10
-xmax  = 1000000
+xmin  = 1
+xmax  = 10000
 
 plt.figure(figsize=(12, 6))
 
-plt.axes([0.12, 0.1, 0.35, 0.8])
+plt.axes([0.14, 0.1, 0.35, 0.8])
 
 plt.xlim(xmin=xmin, xmax=xmax)
 plt.xscale('log')
 plt.xlabel('#address')
 
-for i in db.type_hist_bind9.find():
+for i in db.type_hist_bind8.find():
     if i['_id'] == '':
         continue
     data[i['_id']] = i['value']
@@ -49,7 +49,7 @@ for k, v in sorted(data.items(), key = lambda x: x[1], reverse = True):
         plt.yticks(numpy.arange(len(x)) + width / 2, x)
         #break
 
-        plt.axes([0.6, 0.1, 0.35, 0.8])
+        plt.axes([0.62, 0.1, 0.35, 0.8])
         plt.xlim(xmin=xmin, xmax=xmax)
         plt.xscale('log')
         plt.xlabel('#address')
