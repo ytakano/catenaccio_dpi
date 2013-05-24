@@ -203,7 +203,7 @@ db.servers.find().forEach(function(doc) {
                 {_id: doc['_id']},
                 {$set: {type: 'PowerDNS', type_ver: ver}}
             );
-        } else if (doc['ver'].match(/^4\.[0-9]\.[0-9]/)) {
+        } else if (doc['ver'].match(/^4(\.[0-9])+/)) {
             // BIND 4.x
             ver = get_type_ver_bind48(doc['ver']);
 
@@ -211,7 +211,7 @@ db.servers.find().forEach(function(doc) {
                 {_id: doc['_id']},
                 {$set: {type: 'BIND 4.x', type_ver: ver}}
             );
-        } else if (doc['ver'].match(/^8\.[0-9]\.[0-9]/)) {
+        } else if (doc['ver'].match(/^8(\.[0-9])+/)) {
             // BIND 8.x
             ver = get_type_ver_bind48(doc['ver']);
 
@@ -219,7 +219,7 @@ db.servers.find().forEach(function(doc) {
                 {_id: doc['_id']},
                 {$set: {type: 'BIND 8.x', type_ver: ver}}
             );
-        } else if (doc['ver'].match(/^9\.[0-9]\.[0-9]/)) {
+        } else if (doc['ver'].match(/^9(\.[0-9])+/)) {
             // BIND 9.x
             ver = get_type_ver_bind9(doc['ver']);
 
@@ -229,6 +229,10 @@ db.servers.find().forEach(function(doc) {
             );
         }
     } catch (e) {
+        db.servers.update(
+            {_id: doc['_id']},
+            {$set: {ver: ''}}
+        );
     }
 });
 
@@ -253,7 +257,7 @@ function get_type_ver_bind9(ver) {
 
     if (sp.length >= 2 && sp[1].match(/^P[1-9][0-9]*$/)) {
         type_ver += '-' + sp[1];
-    } else if (sp.length >= 2 && sp[1].match(/^ESV$/)) {
+    } else if (sp.length >= 2 && sp[1] == 'ESV') {
         type_ver += '-' + sp[1];
         if (sp.length >= 3 && sp[2].match(/^R[1-9][0-9]*$/)) {
             type_ver += '-' + sp[2];
@@ -265,7 +269,7 @@ function get_type_ver_bind9(ver) {
     }
 
     if (ver.match(/.*RedHat/)) {
-        ver += '(RedHat)';
+        type_ver += '(RedHat)';
     }
 
     return type_ver;
@@ -287,7 +291,7 @@ function map_type_dist() {
     emit('total', 1);
 }
 
-function reduce_type_dist(key, values) {
+function reduce(key, values) {
     var n = 0;
 
     values.forEach(function(value) {
@@ -297,42 +301,68 @@ function reduce_type_dist(key, values) {
     return n;
 }
 
-function map_type_dist_all() {
-    map_type_dist('all', this);
-}
-
 var res;
 
-res = db.servers.mapReduce(map_type_dist, reduce_type_dist,
+res = db.servers.mapReduce(map_type_dist, reduce,
                            {out: {replace: 'type_dist_all'}});
 shellPrint(res);
 
-res = db.servers.mapReduce(map_type_dist, reduce_type_dist,
+res = db.servers.mapReduce(map_type_dist, reduce,
                            {out: {replace: 'type_dist_apnic'},
                             query: {rir: 'APNIC'}});
 shellPrint(res);
 
-res = db.servers.mapReduce(map_type_dist, reduce_type_dist,
+res = db.servers.mapReduce(map_type_dist, reduce,
                            {out: {replace: 'type_dist_ripe'},
                             query: {rir: 'RIPE NCC'}});
 shellPrint(res);
 
-res = db.servers.mapReduce(map_type_dist, reduce_type_dist,
+res = db.servers.mapReduce(map_type_dist, reduce,
                            {out: {replace: 'type_dist_arin'},
                             query: {rir: 'ARIN'}});
 shellPrint(res);
 
-res = db.servers.mapReduce(map_type_dist, reduce_type_dist,
+res = db.servers.mapReduce(map_type_dist, reduce,
                            {out: {replace: 'type_dist_lacnic'},
                             query: {rir: 'LACNIC'}});
 shellPrint(res);
 
-res = db.servers.mapReduce(map_type_dist, reduce_type_dist,
+res = db.servers.mapReduce(map_type_dist, reduce,
                            {out: {replace: 'type_dist_afrinic'},
                             query: {rir: 'AFRINIC'}});
 shellPrint(res);
 
-res = db.servers.mapReduce(map_type_dist, reduce_type_dist,
+res = db.servers.mapReduce(map_type_dist, reduce,
                            {out: {replace: 'type_dist_other'},
                             query: {rir: 'other'}});
+shellPrint(res);
+
+
+function map_ver_dist() {
+    try {
+        if ('type_ver' in this) {
+            emit(this.type_ver, 1);
+        }
+    } catch (e) {
+    }
+}
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_bind9'},
+                            query: {type: 'BIND 9.x'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_bind8'},
+                            query: {type: 'BIND 8.x'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_bind4'},
+                            query: {type: 'BIND 4.x'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_nsd'},
+                            query: {type: 'NSD'}});
 shellPrint(res);
