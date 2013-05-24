@@ -13,32 +13,25 @@
 #include <mongo/client/dbclient.h>
 
 #include <iostream>
-#include <set>
 #include <string>
+#include <queue>
 
 using namespace std;
 
-#define MAX_UDP_SOCK 64
+#define QUERY_CYCLE     200
+#define QUERY_PER_CYCLE 1000
+
 
 string mongo_server("localhost:27017");
 mongo::DBClientConnection mongo_conn;
-event_base *ev_base;
-set<string> dns_servers;
-uint16_t query_id;
+event_base   *ev_base;
+event        *ev_dns;
+event        *ev_send;
+queue<string> dns_servers;
+uint16_t      query_id;
+int           sock_fd;
 
 void callback_dns(evutil_socket_t fd, short what, void *arg);
-
-struct cb_arg {
-    event      *m_ev;
-    sockaddr_in m_saddr;
-
-    cb_arg(int fd) {
-        timeval three_seconds = {3, 0};
-        m_ev = event_new(ev_base, fd, EV_READ | EV_TIMEOUT | EV_PERSIST,
-                         callback_dns, this);
-        event_add(m_ev, &three_seconds);
-    }
-};
 
 char query[30];
 
@@ -95,36 +88,57 @@ init_query()
     memcpy(&query[28], &n, 2);
 }
 
-bool
-send_query(string server, int fd, cb_arg *arg)
+void
+quit_query(evutil_socket_t fd, short what, void *arg)
 {
-    int s;
+    exit(0);
+}
 
-    if (arg == NULL)
-        arg = new cb_arg(fd);
+void
+send_query(evutil_socket_t fd, short what, void *arg)
+{
+    int n = 0;
 
-    memset(&arg->m_saddr, 0, sizeof(arg->m_saddr));
+    while (! dns_servers.empty()) {
+        sockaddr_in saddr;
+        string addr = dns_servers.front();
 
-    s = inet_pton(AF_INET, server.c_str(), &arg->m_saddr.sin_addr);
-    if (s < 0) {
-        perror("inet_pton");
-        return false;
+        memset(&saddr, sizeof(saddr), 0);
+
+        dns_servers.pop();
+
+        int s = inet_pton(AF_INET, addr.c_str(), &saddr.sin_addr);
+        if (s < 0) {
+            perror("inet_pton");
+            continue;
+        }
+
+        saddr.sin_port   = htons(53);
+        saddr.sin_family = AF_INET;
+
+        sendto(sock_fd, query, sizeof(query), 0,
+               (sockaddr*)&saddr, sizeof(saddr));
+
+        n++;
+
+        if (n > QUERY_PER_CYCLE) {
+            break;
+        }
     }
 
-    arg->m_saddr.sin_port   = htons(53);
-    arg->m_saddr.sin_family = AF_INET;
+    if (dns_servers.empty()) {
+        event_del(ev_send);
+        event_free(ev_send);
 
-    sendto(fd, query, sizeof(query), 0,
-           (sockaddr*)&arg->m_saddr, sizeof(arg->m_saddr));
-
-    return true;
+        timeval tv = {3, 0};
+        event *ev = event_new(ev_base, -1, EV_TIMEOUT, quit_query, NULL);
+        event_add(ev, &tv);
+    }
 }
 
 void
 callback_dns(evutil_socket_t fd, short what, void *arg)
 {
-    cb_arg *carg = (cb_arg*)arg;
-
     switch (what) {
     case EV_READ:
     {
@@ -138,8 +152,7 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
         if (readlen < 0)
             break;
 
-        if (carg->m_saddr.sin_addr.s_addr == saddr.sin_addr.s_addr &&
-            carg->m_saddr.sin_port == saddr.sin_port) {
+        if (ntohs(saddr.sin_port) == 53) {
             char addr[128];
 
             inet_ntop(AF_INET, &saddr.sin_addr, addr, sizeof(addr));
@@ -177,27 +190,11 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
                     }
                 }
             }
-        } else {
-            return;
         }
         break;
     }
     default:
         ;
-    }
-
-    while (dns_servers.size() > 0) {
-        if (send_query(*dns_servers.begin(), fd, carg)) {
-            dns_servers.erase(dns_servers.begin());
-            break;
-        } else {
-            dns_servers.erase(dns_servers.begin());
-        }
-    }
-
-    if (dns_servers.size() <= 0) {
-        event_del(carg->m_ev);
-        event_free(carg->m_ev);
     }
 }
 
@@ -209,7 +206,7 @@ get_servers()
 
     while (cur->more()) {
         mongo::BSONObj p = cur->next();
-        dns_servers.insert(p.getStringField("_id"));
+        dns_servers.push(p.getStringField("_id"));
     }
 }
 
@@ -229,39 +226,22 @@ init()
         exit(-1);
     }
 
-    init_query();
-}
-
-void
-get_dns_ver()
-{
-    init();
-
-    get_servers();
-
-    int i = 0;
-    for (set<string>::iterator it = dns_servers.begin();
-         it != dns_servers.end();) {
-        int fd = socket(AF_INET, SOCK_DGRAM, 0);
-
-        if (fd < 0) {
-            perror("socket");
-            exit(-1);
-        }
-
-        cout << *it << endl;
-        
-        if (! send_query(*it, fd, NULL)) {
-            dns_servers.erase(it++);
-            continue;
-        }
-
-        dns_servers.erase(it++);
-        i++;
-
-        if (i >= MAX_UDP_SOCK)
-            break;
+    sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock_fd < 0) {
+        perror("socket");
+        exit(-1);
     }
+
+    ev_dns = event_new(ev_base, sock_fd, EV_READ | EV_PERSIST, callback_dns,
+                       NULL);
+    event_add(ev_dns, NULL);
+
+    timeval tv = {0, QUERY_CYCLE * 1000};
+    ev_send = event_new(ev_base, -1, EV_TIMEOUT | EV_PERSIST, send_query, NULL);
+    event_add(ev_send, &tv);
+
+    init_query();
+    get_servers();
 
     event_base_dispatch(ev_base);
 }
@@ -293,7 +273,7 @@ main(int argc, char *argv[])
         }
     }
 
-    get_dns_ver();
+    init();
 
     return 0;
 }

@@ -203,7 +203,7 @@ db.servers.find().forEach(function(doc) {
                 {_id: doc['_id']},
                 {$set: {type: 'PowerDNS', type_ver: ver}}
             );
-        } else if (doc['ver'].match(/^4{\.[0-9]}+/)) {
+        } else if (doc['ver'].match(/^4(\.[0-9])+/)) {
             // BIND 4.x
             ver = get_type_ver_bind48(doc['ver']);
 
@@ -211,7 +211,7 @@ db.servers.find().forEach(function(doc) {
                 {_id: doc['_id']},
                 {$set: {type: 'BIND 4.x', type_ver: ver}}
             );
-        } else if (doc['ver'].match(/^8{\.[0-9]}+/)) {
+        } else if (doc['ver'].match(/^8(\.[0-9])+/)) {
             // BIND 8.x
             ver = get_type_ver_bind48(doc['ver']);
 
@@ -219,7 +219,7 @@ db.servers.find().forEach(function(doc) {
                 {_id: doc['_id']},
                 {$set: {type: 'BIND 8.x', type_ver: ver}}
             );
-        } else if (doc['ver'].match(/^9{\.[0-9]}+/)) {
+        } else if (doc['ver'].match(/^9(\.[0-9])+/)) {
             // BIND 9.x
             ver = get_type_ver_bind9(doc['ver']);
 
@@ -269,7 +269,7 @@ function get_type_ver_bind9(ver) {
     }
 
     if (ver.match(/.*RedHat/)) {
-        ver += '(RedHat)';
+        type_ver += '(RedHat)';
     }
 
     return type_ver;
@@ -350,4 +350,19 @@ function map_ver_dist() {
 res = db.servers.mapReduce(map_ver_dist, reduce,
                            {out: {replace: 'ver_dist_bind9'},
                             query: {type: 'BIND 9.x'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_bind8'},
+                            query: {type: 'BIND 8.x'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_bind4'},
+                            query: {type: 'BIND 4.x'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_nsd'},
+                            query: {type: 'NSD'}});
 shellPrint(res);
