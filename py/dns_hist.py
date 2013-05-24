@@ -26,7 +26,7 @@ plt.xlim(xmin=xmin, xmax=xmax)
 plt.xscale('log')
 plt.xlabel('#address')
 
-for i in db.type_hist_unbound.find():
+for i in db.type_hist_bind9.find():
     if i['_id'] == '':
         continue
     data[i['_id']] = i['value']
