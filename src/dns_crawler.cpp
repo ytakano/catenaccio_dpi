@@ -227,68 +227,70 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
     switch (what) {
     case EV_READ:
     {
-        char buf[1024];
-        sockaddr_in saddr;
-        socklen_t   slen = sizeof(saddr);
-        ssize_t readlen;
+        for (;;) {
+            char buf[1024];
+            sockaddr_in saddr;
+            socklen_t   slen = sizeof(saddr);
+            ssize_t readlen;
 
-        readlen = recvfrom(fd, buf, sizeof(buf), 0, (sockaddr*)&saddr, &slen);
+            readlen = recvfrom(fd, buf, sizeof(buf), MSG_DONTWAIT,
+                               (sockaddr*)&saddr, &slen);
 
-        if (readlen < 0)
-            break;
+            if (readlen < 0)
+                break;
 
-        if (ntohs(saddr.sin_port) != 53)
-            break;
+            if (ntohs(saddr.sin_port) != 53)
+                break;
 
-        char addr[128];
+            char addr[128];
 
-        inet_ntop(AF_INET, &saddr.sin_addr, addr, sizeof(addr));
+            inet_ntop(AF_INET, &saddr.sin_addr, addr, sizeof(addr));
 
-        cdpi_dns dns;
+            cdpi_dns dns;
 
-        if (dns.decode(buf, readlen)) {
-            const list<cdpi_dns_rr> &ans = dns.get_answer();
-            list<cdpi_dns_rr>::const_iterator it;
+            if (dns.decode(buf, readlen)) {
+                const list<cdpi_dns_rr> &ans = dns.get_answer();
+                list<cdpi_dns_rr>::const_iterator it;
 
-            auto_ptr<mongo::DBClientCursor> cur;
-            mongo::BSONObjBuilder b;
-            mongo::BSONObj        p, doc;
-            mongo::Date_t         recv_date, send_date;
+                auto_ptr<mongo::DBClientCursor> cur;
+                mongo::BSONObjBuilder b;
+                mongo::BSONObj        p, doc;
+                mongo::Date_t         recv_date, send_date;
 
-            cur = mongo_conn.query("DNSCrawl.tmp_send_date",
-                                   QUERY("_id" << addr));
+                cur = mongo_conn.query("DNSCrawl.tmp_send_date",
+                                       QUERY("_id" << addr));
 
-            if (cur->more()) {
-                p = cur->next();
-                send_date = p.getField("date").Date();
-                b.append("send_date", send_date);
-            }
-
-            get_epoch_millis(recv_date);
-
-            b.append("_id", addr);
-            b.append("recv_date", recv_date);
-
-            for (it = ans.begin(); it != ans.end(); ++it) {
-                if (ntohs(it->m_type) == DNS_TYPE_TXT &&
-                    ntohs(it->m_class) == DNS_CLASS_CH) {
-                    ptr_cdpi_dns_txt      p_txt;
-
-                    p_txt = DNS_RDATA_TO_TXT(it->m_rdata);
-
-                    b.append("ver", p_txt->m_txt);
-
-                    break;
+                if (cur->more()) {
+                    p = cur->next();
+                    send_date = p.getField("date").Date();
+                    b.append("send_date", send_date);
                 }
+
+                get_epoch_millis(recv_date);
+
+                b.append("_id", addr);
+                b.append("recv_date", recv_date);
+
+                for (it = ans.begin(); it != ans.end(); ++it) {
+                    if (ntohs(it->m_type) == DNS_TYPE_TXT &&
+                        ntohs(it->m_class) == DNS_CLASS_CH) {
+                        ptr_cdpi_dns_txt      p_txt;
+
+                        p_txt = DNS_RDATA_TO_TXT(it->m_rdata);
+
+                        b.append("ver", p_txt->m_txt);
+
+                        break;
+                    }
+                }
+
+                doc = b.obj();
+
+                cout << doc.toString() << endl;
+
+                mongo_conn.insert("DNSCrawl.servers", doc);
             }
-
-            doc = b.obj();
-
-            cout << doc.toString() << endl;
-
-            mongo_conn.insert("DNSCrawl.servers", doc);
         }
-
         break;
     }
     default:
