@@ -51,7 +51,7 @@ public:
             return memcmp(m_ptr.get() + m_pos, rhs.m_ptr.get() + rhs.m_pos,
                           m_len) < 0;
 
-        int len = m_len < rhs.m_len ? m_len : len;
+        int len = m_len < rhs.m_len ? m_len : rhs.m_len;
         int result;
 
         result = memcmp(m_ptr.get() + m_pos, rhs.m_ptr.get() + rhs.m_pos, len);
