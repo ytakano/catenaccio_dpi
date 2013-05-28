@@ -257,15 +257,17 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
 
             cur = mongo_conn.query("DNSCrawl.tmp_send_date",
                                    QUERY("_id" << addr));
-            p   = cur->next();
 
-            send_date = p.getField("date").Date();
+            if (cur->more()) {
+                p = cur->next();
+                send_date = p.getField("date").Date();
+                b.append("send_date", send_date);
+            }
 
             get_epoch_millis(recv_date);
 
             b.append("_id", addr);
             b.append("recv_date", recv_date);
-            b.append("send_date", send_date);
 
             for (it = ans.begin(); it != ans.end(); ++it) {
                 if (ntohs(it->m_type) == DNS_TYPE_TXT &&
