@@ -141,10 +141,14 @@ send_query(evutil_socket_t fd, short what, void *arg)
     saddr.sin_port   = htons(53);
     saddr.sin_family = AF_INET;
 
+    j = n2;
+    k = n3;
+    m = n4;
+
     for (i = n1; i < 256; i++) {
-        for (j = n2; j < 256; j++) {
-            for (k = n3; k < 256; k++) {
-                for (m = n4; m < 256; m++) {
+        for (; j < 256; j++) {
+            for (; k < 256; k++) {
+                for (; m < 256; m++) {
                     if (arr4[m] >= 224 || // multicast & reserved
                         arr4[m] == 0   || // reserved
                         arr4[m] == 127 || // localhost
