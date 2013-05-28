@@ -21,7 +21,7 @@
 using namespace std;
 
 #define QUERY_CYCLE  200 // [ms]
-#define CYCLE_PER_QUERY 10000
+#define CYCLE_PER_QUERY 5000
 
 string mongo_server("localhost:27017");
 mongo::DBClientConnection mongo_conn;
@@ -134,7 +134,7 @@ void
 send_query(evutil_socket_t fd, short what, void *arg)
 {
     sockaddr_in saddr;
-    int i, j, k, m;
+    volatile int i, j, k, m;
     int n = 0;
 
     memset(&saddr, 0, sizeof(saddr));
@@ -146,9 +146,9 @@ send_query(evutil_socket_t fd, short what, void *arg)
     m = n4;
 
     for (i = n1; i < 256; i++) {
-        for (; j < 256; j++) {
-            for (; k < 256; k++) {
-                for (; m < 256; m++) {
+        for (j = n2; j < 256; j++) {
+            for (k = n3; k < 256; k++) {
+                for (m = n4; m < 256; m++) {
                     if (arr4[m] >= 224 || // multicast & reserved
                         arr4[m] == 0   || // reserved
                         arr4[m] == 127 || // localhost
