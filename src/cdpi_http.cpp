@@ -593,8 +593,8 @@ cdpi_http::parse_chunk_el(list<cdpi_bytes> &bytes)
 
     len = read_bytes_ec(bytes, buf, sizeof(buf), '\n');
 
-    if (len == 1 && buf[0] == '\n' ||
-        len == 2 && memcmp(buf, "\r\n", 2) == 0) {
+    if ((len == 1 && buf[0] == '\n') ||
+        (len == 2 && memcmp(buf, "\r\n", 2) == 0)) {
         skip_bytes(bytes, len);
 
         if (m_chunk_len == 0) {
