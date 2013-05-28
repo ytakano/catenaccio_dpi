@@ -103,7 +103,7 @@ send_query(evutil_socket_t fd, short what, void *arg)
         sockaddr_in saddr;
         string addr = dns_servers.front();
 
-        memset(&saddr, sizeof(saddr), 0);
+        memset(&saddr, 0, sizeof(saddr));
 
         dns_servers.pop();
 
