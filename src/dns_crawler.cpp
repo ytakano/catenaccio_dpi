@@ -134,7 +134,7 @@ void
 send_query(evutil_socket_t fd, short what, void *arg)
 {
     sockaddr_in saddr;
-    volatile int i, j, k, m;
+    int i, j, k, m;
     int n = 0;
 
     memset(&saddr, 0, sizeof(saddr));
@@ -173,23 +173,6 @@ send_query(evutil_socket_t fd, short what, void *arg)
 
                     sendto(sockfd, query, sizeof(query), 0,
                            (sockaddr*)&saddr, sizeof(saddr));
-
-                    mongo::BSONObjBuilder b;
-                    mongo::BSONObj        doc;
-                    mongo::Date_t         date;
-
-                    char addr[128];
-
-                    inet_ntop(AF_INET, &saddr.sin_addr, addr, sizeof(addr));
-
-                    get_epoch_millis(date);
-
-                    b.append("_id", addr);
-                    b.append("date", date);
-
-                    doc = b.obj();
-
-                    mongo_conn.insert("DNSCrawl.tmp_send_date", doc);
 
                     send_total++;
                     n++;
@@ -254,17 +237,8 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
 
                 auto_ptr<mongo::DBClientCursor> cur;
                 mongo::BSONObjBuilder b;
-                mongo::BSONObj        p, doc;
-                mongo::Date_t         recv_date, send_date;
-
-                cur = mongo_conn.query("DNSCrawl.tmp_send_date",
-                                       QUERY("_id" << addr));
-
-                if (cur->more()) {
-                    p = cur->next();
-                    send_date = p.getField("date").Date();
-                    b.append("send_date", send_date);
-                }
+                mongo::BSONObj        doc;
+                mongo::Date_t         recv_date;
 
                 get_epoch_millis(recv_date);
 
@@ -309,8 +283,6 @@ init()
     }
 
     mongo_conn.dropDatabase("DNSCrawl");
-    mongo_conn.ensureIndex("DNSCrawl.servers",
-                           mongo::fromjson("{send_date: 1}"));
     mongo_conn.ensureIndex("DNSCrawl.servers",
                            mongo::fromjson("{recv_date: 1}"));
 
