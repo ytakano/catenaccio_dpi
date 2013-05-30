@@ -173,7 +173,7 @@ db.servers.find().forEach(function(doc) {
                     {_id: doc['_id']},
                     {$set: {type: 'Nominum ANS', type_ver: ver}}
                 );
-            } else if (doc['ver'].match(/^unbound/)) {
+            } else if (doc['ver'].match(/^unbound /)) {
                 // unbound
                 ver = doc['ver'].split(' ')[1];
 
@@ -196,7 +196,7 @@ db.servers.find().forEach(function(doc) {
                     {_id: doc['_id']},
                     {$set: {type: 'Windows'}}
                 );
-            } else if (doc['ver'].match(/^PowerDNS/)) {
+            } else if (doc['ver'].match(/^PowerDNS /)) {
                 // PowerDNS
                 ver = doc['ver'].split(' ')[2];
 
@@ -369,4 +369,29 @@ shellPrint(res);
 res = db.servers.mapReduce(map_ver_dist, reduce,
                            {out: {replace: 'ver_dist_nsd'},
                             query: {type: 'NSD'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_unbound'},
+                            query: {type: 'unbound'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_nominum_ans'},
+                            query: {type: 'Nominum ANS'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_nominum_vantio'},
+                            query: {type: 'Nominum Vantio'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_dnsmasq'},
+                            query: {type: 'dnsmasq'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_power_dns'},
+                            query: {type: 'PowerDNS'}});
 shellPrint(res);
