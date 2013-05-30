@@ -28,7 +28,9 @@ mongo::DBClientConnection mongo_conn;
 event_base *ev_base;
 event      *ev_dns;
 event      *ev_send;
+event      *ev_exit;
 uint16_t    query_id;
+uint32_t    total = 0;
 int         sockfd;
 
 volatile int n1 = 0;
@@ -131,6 +133,12 @@ init_arr(uint8_t *arr)
 }
 
 void
+exit_callback(evutil_socket_t fd, short what, void *arg)
+{
+    exit(0);
+}
+
+void
 send_query(evutil_socket_t fd, short what, void *arg)
 {
     sockaddr_in saddr;
@@ -199,6 +207,10 @@ end_loop:
     if (n < CYCLE_PER_QUERY) {
         event_del(ev_send);
         event_free(ev_send);
+
+        timeval tv = {10, 0};
+        ev_exit = event_new(ev_base, -1, EV_TIMEOUT, exit_callback, NULL);
+        event_add(ev_exit, &tv);
     }
 
     return;
