@@ -21,7 +21,7 @@
 using namespace std;
 
 #define QUERY_CYCLE  200 // [ms]
-#define CYCLE_PER_QUERY 5000
+#define QUERIES_PER_CYCLE 5000
 
 string mongo_server("localhost:27017");
 mongo::DBClientConnection mongo_conn;
@@ -184,7 +184,7 @@ send_query(evutil_socket_t fd, short what, void *arg)
 
                     send_total++;
                     n++;
-                    if (n >= CYCLE_PER_QUERY) {
+                    if (n >= QUERIES_PER_CYCLE) {
                         m++;
                         goto end_loop;
                     }
@@ -204,7 +204,7 @@ end_loop:
 
     cout << send_total << endl;
 
-    if (n < CYCLE_PER_QUERY) {
+    if (n < QUERIES_PER_CYCLE) {
         event_del(ev_send);
         event_free(ev_send);
 
@@ -272,7 +272,7 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
 
                 doc = b.obj();
 
-                cout << doc.toString() << endl;
+                //cout << doc.toString() << endl;
 
                 mongo_conn.insert("DNSCrawl.servers", doc);
             }
