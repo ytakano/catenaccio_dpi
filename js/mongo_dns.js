@@ -370,3 +370,28 @@ res = db.servers.mapReduce(map_ver_dist, reduce,
                            {out: {replace: 'ver_dist_nsd'},
                             query: {type: 'NSD'}});
 shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_unbound'},
+                            query: {type: 'unbound'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_nominum_ans'},
+                            query: {type: 'Nominum ANS'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_nominum_vantio'},
+                            query: {type: 'Nominum Vantio'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_dnsmasq'},
+                            query: {type: 'dnsmasq'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_ver_dist, reduce,
+                           {out: {replace: 'ver_dist_power_dns'},
+                            query: {type: 'PowerDNS'}});
+shellPrint(res);
