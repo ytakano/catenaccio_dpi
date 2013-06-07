@@ -173,7 +173,7 @@ db.servers.find().forEach(function(doc) {
                     {_id: doc['_id']},
                     {$set: {type: 'Nominum ANS', type_ver: ver}}
                 );
-            } else if (doc['ver'].match(/^unbound/)) {
+            } else if (doc['ver'].match(/^unbound /)) {
                 // unbound
                 ver = doc['ver'].split(' ')[1];
 
@@ -181,7 +181,7 @@ db.servers.find().forEach(function(doc) {
                     {_id: doc['_id']},
                     {$set: {type: 'unbound', type_ver: ver}}
                 );
-            } else if (doc['ver'].match(/^NSD/)) {
+            } else if (doc['ver'].match(/^NSD /)) {
                 // NSD
                 ver = doc['ver'].split(' ')[1];
 
@@ -196,7 +196,7 @@ db.servers.find().forEach(function(doc) {
                     {_id: doc['_id']},
                     {$set: {type: 'Windows'}}
                 );
-            } else if (doc['ver'].match(/^PowerDNS/)) {
+            } else if (doc['ver'].match(/^PowerDNS /)) {
                 // PowerDNS
                 ver = doc['ver'].split(' ')[2];
 
@@ -247,7 +247,7 @@ function get_type_ver_bind48(ver) {
     }
 
     if (ver.match(/.*REL/)) {
-        ver += '-REL';
+        type_ver += '-REL';
     }
 
     return type_ver;
