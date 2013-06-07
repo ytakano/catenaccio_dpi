@@ -16,7 +16,7 @@ data  = {}
 x     = []
 n     = 0
 xmin  = 1
-xmax  = 10000
+xmax  = 1000000
 
 plt.figure(figsize=(12, 6))
 
@@ -26,8 +26,8 @@ plt.xlim(xmin=xmin, xmax=xmax)
 plt.xscale('log')
 plt.xlabel('#address')
 
-for i in db.type_hist_bind8.find():
-    if i['_id'] == '':
+for i in db.ver_dist_dnsmasq.find():
+    if i['_id'] == '' or i['_id'] == 'UNKNOWN':
         continue
     data[i['_id']] = i['value']
 
