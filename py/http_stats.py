@@ -13,6 +13,60 @@ try:
 except ImportError:
     is_plt = False
 
+class http_stats:
+    def __init__(self, server, outdir):
+        self._con    = pymongo.Connection(server)
+        self._outdir = outdir
+
+        self._soa_rname = {}
+        self._in_graph  = {}
+        self._out_graph = {}
+
+    def _get_graph(self):
+        db = self._con.HTTP
+
+        for i in db.graph_trunc_host.find():
+            dst  = i['_id']
+            srcs = i['value']
+
+            self._in_graph[dst] = srcs
+
+            for src in srcs:
+                if src in self._out_graph:
+                    self._out_graph[src].append(dst)
+                else:
+                    self._out_graph[src] = [dst]
+
+    def _get_soa_rname(self):
+        db = self._con.HTTP
+
+        for dst in self._in_graph.keys():
+            soa = db.soa.find_one({'_id': dst})
+
+            if soa == None:
+                continue
+
+            rname = soa['rname']
+            elm   = {'dst': dst, 'srcs': self._in_graph[dst]}
+
+            if rname in self._soa_rname:
+                self._soa_rname[rname].append(elm)
+            else:
+                self._soa_rname[rname] = [elm]
+
+    def _get_top_n_refferd(self, n):
+        soa = sorted(self._soa_rname.items(),
+                     key = lambda x: sum([len(refs['srcs']) for refs in x[1]]),
+                     reverse = True)
+
+        print soa[0:n]
+
+    def print_html(self):
+        self._get_graph()
+        self._get_soa_rname()
+        self._get_top_n_refferd(2)
+        
+
 html = ''
 odir = './'
 mongo = 'localhost:27017'
@@ -39,7 +93,7 @@ def top_n_uri(graph, num):
     total = 0
     ret   = []
 
-    return [(k, v) for k, v in sorted(graph.items(), key = lambda x:len(x[1]),
+    return [(k, v) for k, v in sorted(graph.items(), key = lambda x: len(x[1]),
                                       reverse = True)[0:num]]
 
 def print_tld(db):
@@ -351,4 +405,25 @@ def main():
 
     open(os.path.join(odir, 'http_stats.html'), 'w').write(html)
 
-main()
+
+if __name__ == '__main__':
+    server = 'localhost:27017'
+    outdir = os.getcwd()
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "hm:o:", ["help", "mongo=", "output="])
+    except getopt.GetoptError:
+        usage()
+        sys.exit(2)
+
+    for o, a in opts:
+        if o in ("-h", "--help"):
+            usage()
+            sys.exit()
+        if o in ("-o", "--output"):
+            outdir = a
+        if o in ("-m", "--mongo"):
+            server = a
+
+    stats = http_stats(server, outdir)
+    stats.print_html()

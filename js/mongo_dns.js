@@ -181,7 +181,7 @@ db.servers.find().forEach(function(doc) {
                     {_id: doc['_id']},
                     {$set: {type: 'unbound', type_ver: ver}}
                 );
-            } else if (doc['ver'].match(/^NSD/)) {
+            } else if (doc['ver'].match(/^NSD /)) {
                 // NSD
                 ver = doc['ver'].split(' ')[1];
 
@@ -247,7 +247,7 @@ function get_type_ver_bind48(ver) {
     }
 
     if (ver.match(/.*REL/)) {
-        ver += '-REL';
+        type_ver += '-REL';
     }
 
     return type_ver;

@@ -36,6 +36,7 @@ class dns_stats:
 %(dist_bind9)s
 %(dist_bind8)s
 %(dist_nsd)s
+%(dist_pdns)s
   </body>
 </html>
 """
@@ -74,6 +75,14 @@ class dns_stats:
 
         self._html_dist_nsd = """
     <h2>Version Distribution of NSD</h2>
+    <div class="content">
+%s
+    </div>
+    <hr>
+"""
+
+        self._html_dist_pdns = """
+    <h2>Version Distribution of PowerDNS</h2>
     <div class="content">
 %s
     </div>
@@ -258,12 +267,17 @@ class dns_stats:
                                                     self._html_dist_bind8)
         self._html_dist_nsd   = self.print_dist_ver('ver_dist_nsd',
                                                     self._html_dist_nsd)
+        self._html_dist_pdns  = self.print_dist_ver('ver_dist_power_dns',
+                                                    self._html_dist_pdns)
 
-        print self._html % {'type_dist':  self._html_type_dist,
-                            'top_n':      self._html_top_n,
-                            'dist_bind9': self._html_dist_bind9,
-                            'dist_bind8': self._html_dist_bind8,
-                            'dist_nsd'  : self._html_dist_nsd}
+        self.html = self._html % {'type_dist':  self._html_type_dist,
+                                  'top_n':      self._html_top_n,
+                                  'dist_bind9': self._html_dist_bind9,
+                                  'dist_bind8': self._html_dist_bind8,
+                                  'dist_nsd'  : self._html_dist_nsd,
+                                  'dist_pdns' : self._html_dist_pdns}
+
+        open(os.path.join(self._outdir, 'dns_stats.html'), 'w').write(self._html)
 
 
 def usage():
