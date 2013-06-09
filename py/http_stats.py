@@ -21,6 +21,84 @@ class http_stats:
         self._soa_rname = {}
         self._in_graph  = {}
         self._out_graph = {}
+        self._max_ref = 0.0
+
+        self._html = """
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja" lang="ja">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <style type="text/css">
+      body { margin: 20px; }
+      a:hover {color: red}
+
+      h3.soa { margin-bottom: 5px; margin-top: 0px; padding: 0px; }
+      div.refs { border-left: 1px solid #000000;
+                 border-bottom: 1px solid #000000;
+                 padding: 5px;
+                 margin-bottom: 10px; }
+      span.dst { margin-right : 10px; }
+      div.small { font-size: small; margin-bottom: 5px; }
+      div.bold { font-weight: bold; }
+    </style>
+
+<script language="JavaScript">
+<!--
+function set_hosts(id, hosts) {
+   var div = document.getElementById(id);
+
+    while (div.firstChild) {
+        div.removeChild(div.firstChild);
+    }
+
+    for (var i = 0; i < hosts.length; i++) {
+        var text = document.createTextNode(hosts[i] + "\u00A0\u00A0 ");
+        var span = document.createElement('span');
+
+        span.appendChild(text)
+        div.appendChild(span);
+    }
+}
+
+function show_stats(uri, hosts, trds) {
+    var div  = document.getElementById("host");
+    var text = document.createTextNode(uri);
+
+    while (div.firstChild) {
+        div.removeChild(div.firstChild);
+    }
+
+    div.appendChild(text);
+
+    set_hosts("referred", hosts);
+    set_hosts("truncated", trds);
+}
+-->
+</script>
+
+    <title>Cattenacio DPI: HTTP Statistics</title>
+  </head>
+  <body>
+    <h1>HTTP Statistics</h1>
+
+    <h2>Most Reffered URLs</h2>
+      <table>
+        <tr valign="top">
+          <td width=65%%>%(top_n)s</td>
+          <td width=30%%>
+            <div class="bold">host</div>
+            <div id="host" class="small"></div>
+            <div class="bold">reffered by</div>
+            <div id="referred" class="small"></div>
+            <div class="bold">truncated</div>
+            <div id="truncated" class="small"></div>
+          </td>
+        </tr>
+      </table>
+  </body>
+</html>
+"""
 
     def _get_graph(self):
         db = self._con.HTTP
@@ -59,12 +137,49 @@ class http_stats:
                      key = lambda x: sum([len(refs['srcs']) for refs in x[1]]),
                      reverse = True)
 
-        print soa[0:n]
+        return soa[0:n]
 
+    def _get_top_n_html(self, n):
+        html = ''
+
+        top_n = self._get_top_n_refferd(10)
+
+        max_ref = 0
+        for (soa, refs) in top_n:
+            for ref in refs:
+                if max_ref < len(ref['srcs']):
+                    max_ref = len(ref['srcs'])
+
+        for (soa, refs) in top_n:
+            html += '<div class="refs"><h3 class="soa">' + soa + '</h3>'
+
+            for ref in refs:
+                len_src = len(ref['srcs'])
+
+                db = self._con.HTTP
+                trd_hosts = []
+
+                for trd in db.trunc_hosts.find({"value": ref['dst']}):
+                    trd_hosts.append(trd['_id'])
+
+                params = {'dst': ref['dst'],
+                          'len': len(ref['srcs']),
+                          'uris': json.dumps(ref['srcs'].keys()),
+                          'truncated': json.dumps(trd_hosts),
+                          'color': 150 - int(150.0 * len_src / max_ref),
+                          'weight': 80.0 + 150.0 * len_src / max_ref}
+
+                html += '<span class="dst" style="font-size: %(weight)d%%;"><a style="text-decoration: none; color: rgb(%(color)d, %(color)d, %(color)d);" href="javascript:void(0);" onclick=\'show_stats("%(dst)s", %(uris)s, %(truncated)s)\'>%(dst)s(%(len)d)</a></span> ' % params
+
+            html += '</div>'
+
+        return html
+            
     def print_html(self):
         self._get_graph()
         self._get_soa_rname()
-        self._get_top_n_refferd(2)
+
+        print self._html % {'top_n': self._get_top_n_html(2)}
         
 
 html = ''
