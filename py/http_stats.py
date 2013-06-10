@@ -90,6 +90,19 @@ function show_stats(uri, hosts, trds, id_host, id_refered, id_truncated) {
     set_hosts(id_refered, hosts);
     set_hosts(id_truncated, trds);
 }
+
+function show_stats_soa(uri, hosts, trds, soa, id_host, id_refered, id_truncated, id_soa) {
+    var div  = document.getElementById(id_soa);
+    var text = document.createTextNode(soa);
+
+    while (div.firstChild) {
+        div.removeChild(div.firstChild);
+    }
+
+    div.appendChild(text);
+
+    show_stats(uri, hosts, trds, id_host, id_refered, id_truncated);
+}
 -->
 </script>
 
@@ -126,7 +139,9 @@ function show_stats(uri, hosts, trds, id_host, id_refered, id_truncated) {
           <td width=30%%>
             <div class="bold">host</div>
             <div id="host_src" class="small"></div>
-            <div class="bold">refered by</div>
+            <div class="bold">SOA RNAME</div>
+            <div id="soa_src" class="small"></div>
+            <div class="bold">refering</div>
             <div id="refered_src" class="small"></div>
             <div class="bold">truncated URLs</div>
             <div id="truncated_src" class="small"></div>
@@ -220,13 +235,28 @@ function show_stats(uri, hosts, trds, id_host, id_refered, id_truncated) {
         for k, v in sites:
             score = round(v * 100, 2)
 
+            db = self._con.HTTP
+            trd_hosts = []
+
+            for trd in db.trunc_hosts.find({"value": k}):
+                trd_hosts.append(trd['_id'])
+
+            soa   = db.soa.find_one({'_id': k})
+            rname = ''
+
+            if soa != None:
+                rname = soa['rname']
+
             params = {'src':    k,
                       'weight': 125 - i * 1,
-                      'score':  score}
+                      'score':  score,
+                      'uris':   json.dumps(self._out_graph[k]),
+                      'truncated': json.dumps(trd_hosts),
+                      'soa': rname}
 
             i += 1
 
-            html += '<span class="src">%(src)s(%(score)2.2f)</span> ' % params
+            html += '<span class="src"><a style="text-decoration: none; color: rgb(0, 0, 0);" href="javascript:void(0);" onclick=\'show_stats_soa("%(src)s", %(uris)s, %(truncated)s, "%(soa)s", "host_src", "refered_src", "truncated_src", "soa_src")\'>%(src)s(%(score)2.2f)</a></span> ' % params
 
         html += '</div>'
 
