@@ -20,8 +20,8 @@
 
 using namespace std;
 
-#define QUERY_CYCLE  200 // [ms]
-#define QUERIES_PER_CYCLE 5000
+#define QUERY_CYCLE  100 // [ms]
+#define QUERIES_PER_CYCLE 500
 
 string mongo_server("localhost:27017");
 mongo::DBClientConnection mongo_conn;
@@ -29,7 +29,6 @@ event_base *ev_base;
 event      *ev_dns;
 event      *ev_send;
 event      *ev_exit;
-uint16_t    query_id;
 uint32_t    total = 0;
 int         sockfd;
 
@@ -80,13 +79,6 @@ init_query()
     uint16_t n;
 
     memset(query, 0, sizeof(query));
-
-    // id
-    srand(time(NULL));
-    n = htons((uint16_t)(rand() & 0x0000ffff));
-    memcpy(query, &n, 2);
-
-    query_id = n;
 
     // flag
     n = htons(0x0100);
@@ -179,6 +171,8 @@ send_query(evutil_socket_t fd, short what, void *arg)
                     p[2] = arr2[j];
                     p[3] = arr1[i];
 
+                    memcpy(query, p, 4);
+
                     sendto(sockfd, query, sizeof(query), 0,
                            (sockaddr*)&saddr, sizeof(saddr));
 
@@ -226,7 +220,7 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
             char buf[1024];
             sockaddr_in saddr;
             socklen_t   slen = sizeof(saddr);
-            ssize_t readlen;
+            ssize_t     readlen;
 
             readlen = recvfrom(fd, buf, sizeof(buf), MSG_DONTWAIT,
                                (sockaddr*)&saddr, &slen);
@@ -238,8 +232,10 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
                 break;
 
             char addr[128];
+            char dst_addr[128];
 
             inet_ntop(AF_INET, &saddr.sin_addr, addr, sizeof(addr));
+            inet_ntop(AF_INET, buf, dst_addr, sizeof(dst_addr));
 
             cdpi_dns dns;
 
@@ -256,6 +252,7 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
 
                 b.append("_id", addr);
                 b.append("recv_date", recv_date);
+                b.append("dst", dst_addr);
 
                 for (it = ans.begin(); it != ans.end(); ++it) {
                     if (ntohs(it->m_type) == DNS_TYPE_TXT &&
