@@ -166,12 +166,10 @@ send_query(evutil_socket_t fd, short what, void *arg)
 
                     char *p = (char*)&saddr.sin_addr;
 
-                    p[0] = arr4[m];
-                    p[1] = arr3[k];
-                    p[2] = arr2[j];
-                    p[3] = arr1[i];
-
-                    memcpy(query, p, 4);
+                    p[0] = query[0] = arr4[m];
+                    p[1] = query[1] = arr3[k];
+                    p[2] = query[2] = arr2[j];
+                    p[3] = query[3] = arr1[i];
 
                     sendto(sockfd, query, sizeof(query), 0,
                            (sockaddr*)&saddr, sizeof(saddr));
