@@ -171,6 +171,9 @@ send_query(evutil_socket_t fd, short what, void *arg)
                     p[2] = query[2] = arr2[j];
                     p[3] = query[3] = arr1[i];
 
+                    cout << (int)p[2] << " == " << (int)query[2] << endl;
+                    cout << (int)p[3] << " == " << (int)query[3] << endl;
+
                     sendto(sockfd, query, sizeof(query), 0,
                            (sockaddr*)&saddr, sizeof(saddr));
 
