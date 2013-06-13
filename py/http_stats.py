@@ -27,6 +27,8 @@ class http_stats:
 
         self._dot_full   = 'http_full_graph.dot'
         self._dot_pruned = 'http_pruned_graph.dot'
+        self._sif_full   = 'http_full_graph.sif'
+        self._sif_pruned = 'http_pruned_graph.sif'
 
         self._html = """
 <?xml version="1.0" encoding="utf-8"?>
@@ -159,6 +161,15 @@ function show_stats_soa(uri, hosts, trds, soa, id_host, id_refered, id_truncated
   </body>
 </html>
 """
+
+    def _get_full_sif(self):
+        sif = ''
+
+        for dst, srcs in self._in_graph.items():
+            for src in srcs:
+                sif += '%s referer %s\n' % (src, dst)
+
+        return sif
 
     def _get_full_dot(self):
         dot = 'digraph http_referre{\ngraph [rankdir = LR];\n'
@@ -303,7 +314,10 @@ function show_stats_soa(uri, hosts, trds, soa, id_host, id_refered, id_truncated
         self._get_soa_rname()
 
         dot = self._get_full_dot()
+        sif = self._get_full_sif()
+
         open(os.path.join(self._outdir, self._dot_full), 'w').write(dot)
+        open(os.path.join(self._outdir, self._sif_full), 'w').write(sif)
 
         print self._html % {'top_n': self._get_top_n_html(10),
                             'refs' : self._get_top_n_leaking(50) }
