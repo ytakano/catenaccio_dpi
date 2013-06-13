@@ -166,13 +166,16 @@ send_query(evutil_socket_t fd, short what, void *arg)
 
                     char *p = (char*)&saddr.sin_addr;
 
-                    p[0] = query[0] = arr4[m];
-                    p[1] = query[1] = arr3[k];
-                    p[2] = query[2] = arr2[j];
-                    p[3] = query[3] = arr1[i];
+                    p[0] = arr4[m];
+                    p[1] = arr3[k];
+                    p[2] = arr2[j];
+                    p[3] = arr1[i];
 
-                    cout << (int)p[2] << " == " << (int)query[2] << endl;
-                    cout << (int)p[3] << " == " << (int)query[3] << endl;
+                    query[0] = p[0] ^ p[1];
+                    query[1] = p[2] ^ p[3];
+
+                    //cout << (int)(p[0] ^ p[2]) << " == " << (int)query[0] << endl;
+                    //cout << (int)(p[1] ^ p[3]) << " == " << (int)query[1] << endl;
 
                     sendto(sockfd, query, sizeof(query), 0,
                            (sockaddr*)&saddr, sizeof(saddr));
@@ -233,14 +236,25 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
                 break;
 
             char addr[128];
-            char dst_addr[128];
+            char *p = (char*)&saddr.sin_addr;
 
-            inet_ntop(AF_INET, &saddr.sin_addr, addr, sizeof(addr));
-            inet_ntop(AF_INET, buf, dst_addr, sizeof(dst_addr));
+            inet_ntop(AF_INET, p, addr, sizeof(addr));
 
             cdpi_dns dns;
 
             if (dns.decode(buf, readlen)) {
+                uint16_t sum;
+                bool     is_eq_dst;
+
+                ((char*)&sum)[0] = p[0] ^ p[1];
+                ((char*)&sum)[1] = p[2] ^ p[3];
+
+                if (memcmp(&sum, buf, sizeof(sum)) == 0) {
+                    is_eq_dst = true;
+                } else {
+                    is_eq_dst = false;
+                }
+
                 const list<cdpi_dns_rr> &ans = dns.get_answer();
                 list<cdpi_dns_rr>::const_iterator it;
 
@@ -253,7 +267,7 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
 
                 b.append("_id", addr);
                 b.append("recv_date", recv_date);
-                b.append("dst", dst_addr);
+                b.append("is_eq_dst", is_eq_dst);
 
                 for (it = ans.begin(); it != ans.end(); ++it) {
                     if (ntohs(it->m_type) == DNS_TYPE_TXT &&
