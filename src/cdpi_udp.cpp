@@ -64,10 +64,9 @@ cdpi_udp::run()
                         m_listener->in_datagram(CDPI_EVENT_DNS,
                                                 packet.m_id_dir,
                                                 boost::dynamic_pointer_cast<cdpi_proto>(p_dns));
+                        continue;
                     }
                 }
-
-                continue;
             }
 
             {
@@ -77,6 +76,7 @@ cdpi_udp::run()
                 istream         *is = &iss;
 
                 if (bc->decode(*is)) {
+                    cout << len << "[bytes]" << endl;
                     m_listener->in_datagram(CDPI_EVENT_BENCODE,
                                             packet.m_id_dir, 
                                             boost::dynamic_pointer_cast<cdpi_proto>(bc));

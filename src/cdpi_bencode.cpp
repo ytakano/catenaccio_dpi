@@ -30,12 +30,12 @@ bool
 cdpi_bencode::decode(istream &in)
 {
     if (decode(in, m_data)) {
-        in.seekg(0, ios::end);
-        if (in.tellg() == 0) {
-            return true;
-        } else {
+        char c;
+        if (in.get(c)) {
             clear();
             return false;
+        } else {
+            return true;
         }
     } else {
         clear();
