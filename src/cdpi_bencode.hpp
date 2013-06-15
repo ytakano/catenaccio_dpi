@@ -158,6 +158,7 @@ public:
     };
 
     ptr_ben_data get_data() { return m_data; }
+    void set_data(ptr_ben_data data) { m_data = data; }
 
     typedef boost::shared_ptr<bencode_int>  ptr_ben_int;
     typedef boost::shared_ptr<bencode_str>  ptr_ben_str;

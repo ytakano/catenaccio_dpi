@@ -434,7 +434,7 @@ my_event_listener::in_dht_nodes(const cdpi_id_dir &id_dir,
 
         // update ip, port, date
         b2.append("ip", ip_str);
-        b2.append("port", port);
+        b2.append("port", ntohs(port));
         b2.append("date", date);
         doc2 = b2.obj();
 
