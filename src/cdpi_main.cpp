@@ -30,7 +30,6 @@ public:
 
         /*
          * // L3 and L4 protocol
-         * // 今はIPv4とTCPだけなので必要ない
          *
          * if (id_dir.get_l3_proto() == IPPROTO_IP) {
          * } else if (id_dir.get_l3_proto() == IPPROTO_IPV6) {
@@ -323,10 +322,17 @@ public:
         uint32_t addr_dst = id_dir.get_ipv4_addr_dst();
         uint16_t port_src = ntohs(id_dir.get_port_src());
         uint16_t port_dst = ntohs(id_dir.get_port_dst());
-        char     src[32], dst[32];
+        char     src[INET6_ADDRSTRLEN], dst[INET6_ADDRSTRLEN];
 
-        inet_ntop(PF_INET, &addr_src, src, sizeof(src));
-        inet_ntop(PF_INET, &addr_dst, dst, sizeof(dst));
+        if (id_dir.get_l3_proto() == IPPROTO_IP) {
+            inet_ntop(PF_INET, &addr_src, src, sizeof(src));
+            inet_ntop(PF_INET, &addr_dst, dst, sizeof(dst));
+        } else if (id_dir.get_l3_proto() == IPPROTO_IPV6) {
+            inet_ntop(PF_INET6, &addr_src, src, sizeof(src));
+            inet_ntop(PF_INET6, &addr_dst, dst, sizeof(dst));
+        } else {
+            return;
+        }
 
         switch (cev) {
         case CDPI_EVENT_BENCODE:

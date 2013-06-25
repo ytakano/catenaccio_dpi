@@ -51,7 +51,7 @@ public:
     cdpi_id() { }
     virtual ~cdpi_id(){ };
 
-    cdpi_direction set_iph(char *iph, int protocol);
+    cdpi_direction set_iph(char *iph, int protocol, char **l4hdr);
     void print_id() const;
 
     bool operator< (const cdpi_id &rhs) const {

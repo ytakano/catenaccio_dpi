@@ -81,7 +81,7 @@ my_event_listener::in_stream(cdpi_event cev, const cdpi_id_dir &id_dir,
     }
     default:
         ;
-    };
+    }
 }
 
 void
