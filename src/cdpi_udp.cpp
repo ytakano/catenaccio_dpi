@@ -76,7 +76,6 @@ cdpi_udp::run()
                 istream         *is = &iss;
 
                 if (bc->decode(*is)) {
-                    cout << len << "[bytes]" << endl;
                     m_listener->in_datagram(CDPI_EVENT_BENCODE,
                                             packet.m_id_dir, 
                                             boost::dynamic_pointer_cast<cdpi_proto>(bc));
@@ -101,7 +100,7 @@ cdpi_udp::input_udp(cdpi_id &id, cdpi_direction dir, char *buf, int len,
 
     packet.m_id_dir.m_id  = id;
     packet.m_id_dir.m_dir = dir;
-    packet.m_bytes.set_buf((char*)udph, l4hdr - buf);
+    packet.m_bytes.set_buf((char*)udph, len - (l4hdr - buf));
 
     {
         boost::mutex::scoped_lock lock(m_mutex);
