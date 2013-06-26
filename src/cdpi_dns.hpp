@@ -24,7 +24,7 @@
  *  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
  *  |                      ID                       |
  *  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- *  |QR|   Opcode  |AA|TC|RD|RA|   Z    |   RCODE   |
+ *  |QR|   Opcode  |AA|TC|RD|RA|  |AD|CD|   RCODE   |
  *  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
  *  |                    QDCOUNT                    |
  *  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
@@ -275,9 +275,23 @@ struct cdpi_dns_aaaa : public cdpi_dns_rdata {
 
 typedef boost::shared_ptr<cdpi_dns_soa> ptr_cdpi_dns_soa;
 typedef boost::shared_ptr<cdpi_dns_txt> ptr_cdpi_dns_txt;
+typedef boost::shared_ptr<cdpi_dns_a> ptr_cdpi_dns_a;
+typedef boost::shared_ptr<cdpi_dns_aaaa> ptr_cdpi_dns_aaaa;
+typedef boost::shared_ptr<cdpi_dns_ns> ptr_cdpi_dns_ns;
+typedef boost::shared_ptr<cdpi_dns_cname> ptr_cdpi_dns_cname;
+typedef boost::shared_ptr<cdpi_dns_mx> ptr_cdpi_dns_mx;
+typedef boost::shared_ptr<cdpi_dns_ptr> ptr_cdpi_dns_ptr;
+typedef boost::shared_ptr<cdpi_dns_hinfo> ptr_cdpi_dns_hinfo;
 
 #define DNS_RDATA_TO_SOA(RDATA) boost::dynamic_pointer_cast<cdpi_dns_soa>(RDATA)
 #define DNS_RDATA_TO_TXT(RDATA) boost::dynamic_pointer_cast<cdpi_dns_txt>(RDATA)
+#define DNS_RDATA_TO_A(RDATA) boost::dynamic_pointer_cast<cdpi_dns_a>(RDATA)
+#define DNS_RDATA_TO_AAAA(RDATA) boost::dynamic_pointer_cast<cdpi_dns_aaaa>(RDATA)
+#define DNS_RDATA_TO_NS(RDATA) boost::dynamic_pointer_cast<cdpi_dns_ns>(RDATA)
+#define DNS_RDATA_TO_CNAME(RDATA) boost::dynamic_pointer_cast<cdpi_dns_cname>(RDATA)
+#define DNS_RDATA_TO_MX(RDATA) boost::dynamic_pointer_cast<cdpi_dns_mx>(RDATA)
+#define DNS_RDATA_TO_PTR(RDATA) boost::dynamic_pointer_cast<cdpi_dns_ptr>(RDATA)
+#define DNS_RDATA_TO_HINFO(RDATA) boost::dynamic_pointer_cast<cdpi_dns_hinfo>(RDATA)
 
 #define DNS_TO_RDATA(A) boost::dynamic_pointer_cast<cdpi_dns_rdata>(A)
 
@@ -293,6 +307,16 @@ public:
     const std::list<cdpi_dns_rr>& get_authority() { return m_authority; }
     const std::list<cdpi_dns_rr>& get_additional() { return m_additional; }
 
+    int  get_rcode();
+    int  get_opcode();
+    bool is_qr(); // Query: 0, Response: 1
+    bool is_aa(); // Authoritative Answer
+    bool is_tc(); // Truncated Response
+    bool is_rd(); // Recursion Desired
+    bool is_ra(); // Recursion Allowed
+    bool is_ad(); // Authentic Data
+    bool is_cd(); // Checking Disabled
+
 private:
     cdpi_dns_header               m_header;
     std::list<cdpi_dns_question>  m_quesiton;
@@ -306,8 +330,12 @@ private:
                   std::list<cdpi_dns_rr> &rr_list);
     int decode_soa(char *head, int total_len, char *buf, int buf_len,
                    ptr_cdpi_dns_soa p_soa);
-    int decode_txt(char *head, int total_len, char *buf, int buf_len,
-                   ptr_cdpi_dns_txt p_txt, uint16_t rdlen);
+    int decode_mx(char *head, int total_len, char *buf, int buf_len,
+                  ptr_cdpi_dns_mx p_mx, uint16_t rdlen);
+    int decode_txt(char *buf, ptr_cdpi_dns_txt p_txt, uint16_t rdlen);
+    int decode_hinfo(char *buf, ptr_cdpi_dns_hinfo p_hinfo, uint16_t rdlen);
+    int decode_a(char *buf, ptr_cdpi_dns_a p_txt, uint16_t rdlen);
+    int decode_aaaa(char *buf, ptr_cdpi_dns_aaaa p_txt, uint16_t rdlen);
     int read_domain(char *head, int total_len, char* buf, int buf_len,
                     std::string &domain);
 };
