@@ -23,7 +23,8 @@ public:
     cdpi_udp();
     virtual ~cdpi_udp();
 
-    void input_udp(cdpi_id &id, cdpi_direction dir, char *buf, int len);
+    void input_udp(cdpi_id &id, cdpi_direction dir, char *buf, int len,
+                   char *l4hdr);
     void run();
     void set_event_listener(ptr_cdpi_event_listener listener) {
         m_listener = listener;

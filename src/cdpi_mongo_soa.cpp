@@ -16,7 +16,8 @@ using namespace std;
 
 #define RESOLVE_MAX 4096
 
-static const char *http_soa = "HTTP.soa";
+static const char *http_soa   = "HTTP.soa";
+static char *dns_server = NULL;
 
 mongo::DBClientConnection mongo_conn;
 
@@ -47,6 +48,7 @@ ubcallback(void *mydata, int err, struct ub_result *result)
             std::list<cdpi_dns_rr>::const_iterator it_ans;
 
             for (it_ans = answer.begin(); it_ans != answer.end(); ++it_ans) {
+                // TODO: handle CNAME
                 if (ntohs(it_ans->m_type) == 6 && ntohs(it_ans->m_class) == 1) {
                     ptr_cdpi_dns_soa p_soa = DNS_RDATA_TO_SOA(it_ans->m_rdata);
 
@@ -105,6 +107,9 @@ resolve_soa() {
         exit(-1);
     }
 
+    if (dns_server != NULL)
+        ub_ctx_set_fwd(ctx, dns_server);
+
     for (it = domains.begin(); it != domains.end(); ++it) {
         int retval;
 
@@ -140,6 +145,7 @@ print_usage(char *cmd)
 {
     cout << "usage: " << cmd << " -m localhost:27017"
          << "\n\t -m: an address of MongoDB. localhost:27017 is a default value"
+         << "\n\t -f: an address of DNS server to query"
          << "\n\t -h: show this help"
          << endl;
 }
@@ -147,7 +153,7 @@ print_usage(char *cmd)
 int
 main(int argc, char *argv[]) {
     int opt;
-    const char *optstr = "m:h";
+    const char *optstr = "m:f:h";
     const char *mongo_server = "localhost:27017";
     string errmsg;
 
@@ -155,6 +161,9 @@ main(int argc, char *argv[]) {
         switch (opt) {
         case 'm':
             mongo_server = optarg;
+            break;
+        case 'f':
+            dns_server = optarg;
             break;
         case 'h':
         default:
