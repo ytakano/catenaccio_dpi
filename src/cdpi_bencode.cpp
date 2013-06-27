@@ -31,8 +31,10 @@ cdpi_bencode::decode(istream &in)
 {
     if (decode(in, m_data)) {
         char c;
-        if (in.get(c)) {
-            clear();
+
+        in.get(c);
+
+        if (in.good()) {
             return false;
         } else {
             return true;

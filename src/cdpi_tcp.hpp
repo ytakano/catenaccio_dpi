@@ -62,7 +62,8 @@ public:
     cdpi_tcp();
     virtual ~cdpi_tcp();
 
-    void input_tcp(cdpi_id &id, cdpi_direction dir, char *buf, int len);
+    void input_tcp(cdpi_id &id, cdpi_direction dir, char *buf, int len,
+                   char *l4hdr);
     void run();
     void garbage_collector();
     void set_event_listener(ptr_cdpi_event_listener listener) {
@@ -74,7 +75,6 @@ private:
     cdpi_id_dir_cont                     m_events;
     cdpi_stream                          m_stream;
 
-    void input_tcp4(cdpi_id &id, cdpi_direction dir, char *buf, int len);
     bool get_packet(const cdpi_id &id, cdpi_direction dir,
                     cdpi_tcp_packet &packet);
     bool recv_fin(const cdpi_id &id, cdpi_direction dir);

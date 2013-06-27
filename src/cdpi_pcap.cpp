@@ -5,6 +5,7 @@
 
 #include <net/ethernet.h>
 #include <netinet/ip.h>
+#include <netinet/ip6.h>
 
 #include <iostream>
 
@@ -37,6 +38,8 @@ cdpi_pcap::callback(const struct pcap_pkthdr *h, const uint8_t *bytes)
 {
     uint8_t proto;
     const uint8_t *ip_hdr = get_ip_hdr(bytes, h->caplen, proto);
+    uint32_t len = h->caplen - (ip_hdr - bytes);
+    uint32_t plen;
 
     if (m_is_break) {
         pcap_breakloop(m_handle);
@@ -48,18 +51,64 @@ cdpi_pcap::callback(const struct pcap_pkthdr *h, const uint8_t *bytes)
 
     switch (proto) {
     case IPPROTO_IP:{
-        ip *iph = (ip*)ip_hdr;
-        uint16_t off = ntohs(iph->ip_off);
+        ip       *iph = (ip*)ip_hdr;
+        uint16_t  off = ntohs(iph->ip_off);
 
+        // not support IP fragment
         if (off & IP_MF || (off & 0x1fff) > 0)
             return;
 
-        m_callback((char*)ip_hdr, ntohs(iph->ip_len), proto);
+        plen = ntohs(iph->ip_len);
+
+        if (plen > len)
+            return;
+
+        m_callback((char*)ip_hdr, plen, proto);
 
         break;
     }
     case IPPROTO_IPV6:
-        // TODO:
+    {
+        ip6_hdr *ip6h = (ip6_hdr*)ip_hdr;
+        uint8_t  nxt  = ip6h->ip6_nxt;
+        char    *p    = (char*)ip6h + sizeof(ip6_hdr);
+        
+        for (;;) {
+            switch(nxt) {
+            case IPPROTO_HOPOPTS:
+            case IPPROTO_ROUTING:
+            case IPPROTO_ESP:
+            case IPPROTO_AH:
+            case IPPROTO_DSTOPTS:
+            {
+                ip6_ext *ext = (ip6_ext*)p;
+
+                nxt = ext->ip6e_nxt;
+
+                if (ext->ip6e_len == 0)
+                    p += 8;
+                else
+                    p += ext->ip6e_len * 8;
+
+                break;
+            }
+            case IPPROTO_NONE:
+            case IPPROTO_FRAGMENT:
+            case IPPROTO_ICMPV6:
+                return;
+            default:
+                goto end_loop;
+            }
+        }
+    end_loop:
+        plen = ntohs(ip6h->ip6_plen) + sizeof(ip6_hdr);
+        if (plen > len)
+            return;
+
+        m_callback((char*)ip_hdr, plen, proto);
+
+        break;
+    }
     default:
         break;
     }
