@@ -519,6 +519,12 @@ cdpi_dns::get_opcode()
     return (ntohs(m_header.m_flag) & (0x000f << 11)) >> 11;
 }
 
+uint16_t
+cdpi_dns::get_id()
+{
+    return m_header.m_id;
+}
+
 bool
 cdpi_dns::is_qr()
 {

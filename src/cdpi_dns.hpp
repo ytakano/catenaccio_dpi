@@ -307,6 +307,7 @@ public:
     const std::list<cdpi_dns_rr>& get_authority() { return m_authority; }
     const std::list<cdpi_dns_rr>& get_additional() { return m_additional; }
 
+    uint16_t get_id();
     int  get_rcode();
     int  get_opcode();
     bool is_qr(); // Query: 0, Response: 1

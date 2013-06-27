@@ -61,11 +61,9 @@ my_event_listener::in_stream(cdpi_event cev, const cdpi_id_dir &id_dir,
         switch (proto->get_proto_type()) {
         case PROTO_HTTP_SERVER:
         {
-            ptr_cdpi_http p_http = PROTO_TO_HTTP(proto);
-
-            p_http->add_mime_to_read("text/html");
-            p_http->add_mime_to_read("image/gif");
-
+            // read body if MIME is text/html
+            // ptr_cdpi_http p_http = PROTO_TO_HTTP(proto);
+            // p_http->add_mime_to_read("text/html");
             break;
         }
         default:
