@@ -26,11 +26,13 @@ using namespace std;
 string mongo_server("localhost:27017");
 mongo::DBClientConnection mongo_conn;
 event_base *ev_base;
-event      *ev_dns;
+event      *ev_dns_a;
+event      *ev_dns_ver;
 event      *ev_send;
 event      *ev_exit;
 uint32_t    total = 0;
-int         sockfd;
+int         sockfd_a;
+int         sockfd_ver;
 
 volatile int n1 = 0;
 volatile int n2 = 0;
@@ -44,7 +46,8 @@ uint8_t arr4[256];
 
 unsigned int send_total = 0;
 
-void callback_dns(evutil_socket_t fd, short what, void *arg);
+void callback_dns_a(evutil_socket_t fd, short what, void *arg);
+void callback_dns_ver(evutil_socket_t fd, short what, void *arg);
 
 void
 get_epoch_millis(mongo::Date_t &date)
@@ -57,10 +60,23 @@ get_epoch_millis(mongo::Date_t &date)
                    (unsigned long long)(tv.tv_usec) / 1000);
 }
 
-char query[30];
+char query_a[39];
+char query_ver[30];
 
 /*
- * struct query {
+ * struct query_a {
+ *     uint16_t id;
+ *     uint16_t flag;        // 0x0000 (Standard Query), [2]
+ *     uint16_t qd_count;    // 1, [4]
+ *     uint16_t an_count;    // 0, [6]
+ *     uint16_t ns_count;    // 0, [8]
+ *     uint16_t ar_count;    // 0, [10]
+ *     char     name[23];    // jupitoris.jaist.ac.jp, [12]
+ *     uint16_t query_type;  // 0x0001 (A), [35]
+ *     uint16_t query_class; // 0x0001 (IN), [37]
+ * };
+ *
+ * struct query_ver {
  *     uint16_t id;
  *     uint16_t flag;        // 0x0100 (Standard Query), [2]
  *     uint16_t qd_count;    // 1, [4]
@@ -74,35 +90,71 @@ char query[30];
 */
 
 void
-init_query()
+init_query_a()
 {
     uint16_t n;
 
-    memset(query, 0, sizeof(query));
-
-    // flag
-    n = htons(0x0100);
-    memcpy(&query[2], &n, 2);
+    memset(query_a, 0, sizeof(query_a));
 
     // qd_count
     n = htons(1);
-    memcpy(&query[4], &n, 2);
+    memcpy(&query_a[4], &n, 2);
+
+    // name, 0x09 "jupitoris"
+    query_a[12] = 9;
+    memcpy(&query_a[13], "jupitoris", 9);
+
+    // name, 0x05, "jaist"
+    query_a[22] = 5;
+    memcpy(&query_a[23], "jaist", 5);
+
+    // name, 0x02, "ac"
+    query_a[28] = 2;
+    memcpy(&query_a[29], "ac", 2);
+
+    // name, 0x02, "jp"
+    query_a[31] = 2;
+    memcpy(&query_a[32], "jp", 2);
+    
+    // query type
+    n = htons(0x0001);
+    memcpy(&query_a[35], &n, 2);
+
+    // query class
+    n = htons(0x0001);
+    memcpy(&query_a[37], &n, 2);
+}
+
+void
+init_query_ver()
+{
+    uint16_t n;
+
+    memset(query_ver, 0, sizeof(query_ver));
+
+    // flag
+    n = htons(0x0100);
+    memcpy(&query_ver[2], &n, 2);
+
+    // qd_count
+    n = htons(1);
+    memcpy(&query_ver[4], &n, 2);
 
     // name, 0x07 "VERSION"
-    query[12] = 7;
-    memcpy(&query[13], "VERSION", 7);
+    query_ver[12] = 7;
+    memcpy(&query_ver[13], "VERSION", 7);
 
     // name, 0x04, "BIND"
-    query[20] = 4;
-    memcpy(&query[21], "BIND", 4);
+    query_ver[20] = 4;
+    memcpy(&query_ver[21], "BIND", 4);
 
     // query type
     n = htons(0x0010);
-    memcpy(&query[26], &n, 2);
+    memcpy(&query_ver[26], &n, 2);
 
     // query class
     n = htons(0x0003);
-    memcpy(&query[28], &n, 2);
+    memcpy(&query_ver[28], &n, 2);
 }
 
 void
@@ -171,13 +223,10 @@ send_query(evutil_socket_t fd, short what, void *arg)
                     p[2] = arr2[j];
                     p[3] = arr1[i];
 
-                    query[0] = p[0] ^ p[1];
-                    query[1] = p[2] ^ p[3];
+                    query_a[0] = p[0] ^ p[2];
+                    query_a[1] = p[1] ^ p[3];
 
-                    //cout << (int)(p[0] ^ p[2]) << " == " << (int)query[0] << endl;
-                    //cout << (int)(p[1] ^ p[3]) << " == " << (int)query[1] << endl;
-
-                    sendto(sockfd, query, sizeof(query), 0,
+                    sendto(sockfd_a, query_a, sizeof(query_a), 0,
                            (sockaddr*)&saddr, sizeof(saddr));
 
                     send_total++;
@@ -215,7 +264,77 @@ end_loop:
 }
 
 void
-callback_dns(evutil_socket_t fd, short what, void *arg)
+callback_dns_ver(evutil_socket_t fd, short what, void *arg)
+{
+    switch (what) {
+    case EV_READ:
+    {
+        for (;;) {
+            char buf[1024];
+            sockaddr_in saddr;
+            socklen_t slen = sizeof(saddr);
+            ssize_t readlen;
+
+            readlen = recvfrom(fd, buf, sizeof(buf), MSG_DONTWAIT,
+                               (sockaddr*)&saddr, &slen);
+
+            if (readlen < 0)
+                break;
+
+            if (ntohs(saddr.sin_port) != 53)
+                break;
+
+            char addr[128];
+            char *p = (char*)&saddr.sin_addr;
+
+            inet_ntop(AF_INET, p, addr, sizeof(addr));
+
+            cdpi_dns dns;
+
+            if (dns.decode(buf, readlen)) {
+                const list<cdpi_dns_rr> &ans = dns.get_answer();
+                list<cdpi_dns_rr>::const_iterator it;
+
+                auto_ptr<mongo::DBClientCursor> cur;
+                mongo::BSONObjBuilder b1, b2, b3;
+                mongo::BSONObj doc;
+                mongo::Date_t date2;
+
+                get_epoch_millis(date2);
+
+                b1.append("_id", addr);
+                b2.append("date2", date2);
+                b2.append("rcode_ver", dns.get_rcode());
+
+                for (it = ans.begin(); it != ans.end(); ++it) {
+                    if (ntohs(it->m_type) == DNS_TYPE_TXT &&
+                        ntohs(it->m_class) == DNS_CLASS_CH) {
+                        ptr_cdpi_dns_txt p_txt;
+
+                        p_txt = DNS_RDATA_TO_TXT(it->m_rdata);
+
+                        b2.append("ver", p_txt->m_txt);
+
+                        break;
+                    }
+                }
+
+                b3.append("$set", b2.obj());
+
+                //cout << doc.toString() << endl;
+
+                mongo_conn.update("DNSCrawl.servers", b1.obj(), b3.obj());
+            }
+        }
+        break;
+    }
+    default:
+        ;
+    }
+}
+
+void
+callback_dns_a(evutil_socket_t fd, short what, void *arg)
 {
     switch (what) {
     case EV_READ:
@@ -246,8 +365,8 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
                 uint16_t sum;
                 bool     is_eq_dst;
 
-                ((char*)&sum)[0] = p[0] ^ p[1];
-                ((char*)&sum)[1] = p[2] ^ p[3];
+                ((char*)&sum)[0] = p[0] ^ p[2];
+                ((char*)&sum)[1] = p[1] ^ p[3];
 
                 if (memcmp(&sum, buf, sizeof(sum)) == 0) {
                     is_eq_dst = true;
@@ -255,38 +374,25 @@ callback_dns(evutil_socket_t fd, short what, void *arg)
                     is_eq_dst = false;
                 }
 
-                const list<cdpi_dns_rr> &ans = dns.get_answer();
-                list<cdpi_dns_rr>::const_iterator it;
-
                 auto_ptr<mongo::DBClientCursor> cur;
                 mongo::BSONObjBuilder b;
-                mongo::BSONObj        doc;
-                mongo::Date_t         recv_date;
+                mongo::Date_t         date1;
 
-                get_epoch_millis(recv_date);
+                get_epoch_millis(date1);
 
                 b.append("_id", addr);
-                b.append("recv_date", recv_date);
+                b.append("date1", date1);
                 b.append("is_eq_dst", is_eq_dst);
+                b.append("is_ra", dns.is_ra());
+                b.append("rcode_a", dns.get_rcode());
 
-                for (it = ans.begin(); it != ans.end(); ++it) {
-                    if (ntohs(it->m_type) == DNS_TYPE_TXT &&
-                        ntohs(it->m_class) == DNS_CLASS_CH) {
-                        ptr_cdpi_dns_txt      p_txt;
+                mongo_conn.insert("DNSCrawl.servers", b.obj());
 
-                        p_txt = DNS_RDATA_TO_TXT(it->m_rdata);
+                query_ver[0] = p[0] ^ p[2];
+                query_ver[1] = p[1] ^ p[3];
 
-                        b.append("ver", p_txt->m_txt);
-
-                        break;
-                    }
-                }
-
-                doc = b.obj();
-
-                //cout << doc.toString() << endl;
-
-                mongo_conn.insert("DNSCrawl.servers", doc);
+                sendto(sockfd_ver, query_ver, sizeof(query_ver), 0,
+                       (sockaddr*)&saddr, slen);
             }
         }
         break;
@@ -316,11 +422,17 @@ init()
         exit(-1);
     }
 
-    init_query();
+    init_query_a();
+    init_query_ver();
 
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    sockfd_a = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd_a < 0) {
+        perror("socket");
+        exit(-1);
+    }
 
-    if (sockfd < 0) {
+    sockfd_ver = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd_ver < 0) {
         perror("socket");
         exit(-1);
     }
@@ -330,8 +442,13 @@ init()
     init_arr(arr3);
     init_arr(arr4);
 
-    ev_dns = event_new(ev_base, sockfd, EV_READ | EV_PERSIST, callback_dns, NULL);
-    event_add(ev_dns, NULL);
+    ev_dns_a = event_new(ev_base, sockfd_a, EV_READ | EV_PERSIST,
+                         callback_dns_a, NULL);
+    event_add(ev_dns_a, NULL);
+
+    ev_dns_ver = event_new(ev_base, sockfd_ver, EV_READ | EV_PERSIST,
+                           callback_dns_ver, NULL);
+    event_add(ev_dns_ver, NULL);
 
     timeval tv = {0, QUERY_CYCLE * 1000};
     ev_send = event_new(ev_base, -1, EV_TIMEOUT | EV_PERSIST, send_query, NULL);
