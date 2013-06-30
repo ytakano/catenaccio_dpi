@@ -20,8 +20,8 @@
 
 using namespace std;
 
-#define QUERY_CYCLE  100 // [ms]
-#define QUERIES_PER_CYCLE 500
+#define QUERY_CYCLE  250 // [ms]
+#define QUERIES_PER_CYCLE 1500
 
 string mongo_server("localhost:27017");
 mongo::DBClientConnection mongo_conn;
@@ -414,7 +414,9 @@ init()
 
     mongo_conn.dropDatabase("DNSCrawl");
     mongo_conn.ensureIndex("DNSCrawl.servers",
-                           mongo::fromjson("{recv_date: 1}"));
+                           mongo::fromjson("{date1: 1}"));
+    mongo_conn.ensureIndex("DNSCrawl.servers",
+                           mongo::fromjson("{date2: 1}"));
 
     ev_base = event_base_new();
     if (! ev_base) {
