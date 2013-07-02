@@ -10,34 +10,24 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-#include <event.h>
-
 #include <mongo/client/dbclient.h>
 
 #include <iostream>
 #include <set>
 #include <string>
 
+#include <boost/thread.hpp>
+
 using namespace std;
 
-#define QUERY_CYCLE  250 // [ms]
-#define QUERIES_PER_CYCLE 1500
+#define QUERY_CYCLE  25 // [ms]
+#define QUERIES_PER_CYCLE 300
 
 string mongo_server("localhost:27017");
 mongo::DBClientConnection mongo_conn;
-event_base *ev_base;
-event      *ev_dns_a;
-event      *ev_dns_ver;
-event      *ev_send;
-event      *ev_exit;
 uint32_t    total = 0;
 int         sockfd_a;
 int         sockfd_ver;
-
-volatile int n1 = 0;
-volatile int n2 = 0;
-volatile int n3 = 0;
-volatile int n4 = 0;
 
 uint8_t arr1[256];
 uint8_t arr2[256];
@@ -45,9 +35,7 @@ uint8_t arr3[256];
 uint8_t arr4[256];
 
 unsigned int send_total = 0;
-
-void callback_dns_a(evutil_socket_t fd, short what, void *arg);
-void callback_dns_ver(evutil_socket_t fd, short what, void *arg);
+int send_count = 0;
 
 void
 get_epoch_millis(mongo::Date_t &date)
@@ -177,13 +165,7 @@ init_arr(uint8_t *arr)
 }
 
 void
-exit_callback(evutil_socket_t fd, short what, void *arg)
-{
-    exit(0);
-}
-
-void
-send_query(evutil_socket_t fd, short what, void *arg)
+send_query()
 {
     sockaddr_in saddr;
     int i, j, k, m;
@@ -193,14 +175,10 @@ send_query(evutil_socket_t fd, short what, void *arg)
     saddr.sin_port   = htons(53);
     saddr.sin_family = AF_INET;
 
-    j = n2;
-    k = n3;
-    m = n4;
-
-    for (i = n1; i < 256; i++) {
-        for (j = n2; j < 256; j++) {
-            for (k = n3; k < 256; k++) {
-                for (m = n4; m < 256; m++) {
+    for (i = 0; i < 256; i++) {
+        for (j = 0; j < 256; j++) {
+            for (k = 0; k < 256; k++) {
+                for (m = 0; m < 256; m++) {
                     if (arr4[m] >= 224 || // multicast & reserved
                         arr4[m] == 0   || // reserved
                         arr4[m] == 127 || // localhost
@@ -233,172 +211,153 @@ send_query(evutil_socket_t fd, short what, void *arg)
                     n++;
                     if (n >= QUERIES_PER_CYCLE) {
                         m++;
-                        goto end_loop;
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(QUERY_CYCLE));
+                        if (send_count < 1000) {
+                            send_count++;
+                        } else {
+                            cout << send_total << endl;
+                            send_count = 0;
+                        }
                     }
                 }
-                n4 = 0;
             }
-            n3 = 0;
         }
-        n2 = 0;
     }
-
-end_loop:
-    n1 = i;
-    n2 = j;
-    n3 = k;
-    n4 = m;
 
     cout << send_total << endl;
-
-    if (n < QUERIES_PER_CYCLE) {
-        event_del(ev_send);
-        event_free(ev_send);
-
-        timeval tv = {10, 0};
-        ev_exit = event_new(ev_base, -1, EV_TIMEOUT, exit_callback, NULL);
-        event_add(ev_exit, &tv);
-    }
+    boost::this_thread::sleep(boost::posix_time::milliseconds(30));
 
     return;
 }
 
 void
-callback_dns_ver(evutil_socket_t fd, short what, void *arg)
+recv_dns_ver()
 {
-    switch (what) {
-    case EV_READ:
-    {
-        for (;;) {
-            char buf[1024];
-            sockaddr_in saddr;
-            socklen_t slen = sizeof(saddr);
-            ssize_t readlen;
+    for (;;) {
+        char buf[1024];
+        sockaddr_in saddr;
+        socklen_t slen = sizeof(saddr);
+        ssize_t readlen;
 
-            readlen = recvfrom(fd, buf, sizeof(buf), MSG_DONTWAIT,
-                               (sockaddr*)&saddr, &slen);
+        readlen = recvfrom(sockfd_ver, buf, sizeof(buf), 0, (sockaddr*)&saddr,
+                           &slen);
 
-            if (readlen < 0)
-                break;
+        if (readlen < 0) {
+            if (errno == EINTR)
+                continue;
 
-            if (ntohs(saddr.sin_port) != 53)
-                break;
-
-            char addr[128];
-            char *p = (char*)&saddr.sin_addr;
-
-            inet_ntop(AF_INET, p, addr, sizeof(addr));
-
-            cdpi_dns dns;
-
-            if (dns.decode(buf, readlen)) {
-                const list<cdpi_dns_rr> &ans = dns.get_answer();
-                list<cdpi_dns_rr>::const_iterator it;
-
-                auto_ptr<mongo::DBClientCursor> cur;
-                mongo::BSONObjBuilder b1, b2, b3;
-                mongo::BSONObj doc;
-                mongo::Date_t date2;
-
-                get_epoch_millis(date2);
-
-                b1.append("_id", addr);
-                b2.append("date2", date2);
-                b2.append("rcode_ver", dns.get_rcode());
-
-                for (it = ans.begin(); it != ans.end(); ++it) {
-                    if (ntohs(it->m_type) == DNS_TYPE_TXT &&
-                        ntohs(it->m_class) == DNS_CLASS_CH) {
-                        ptr_cdpi_dns_txt p_txt;
-
-                        p_txt = DNS_RDATA_TO_TXT(it->m_rdata);
-
-                        b2.append("ver", p_txt->m_txt);
-
-                        break;
-                    }
-                }
-
-                b3.append("$set", b2.obj());
-
-                //cout << doc.toString() << endl;
-
-                mongo_conn.update("DNSCrawl.servers", b1.obj(), b3.obj());
-            }
+            break;
         }
-        break;
-    }
-    default:
-        ;
+
+        if (ntohs(saddr.sin_port) != 53)
+            break;
+
+        char addr[128];
+        char *p = (char*)&saddr.sin_addr;
+
+        inet_ntop(AF_INET, p, addr, sizeof(addr));
+
+        cdpi_dns dns;
+
+        if (dns.decode(buf, readlen)) {
+            const list<cdpi_dns_rr> &ans = dns.get_answer();
+            list<cdpi_dns_rr>::const_iterator it;
+
+            auto_ptr<mongo::DBClientCursor> cur;
+            mongo::BSONObjBuilder b1, b2, b3;
+            mongo::BSONObj doc;
+            mongo::Date_t date2;
+
+            get_epoch_millis(date2);
+
+            b1.append("_id", addr);
+            b2.append("date2", date2);
+            b2.append("rcode_ver", dns.get_rcode());
+
+            for (it = ans.begin(); it != ans.end(); ++it) {
+                if (ntohs(it->m_type) == DNS_TYPE_TXT &&
+                    ntohs(it->m_class) == DNS_CLASS_CH) {
+                    ptr_cdpi_dns_txt p_txt;
+
+                    p_txt = DNS_RDATA_TO_TXT(it->m_rdata);
+
+                    b2.append("ver", p_txt->m_txt);
+
+                    break;
+                }
+            }
+
+            b3.append("$set", b2.obj());
+
+            //cout << doc.toString() << endl;
+
+            mongo_conn.update("DNSCrawl.servers", b1.obj(), b3.obj());
+        }
     }
 }
 
 void
-callback_dns_a(evutil_socket_t fd, short what, void *arg)
+recv_dns_a()
 {
-    switch (what) {
-    case EV_READ:
-    {
-        for (;;) {
-            char buf[1024];
-            sockaddr_in saddr;
-            socklen_t   slen = sizeof(saddr);
-            ssize_t     readlen;
+    for (;;) {
+        char buf[1024];
+        sockaddr_in saddr;
+        socklen_t   slen = sizeof(saddr);
+        ssize_t     readlen;
 
-            readlen = recvfrom(fd, buf, sizeof(buf), MSG_DONTWAIT,
-                               (sockaddr*)&saddr, &slen);
+        readlen = recvfrom(sockfd_a, buf, sizeof(buf), 0, (sockaddr*)&saddr,
+                           &slen);
 
-            if (readlen < 0)
-                break;
+        if (readlen < 0) {
+            if (errno == EINTR)
+                continue;
 
-            if (ntohs(saddr.sin_port) != 53)
-                break;
-
-            char addr[128];
-            char *p = (char*)&saddr.sin_addr;
-
-            inet_ntop(AF_INET, p, addr, sizeof(addr));
-
-            cdpi_dns dns;
-
-            if (dns.decode(buf, readlen)) {
-                uint16_t sum;
-                bool     is_eq_dst;
-
-                ((char*)&sum)[0] = p[0] ^ p[2];
-                ((char*)&sum)[1] = p[1] ^ p[3];
-
-                if (memcmp(&sum, buf, sizeof(sum)) == 0) {
-                    is_eq_dst = true;
-                } else {
-                    is_eq_dst = false;
-                }
-
-                auto_ptr<mongo::DBClientCursor> cur;
-                mongo::BSONObjBuilder b;
-                mongo::Date_t         date1;
-
-                get_epoch_millis(date1);
-
-                b.append("_id", addr);
-                b.append("date1", date1);
-                b.append("is_eq_dst", is_eq_dst);
-                b.append("is_ra", dns.is_ra());
-                b.append("rcode_a", dns.get_rcode());
-
-                mongo_conn.insert("DNSCrawl.servers", b.obj());
-
-                query_ver[0] = p[0] ^ p[2];
-                query_ver[1] = p[1] ^ p[3];
-
-                sendto(sockfd_ver, query_ver, sizeof(query_ver), 0,
-                       (sockaddr*)&saddr, slen);
-            }
+            break;
         }
-        break;
-    }
-    default:
-        ;
+
+        if (ntohs(saddr.sin_port) != 53)
+            break;
+
+        char addr[128];
+        char *p = (char*)&saddr.sin_addr;
+
+        inet_ntop(AF_INET, p, addr, sizeof(addr));
+
+        cdpi_dns dns;
+
+        if (dns.decode(buf, readlen)) {
+            uint16_t sum;
+            bool     is_eq_dst;
+
+            ((char*)&sum)[0] = p[0] ^ p[2];
+            ((char*)&sum)[1] = p[1] ^ p[3];
+
+            if (memcmp(&sum, buf, sizeof(sum)) == 0) {
+                is_eq_dst = true;
+            } else {
+                is_eq_dst = false;
+            }
+
+            auto_ptr<mongo::DBClientCursor> cur;
+            mongo::BSONObjBuilder b;
+            mongo::Date_t         date1;
+
+            get_epoch_millis(date1);
+
+            b.append("_id", addr);
+            b.append("date1", date1);
+            b.append("is_eq_dst", is_eq_dst);
+            b.append("is_ra", dns.is_ra());
+            b.append("rcode_a", dns.get_rcode());
+
+            mongo_conn.insert("DNSCrawl.servers", b.obj());
+
+            query_ver[0] = p[0] ^ p[2];
+            query_ver[1] = p[1] ^ p[3];
+
+            sendto(sockfd_ver, query_ver, sizeof(query_ver), 0,
+                   (sockaddr*)&saddr, slen);
+        }
     }
 }
 
@@ -417,12 +376,6 @@ init()
                            mongo::fromjson("{date1: 1}"));
     mongo_conn.ensureIndex("DNSCrawl.servers",
                            mongo::fromjson("{date2: 1}"));
-
-    ev_base = event_base_new();
-    if (! ev_base) {
-        std::cerr << "couldn't new event_base" << std::endl;
-        exit(-1);
-    }
 
     init_query_a();
     init_query_ver();
@@ -443,18 +396,6 @@ init()
     init_arr(arr2);
     init_arr(arr3);
     init_arr(arr4);
-
-    ev_dns_a = event_new(ev_base, sockfd_a, EV_READ | EV_PERSIST,
-                         callback_dns_a, NULL);
-    event_add(ev_dns_a, NULL);
-
-    ev_dns_ver = event_new(ev_base, sockfd_ver, EV_READ | EV_PERSIST,
-                           callback_dns_ver, NULL);
-    event_add(ev_dns_ver, NULL);
-
-    timeval tv = {0, QUERY_CYCLE * 1000};
-    ev_send = event_new(ev_base, -1, EV_TIMEOUT | EV_PERSIST, send_query, NULL);
-    event_add(ev_send, &tv);
 }
 
 void
@@ -462,7 +403,10 @@ get_dns_ver()
 {
     init();
 
-    event_base_dispatch(ev_base);
+    boost::thread thr_recv_a(recv_dns_a);
+    boost::thread thr_recv_ver(recv_dns_ver);
+
+    send_query();
 }
 
 void
