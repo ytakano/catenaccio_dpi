@@ -249,9 +249,6 @@ recv_dns_ver()
             break;
         }
 
-        if (ntohs(saddr.sin_port) != 53)
-            break;
-
         char addr[128];
         char *p = (char*)&saddr.sin_addr;
 
@@ -314,9 +311,6 @@ recv_dns_a()
 
             break;
         }
-
-        if (ntohs(saddr.sin_port) != 53)
-            break;
 
         char addr[128];
         char *p = (char*)&saddr.sin_addr;
