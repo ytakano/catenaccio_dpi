@@ -227,7 +227,7 @@ send_query()
     }
 
     cout << send_total << endl;
-    boost::this_thread::sleep(boost::posix_time::milliseconds(30));
+    boost::this_thread::sleep(boost::posix_time::milliseconds(30000));
 
     return;
 }
