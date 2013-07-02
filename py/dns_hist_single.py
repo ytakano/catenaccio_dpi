@@ -10,13 +10,13 @@ con   = pymongo.Connection(mongo)
 
 db = con.DNSCrawl
 
-max_n = 20
+max_n = 30
 width = 1.0
 data  = {}
 x     = []
 n     = 0
 xmin  = 1
-xmax  = 10000
+xmax  = 100000
 
 plt.figure(figsize=(6, 6))
 
@@ -25,7 +25,7 @@ plt.ylim(ymin=0, ymax=max_n * width)
 plt.xscale('log')
 plt.xlabel('#address')
 
-for i in db.type_hist_bind4.find():
+for i in db.ver_dist_nsd.find():
     if i['_id'] == None:
         continue
     data[i['_id']] = i['value']

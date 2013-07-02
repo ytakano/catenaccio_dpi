@@ -263,9 +263,7 @@ function trunc_hosts() {
         var domain = c.next()['_id'];
         var tr_domain = trunc_domain(domain);
 
-        if (domain != tr_domain) {
-            db.trunc_hosts.save({_id: domain, value: tr_domain});
-        }
+        db.trunc_hosts.save({_id: domain, value: tr_domain});
     }
 }
 

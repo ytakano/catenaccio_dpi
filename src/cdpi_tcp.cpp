@@ -47,21 +47,6 @@ cdpi_tcp::~cdpi_tcp()
 }
 
 void
-cdpi_tcp::input_tcp(cdpi_id &id, cdpi_direction dir, char *buf, int len)
-{
-    switch (id.get_l3_proto()) {
-    case IPPROTO_IP:
-        input_tcp4(id, dir, buf, len);
-        break;
-    case IPPROTO_IPV6:
-        // TODO:
-        break;
-    default:
-        break;
-    }
-}
-
-void
 cdpi_tcp::garbage_collector()
 {
     for (;;) {
@@ -375,16 +360,15 @@ cdpi_tcp::get_packet(const cdpi_id &id, cdpi_direction dir,
 }
 
 void
-cdpi_tcp::input_tcp4(cdpi_id &id, cdpi_direction dir, char *buf, int len)
+cdpi_tcp::input_tcp(cdpi_id &id, cdpi_direction dir, char *buf, int len,
+                    char *l4hdr)
 {
     map<cdpi_id, ptr_cdpi_tcp_flow>::iterator it_flow;
     ptr_cdpi_tcp_flow p_tcp_flow;
     cdpi_tcp_packet   packet;
-    ip     *iph;
     tcphdr *tcph;
 
-    iph  = (ip*)buf;
-    tcph = (tcphdr*)(buf + iph->ip_hl * 4);
+    tcph = (tcphdr*)l4hdr;
 
 /*
 #ifdef DEBUG
@@ -420,7 +404,7 @@ cdpi_tcp::input_tcp4(cdpi_id &id, cdpi_direction dir, char *buf, int len)
     packet.m_bytes.set_buf(buf, len);
     packet.m_seq      = ntohl(tcph->th_seq);
     packet.m_flags    = tcph->th_flags;
-    packet.m_data_pos = iph->ip_hl * 4 + tcph->th_off * 4;
+    packet.m_data_pos = l4hdr - buf + tcph->th_off * 4;
     packet.m_data_len = len - packet.m_data_pos;
     packet.m_nxt_seq  = packet.m_seq + packet.m_data_len;
     packet.m_read_pos = 0;
