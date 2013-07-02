@@ -347,6 +347,7 @@ recv_dns_a()
             b.append("is_eq_dst", is_eq_dst);
             b.append("is_ra", dns.is_ra());
             b.append("rcode_a", dns.get_rcode());
+            b.append("recv_a_port", ntohs(saddr.sin_port));
 
             mongo_conn.insert("DNSCrawl.servers", b.obj());
 
