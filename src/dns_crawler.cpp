@@ -215,8 +215,8 @@ send_query()
                         if (send_count < 1000) {
                             send_count++;
                         } else {
-                            cout << send_total
-                                 << (double)send_total / (double)recv_total * (double)0xffffffff
+                            cout << send_total << " "
+                                 << (double)recv_total / (double)send_total * (double)0xffffffff
                                  << endl;
                             send_count = 1;
                         }
