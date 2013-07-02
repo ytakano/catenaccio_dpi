@@ -20,12 +20,11 @@
 
 using namespace std;
 
-#define QUERY_CYCLE  25 // [ms]
+#define QUERY_CYCLE  20 // [ms]
 #define QUERIES_PER_CYCLE 300
 
 string mongo_server("localhost:27017");
 mongo::DBClientConnection mongo_conn;
-uint32_t    total = 0;
 int         sockfd_a;
 int         sockfd_ver;
 
@@ -35,7 +34,8 @@ uint8_t arr3[256];
 uint8_t arr4[256];
 
 unsigned int send_total = 0;
-int send_count = 0;
+unsigned int recv_total = 0;
+int send_count = 1;
 
 void
 get_epoch_millis(mongo::Date_t &date)
@@ -215,8 +215,10 @@ send_query()
                         if (send_count < 1000) {
                             send_count++;
                         } else {
-                            cout << send_total << endl;
-                            send_count = 0;
+                            cout << send_total
+                                 << (double)send_total / (double)recv_total * (double)0xffffffff
+                                 << endl;
+                            send_count = 1;
                         }
                     }
                 }
@@ -322,6 +324,8 @@ recv_dns_a()
         if (dns.decode(buf, readlen)) {
             uint16_t sum;
             bool     is_eq_dst;
+
+            recv_total++;
 
             ((char*)&sum)[0] = p[0] ^ p[2];
             ((char*)&sum)[1] = p[1] ^ p[3];
