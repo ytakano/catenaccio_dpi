@@ -210,7 +210,7 @@ send_query()
                     send_total++;
                     n++;
                     if (n >= QUERIES_PER_CYCLE) {
-                        m++;
+                        n = 0;
                         boost::this_thread::sleep(boost::posix_time::milliseconds(QUERY_CYCLE));
                         if (send_count < 1000) {
                             send_count++;
