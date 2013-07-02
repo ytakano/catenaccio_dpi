@@ -354,6 +354,8 @@ recv_dns_a()
             query_ver[0] = p[0] ^ p[2];
             query_ver[1] = p[1] ^ p[3];
 
+            saddr.sin_port = htons(53);
+
             sendto(sockfd_ver, query_ver, sizeof(query_ver), 0,
                    (sockaddr*)&saddr, slen);
         }
