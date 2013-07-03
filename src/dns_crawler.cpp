@@ -24,7 +24,7 @@ using namespace std;
 #define QUERIES_PER_CYCLE 300
 
 string mongo_server("localhost:27017");
-mongo::DBClientConnection mongo_conn;
+mongo::DBClientConnection mongo_conn(true);
 int         sockfd_a;
 int         sockfd_ver;
 
@@ -290,7 +290,11 @@ recv_dns_ver()
 
             //cout << doc.toString() << endl;
 
-            mongo_conn.update("DNSCrawl.servers", b1.obj(), b3.obj());
+            try {
+                mongo_conn.update("DNSCrawl.servers", b1.obj(), b3.obj());
+            } catch (...) {
+                cout << "exception: " << addr << endl;
+            }
         }
     }
 }
@@ -349,7 +353,11 @@ recv_dns_a()
             b.append("rcode_a", dns.get_rcode());
             b.append("recv_a_port", ntohs(saddr.sin_port));
 
-            mongo_conn.insert("DNSCrawl.servers", b.obj());
+            try {
+                mongo_conn.insert("DNSCrawl.servers", b.obj());
+            } catch (...) {
+                cout << "exception: " << addr << endl;
+            }
 
             query_ver[0] = p[0] ^ p[2];
             query_ver[1] = p[1] ^ p[3];
