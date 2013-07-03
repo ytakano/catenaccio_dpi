@@ -10,7 +10,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-#include <mongo/client/dbclient.h>
+#include <mongo/client/connpool.h>
 
 #include <iostream>
 #include <set>
@@ -24,7 +24,7 @@ using namespace std;
 #define QUERIES_PER_CYCLE 300
 
 string mongo_server("localhost:27017");
-mongo::DBClientConnection mongo_conn(true);
+//mongo::DBClientConnection mongo_conn(true);
 int         sockfd_a;
 int         sockfd_ver;
 
@@ -291,7 +291,9 @@ recv_dns_ver()
             //cout << doc.toString() << endl;
 
             try {
-                mongo_conn.update("DNSCrawl.servers", b1.obj(), b3.obj());
+                mongo::ScopedDbConnection conn(mongo_server);
+                conn->update("DNSCrawl.servers", b1.obj(), b3.obj());
+                conn.done();
             } catch (...) {
                 cout << "exception: " << addr << endl;
             }
@@ -354,7 +356,9 @@ recv_dns_a()
             b.append("recv_a_port", ntohs(saddr.sin_port));
 
             try {
-                mongo_conn.insert("DNSCrawl.servers", b.obj());
+                mongo::ScopedDbConnection conn(mongo_server);
+                conn->insert("DNSCrawl.servers", b.obj());
+                conn.done();
             } catch (...) {
                 cout << "exception: " << addr << endl;
             }
@@ -374,17 +378,15 @@ void
 init()
 {
     string errmsg;
+    mongo::ScopedDbConnection conn(mongo_server);
 
-    if (! mongo_conn.connect(mongo_server, errmsg)) {
-        cerr << errmsg << endl;
-        exit(-1);
-    }
+    conn->dropDatabase("DNSCrawl");
+    conn->ensureIndex("DNSCrawl.servers",
+                     mongo::fromjson("{date1: 1}"));
+    conn->ensureIndex("DNSCrawl.servers",
+                     mongo::fromjson("{date2: 1}"));
 
-    mongo_conn.dropDatabase("DNSCrawl");
-    mongo_conn.ensureIndex("DNSCrawl.servers",
-                           mongo::fromjson("{date1: 1}"));
-    mongo_conn.ensureIndex("DNSCrawl.servers",
-                           mongo::fromjson("{date2: 1}"));
+    conn.done();
 
     init_query_a();
     init_query_ver();
