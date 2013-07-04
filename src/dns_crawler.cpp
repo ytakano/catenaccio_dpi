@@ -286,8 +286,8 @@ recv_dns_ver(evutil_socket_t fd, short what, void *arg)
         socklen_t slen = sizeof(saddr);
         ssize_t readlen;
 
-        readlen = recvfrom(sockfd_ver, buf, sizeof(buf), 0, (sockaddr*)&saddr,
-                           &slen);
+        readlen = recvfrom(sockfd_ver, buf, sizeof(buf), MSG_DONTWAIT,
+                           (sockaddr*)&saddr, &slen);
 
         if (readlen < 0) {
             if (errno == EINTR)
@@ -356,8 +356,8 @@ recv_dns_a(evutil_socket_t fd, short what, void *arg)
         socklen_t   slen = sizeof(saddr);
         ssize_t     readlen;
 
-        readlen = recvfrom(sockfd_a, buf, sizeof(buf), 0, (sockaddr*)&saddr,
-                           &slen);
+        readlen = recvfrom(sockfd_a, buf, sizeof(buf), MSG_DONTWAIT,
+                           (sockaddr*)&saddr, &slen);
 
         if (readlen < 0) {
             if (errno == EINTR)
