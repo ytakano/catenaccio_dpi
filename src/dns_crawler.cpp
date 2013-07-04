@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <time.h>
 
+#include <event.h>
+
 #include <sys/time.h>
 
 #include <arpa/inet.h>
@@ -20,13 +22,19 @@
 
 using namespace std;
 
-#define QUERY_CYCLE  20 // [ms]
+#define QUERY_CYCLE  10 // [ms]
 #define QUERIES_PER_CYCLE 300
 
 string mongo_server("localhost:27017");
-//mongo::DBClientConnection mongo_conn(true);
-int         sockfd_a;
-int         sockfd_ver;
+mongo::DBClientConnection mongo_conn;
+event_base *ev_base;
+event *ev_dns_a;
+event *ev_dns_ver;
+event *ev_send;
+event *ev_exit;
+event *ev_timer;
+int    sockfd_a;
+int    sockfd_ver;
 
 uint8_t arr1[256];
 uint8_t arr2[256];
@@ -209,17 +217,32 @@ send_query()
 
                     send_total++;
                     n++;
+
+                    if (send_count < 1000) {
+                        send_count++;
+                    } else {
+                        cout << send_total << endl;
+                        send_count = 1;
+                    }
+
                     if (n >= QUERIES_PER_CYCLE) {
-                        n = 0;
-                        boost::this_thread::sleep(boost::posix_time::milliseconds(QUERY_CYCLE));
-                        if (send_count < 1000) {
-                            send_count++;
-                        } else {
-                            cout << send_total << " "
-                                 << (double)recv_total / (double)send_total * (double)0xffffffff
-                                 << endl;
-                            send_count = 1;
+                        struct timeval tv1, tv2;
+                        double t1, t2;
+                        gettimeofday(&tv1, NULL);
+
+                        t1 = tv1.tv_sec + (double)tv1.tv_usec / 1000000.0;
+
+                        for (;;) {
+                            event_base_loop(ev_base, EVLOOP_ONCE);
+
+                            gettimeofday(&tv2, NULL);
+                            t2 = tv2.tv_sec + (double)tv2.tv_usec / 1000000.0;
+
+                            if (t2 - t1 > (double)QUERY_CYCLE / 1000.0)
+                                break;
                         }
+                    } else {
+                        event_base_loop(ev_base, EVLOOP_NONBLOCK);
                     }
                 }
             }
@@ -227,14 +250,36 @@ send_query()
     }
 
     cout << send_total << endl;
-    boost::this_thread::sleep(boost::posix_time::milliseconds(30000));
 
-    return;
+    struct timeval tv1, tv2;
+    double t1, t2;
+    gettimeofday(&tv1, NULL);
+
+    t1 = tv1.tv_sec + (double)tv1.tv_usec / 1000000.0;
+
+    for (;;) {
+        event_base_loop(ev_base, EVLOOP_ONCE);
+
+        gettimeofday(&tv2, NULL);
+        t2 = tv2.tv_sec + (double)tv2.tv_usec / 1000000.0;
+
+        if (t2 - t1 > 30.0)
+            break;
+    }
 }
 
 void
-recv_dns_ver()
+callback_timer(evutil_socket_t fd, short what, void *arg)
 {
+    
+}
+
+void
+recv_dns_ver(evutil_socket_t fd, short what, void *arg)
+{
+    if (what != EV_READ)
+        return;
+
     for (;;) {
         char buf[1024];
         sockaddr_in saddr;
@@ -291,9 +336,7 @@ recv_dns_ver()
             //cout << doc.toString() << endl;
 
             try {
-                mongo::ScopedDbConnection conn(mongo_server);
-                conn->update("DNSCrawl.servers", b1.obj(), b3.obj());
-                conn.done();
+                mongo_conn.update("DNSCrawl.servers", b1.obj(), b3.obj());
             } catch (...) {
                 cout << "exception: " << addr << endl;
             }
@@ -302,8 +345,11 @@ recv_dns_ver()
 }
 
 void
-recv_dns_a()
+recv_dns_a(evutil_socket_t fd, short what, void *arg)
 {
+    if (what != EV_READ)
+        return;
+
     for (;;) {
         char buf[1024];
         sockaddr_in saddr;
@@ -356,9 +402,7 @@ recv_dns_a()
             b.append("recv_a_port", ntohs(saddr.sin_port));
 
             try {
-                mongo::ScopedDbConnection conn(mongo_server);
-                conn->insert("DNSCrawl.servers", b.obj());
-                conn.done();
+                mongo_conn.insert("DNSCrawl.servers", b.obj());
             } catch (...) {
                 cout << "exception: " << addr << endl;
             }
@@ -378,15 +422,13 @@ void
 init()
 {
     string errmsg;
-    mongo::ScopedDbConnection conn(mongo_server);
 
-    conn->dropDatabase("DNSCrawl");
-    conn->ensureIndex("DNSCrawl.servers",
-                     mongo::fromjson("{date1: 1}"));
-    conn->ensureIndex("DNSCrawl.servers",
-                     mongo::fromjson("{date2: 1}"));
+    if (! mongo_conn.connect(mongo_server, errmsg)) {
+        cerr << errmsg << endl;
+        exit(-1);
+    }
 
-    conn.done();
+    mongo_conn.dropDatabase("DNSCrawl");
 
     init_query_a();
     init_query_ver();
@@ -407,15 +449,31 @@ init()
     init_arr(arr2);
     init_arr(arr3);
     init_arr(arr4);
+
+    ev_base = event_base_new();
+    if (! ev_base) {
+        std::cerr << "couldn't new event_base" << std::endl;
+        exit(-1);
+    }
+
+    ev_dns_a = event_new(ev_base, sockfd_a, EV_READ | EV_PERSIST,
+                         recv_dns_a, NULL);
+    event_add(ev_dns_a, NULL);
+
+    ev_dns_ver = event_new(ev_base, sockfd_ver, EV_READ | EV_PERSIST,
+                           recv_dns_ver, NULL);
+    event_add(ev_dns_ver, NULL);
+
+    timeval tv = {0, QUERY_CYCLE * 1000 * 10};
+    ev_timer = event_new(ev_base, -1, EV_TIMEOUT | EV_PERSIST, callback_timer,
+                        NULL);
+    event_add(ev_timer, &tv);
 }
 
 void
 get_dns_ver()
 {
     init();
-
-    boost::thread thr_recv_a(recv_dns_a);
-    boost::thread thr_recv_ver(recv_dns_ver);
 
     send_query();
 }
