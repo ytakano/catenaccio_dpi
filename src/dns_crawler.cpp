@@ -173,6 +173,12 @@ init_arr(uint8_t *arr)
 }
 
 void
+callback_timer(evutil_socket_t fd, short what, void *arg)
+{
+    exit(0);
+}
+
+void
 send_query()
 {
     sockaddr_in saddr;
@@ -218,32 +224,14 @@ send_query()
                     send_total++;
                     n++;
 
-                    if (send_count < 1000) {
+                    if (send_count < 10000) {
                         send_count++;
                     } else {
                         cout << send_total << endl;
                         send_count = 1;
                     }
 
-                    if (n >= QUERIES_PER_CYCLE) {
-                        struct timeval tv1, tv2;
-                        double t1, t2;
-                        gettimeofday(&tv1, NULL);
-
-                        t1 = tv1.tv_sec + (double)tv1.tv_usec / 1000000.0;
-
-                        for (;;) {
-                            event_base_loop(ev_base, EVLOOP_ONCE);
-
-                            gettimeofday(&tv2, NULL);
-                            t2 = tv2.tv_sec + (double)tv2.tv_usec / 1000000.0;
-
-                            if (t2 - t1 > (double)QUERY_CYCLE / 1000.0)
-                                break;
-                        }
-                    } else {
-                        event_base_loop(ev_base, EVLOOP_NONBLOCK);
-                    }
+                    event_base_loop(ev_base, EVLOOP_NONBLOCK);
                 }
             }
         }
@@ -251,27 +239,12 @@ send_query()
 
     cout << send_total << endl;
 
-    struct timeval tv1, tv2;
-    double t1, t2;
-    gettimeofday(&tv1, NULL);
+    timeval tv = {30, 0};
+    ev_timer = event_new(ev_base, -1, EV_TIMEOUT | EV_PERSIST, callback_timer,
+                         NULL);
+    event_add(ev_timer, &tv);
 
-    t1 = tv1.tv_sec + (double)tv1.tv_usec / 1000000.0;
-
-    for (;;) {
-        event_base_loop(ev_base, EVLOOP_ONCE);
-
-        gettimeofday(&tv2, NULL);
-        t2 = tv2.tv_sec + (double)tv2.tv_usec / 1000000.0;
-
-        if (t2 - t1 > 30.0)
-            break;
-    }
-}
-
-void
-callback_timer(evutil_socket_t fd, short what, void *arg)
-{
-    
+    event_base_dispatch(ev_base);
 }
 
 void
@@ -463,11 +436,6 @@ init()
     ev_dns_ver = event_new(ev_base, sockfd_ver, EV_READ | EV_PERSIST,
                            recv_dns_ver, NULL);
     event_add(ev_dns_ver, NULL);
-
-    timeval tv = {0, QUERY_CYCLE * 1000 * 10};
-    ev_timer = event_new(ev_base, -1, EV_TIMEOUT | EV_PERSIST, callback_timer,
-                        NULL);
-    event_add(ev_timer, &tv);
 }
 
 void
