@@ -372,7 +372,7 @@ private:
     int decode_a(char *buf, ptr_cdpi_dns_a p_txt, uint16_t rdlen);
     int decode_aaaa(char *buf, ptr_cdpi_dns_aaaa p_txt, uint16_t rdlen);
     int read_domain(char *head, int total_len, char* buf, int buf_len,
-                    std::string &domain);
+                    std::string &domain, int counter = 0);
 };
 
 typedef boost::shared_ptr<cdpi_dns> ptr_cdpi_dns;

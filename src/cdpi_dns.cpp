@@ -285,9 +285,12 @@ cdpi_dns::decode_question(char *head, int total_len,
 
 int
 cdpi_dns::read_domain(char *head, int total_len, char* buf, int buf_len,
-                      string &domain)
+                      string &domain, int counter)
 {
     int readlen = 0;
+
+    if (counter > 256)
+        return -1;
 
     for (;;) {
         uint16_t pos;
@@ -318,8 +321,8 @@ cdpi_dns::read_domain(char *head, int total_len, char* buf, int buf_len,
                     return -1;
                 }
 
-                if (read_domain(head, total_len,
-                                &head[pos], total_len - pos, domain) < 0) {
+                if (read_domain(head, total_len, &head[pos], total_len - pos,
+                                domain, counter + 1) < 0) {
                     return -1;
                 }
 
