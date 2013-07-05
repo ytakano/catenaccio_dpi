@@ -257,8 +257,9 @@ send_query()
                     event_base_loop(ev_base, EVLOOP_NONBLOCK);
                 }
             }
-            refresh();
         }
+        refresh();
+        event_base_loop(ev_base, EVLOOP_NONBLOCK);
     }
 
     cout << send_total << endl;
