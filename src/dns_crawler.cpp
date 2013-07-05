@@ -16,6 +16,7 @@
 
 #include <iostream>
 #include <set>
+#include <map>
 #include <string>
 
 #include <boost/thread.hpp>
@@ -28,9 +29,7 @@ using namespace std;
 string mongo_server("localhost:27017");
 mongo::DBClientConnection mongo_conn;
 event_base *ev_base;
-event *ev_dns_a;
-event *ev_dns_ver;
-event *ev_send;
+map<int, event*> ev_map;
 event *ev_exit;
 event *ev_timer;
 int    sockfd_a;
@@ -44,6 +43,11 @@ uint8_t arr4[256];
 unsigned int send_total = 0;
 unsigned int recv_total = 0;
 int send_count = 1;
+
+set<int> sockfd_set[2];
+int      sockfd_set_n = 0;
+
+void refresh();
 
 void
 get_epoch_millis(mongo::Date_t &date)
@@ -175,6 +179,25 @@ init_arr(uint8_t *arr)
 void
 callback_timer(evutil_socket_t fd, short what, void *arg)
 {
+    for (set<int>::iterator it = sockfd_set[sockfd_set_n].begin();
+         it != sockfd_set[sockfd_set_n].end(); ++it) {
+        event_del(ev_map[*it]);
+        close(*it);
+        ev_map.erase(*it);
+    }
+
+    sockfd_set[sockfd_set_n].clear();
+
+    if (sockfd_set_n == 0) {
+        sockfd_set_n = 1;
+    } else {
+        sockfd_set_n = 0;
+    }
+}
+
+void
+callback_exit(evutil_socket_t fd, short what, void *arg)
+{
     exit(0);
 }
 
@@ -234,14 +257,14 @@ send_query()
                     event_base_loop(ev_base, EVLOOP_NONBLOCK);
                 }
             }
+            refresh();
         }
     }
 
     cout << send_total << endl;
 
     timeval tv = {30, 0};
-    ev_timer = event_new(ev_base, -1, EV_TIMEOUT | EV_PERSIST, callback_timer,
-                         NULL);
+    ev_timer = event_new(ev_base, -1, EV_TIMEOUT, callback_exit, NULL);
     event_add(ev_timer, &tv);
 
     event_base_dispatch(ev_base);
@@ -392,6 +415,38 @@ recv_dns_a(evutil_socket_t fd, short what, void *arg)
 }
 
 void
+refresh()
+{
+    if (sockfd_set_n == 0) {
+        sockfd_set[1].insert(sockfd_a);
+        sockfd_set[1].insert(sockfd_ver);
+    } else {
+        sockfd_set[0].insert(sockfd_a);
+        sockfd_set[0].insert(sockfd_ver);
+    }
+
+    sockfd_a = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd_a < 0) {
+        perror("socket");
+        exit(-1);
+    }
+
+    sockfd_ver = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd_ver < 0) {
+        perror("socket");
+        exit(-1);
+    }
+
+    ev_map[sockfd_a] = event_new(ev_base, sockfd_a, EV_READ | EV_PERSIST,
+                                 recv_dns_a, NULL);
+    event_add(ev_map[sockfd_a], NULL);
+
+    ev_map[sockfd_ver] = event_new(ev_base, sockfd_ver, EV_READ | EV_PERSIST,
+                                   recv_dns_ver, NULL);
+    event_add(ev_map[sockfd_ver], NULL);
+}
+
+void
 init()
 {
     string errmsg;
@@ -429,13 +484,18 @@ init()
         exit(-1);
     }
 
-    ev_dns_a = event_new(ev_base, sockfd_a, EV_READ | EV_PERSIST,
-                         recv_dns_a, NULL);
-    event_add(ev_dns_a, NULL);
+    ev_map[sockfd_a] = event_new(ev_base, sockfd_a, EV_READ | EV_PERSIST,
+                                 recv_dns_a, NULL);
+    event_add(ev_map[sockfd_a], NULL);
 
-    ev_dns_ver = event_new(ev_base, sockfd_ver, EV_READ | EV_PERSIST,
-                           recv_dns_ver, NULL);
-    event_add(ev_dns_ver, NULL);
+    ev_map[sockfd_ver] = event_new(ev_base, sockfd_ver, EV_READ | EV_PERSIST,
+                                   recv_dns_ver, NULL);
+    event_add(ev_map[sockfd_ver], NULL);
+
+    timeval tv = {3, 0};
+    ev_timer = event_new(ev_base, -1, EV_TIMEOUT | EV_PERSIST, callback_timer,
+                         NULL);
+    event_add(ev_timer, &tv);
 }
 
 void
