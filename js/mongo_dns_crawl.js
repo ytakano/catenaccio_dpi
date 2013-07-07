@@ -132,7 +132,7 @@ var rirmap = {
 db.servers.ensureIndex({rir: 1});
 db.servers.ensureIndex({type: 1});
 
-var cur = db.servers.find().addOption(DBQuery.Option.noTimeout);
+var cur = db.servers.find().addOption(16);
 
 cur.forEach(function(doc) {
     var ver;
