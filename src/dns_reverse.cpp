@@ -19,7 +19,7 @@ using namespace std;
 
 static char *dns_server = NULL;
 
-mongo::DBClientConnection mongo_conn(true, 0, -1);
+mongo::DBClientConnection mongo_conn;
 
 void
 split(const string &str, char delim, vector<string>& res){
@@ -113,7 +113,11 @@ resolve_ptr() {
     ub_ctx *ctx;
     volatile int resolving = 0;
     auto_ptr<mongo::DBClientCursor> cur = mongo_conn.query("DNSCrawl.servers",
-                                                           mongo::BSONObj());
+                                                           mongo::BSONObj(),
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           16);
 
     ctx = ub_ctx_create();
     if (! ctx) {
