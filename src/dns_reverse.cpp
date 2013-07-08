@@ -15,7 +15,7 @@
 
 using namespace std;
 
-#define RESOLVE_MAX 16384
+#define RESOLVE_MAX 32
 
 static char *dns_server = NULL;
 
@@ -151,7 +151,7 @@ resolve_ptr() {
             if (ub_poll(ctx)) {
                 ub_process(ctx);
             }
-            sleep(1);
+            usleep(100 * 1000);
         }
     }
 
