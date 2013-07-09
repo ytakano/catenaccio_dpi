@@ -11,158 +11,85 @@
 #include <string>
 #include <vector>
 
-#include <unbound.h>
+#include <event.h>
+#include <event2/util.h>
+#include <event2/dns.h>
 
 using namespace std;
 
-#define RESOLVE_MAX 32
+#define RESOLVE_MAX (1024 * 20)
 
-static char *dns_server = NULL;
+const char *dns_server = "8.8.8.8";
+
+event_base *event_base = NULL;
+evdns_base *evdns_base = NULL;
 
 mongo::DBClientConnection mongo_conn;
+auto_ptr<mongo::DBClientCursor> mongo_cur;
+
+int total = 0;
 
 void
-split(const string &str, char delim, vector<string>& res){
-    size_t current = 0, found;
-
-    while((found = str.find_first_of(delim, current)) != string::npos){
-        res.push_back(string(str, current, found - current));
-        current = found + 1;
-    }
-
-    res.push_back(string(str, current, str.size() - current));
-}
-
-bool
-ptr2addr(string ptr, string &addr)
+main_callback(int result, char type, int count, int ttl, void *addrs,
+              void *orig)
 {
-    vector<string> sp;
+    int i;
 
-    split(ptr, '.', sp);
+    cout << total++ << endl;
 
-    if (sp.size() < 6)
-        return false;
+    for (i = 0; i < count; ++i) {
+        if (type == DNS_PTR) {
+            mongo::BSONObjBuilder b1, b2, b3;
+            mongo::BSONObj doc;
+            char *addr = (char*)orig;
 
-    addr = sp[3] + "." + sp[2] + "." + sp[1] + "." + sp[0];
+            cout << addr << " " << ((char**)addrs)[i] << endl;
 
-    return true;
-}
+            b1.append("_id", addr);
+            b2.append("fqdn", ((char**)addrs)[i]);
+            b3.append("$set", b2.obj());
 
-void
-ubcallback(void *mydata, int err, struct ub_result *result)
-{
-    int *resolving = (int*)mydata;
-
-    (*resolving)--;
-
-    if (result->havedata) {
-        cdpi_dns dns_decoder;
-
-        if (dns_decoder.decode((char*)result->answer_packet,
-                               result->answer_len)) {
-            const std::list<cdpi_dns_rr> &answer = dns_decoder.get_answer();
-            std::list<cdpi_dns_rr>::const_iterator it_ans;
-
-            for (it_ans = answer.begin(); it_ans != answer.end(); ++it_ans) {
-                if (ntohs(it_ans->m_type) == 12 &&
-                    ntohs(it_ans->m_class) == 1) {
-                    ptr_cdpi_dns_ptr p_ptr = DNS_RDATA_TO_PTR(it_ans->m_rdata);
-                    string addr;
-
-                    if (! ptr2addr(it_ans->m_name, addr))
-                        break;
-
-                    cout << addr << " " << p_ptr->m_ptr << endl;
-
-                    mongo::BSONObjBuilder b1, b2, b3;
-                    mongo::BSONObj doc;
-                    mongo::Date_t date2;
-
-                    b1.append("_id", addr);
-                    b2.append("fqdn", p_ptr->m_ptr);
-                    b3.append("$set", b2.obj());
-
-                    mongo_conn.update("DNSCrawl.servers", b1.obj(), b3.obj());
-                }
-            }
+            mongo_conn.update("DNSCrawl.servers", b1.obj(), b3.obj());
         }
     }
 
-    ub_resolve_free(result);
-}
+    free((char*)orig);
 
-bool
-get_ptr(string addr, char *res, int res_len)
-{
-    in_addr iaddr;
 
-    if(inet_pton(AF_INET, addr.c_str(), &iaddr) <= 0) {
-        return false;
+    if (mongo_cur->more()) {
+        mongo::BSONObj p = mongo_cur->next();
+        string  saddr = p.getStringField("_id");
+        in_addr addr;
+
+        if (evutil_inet_pton(AF_INET, saddr.c_str(), &addr)!=1) {
+            return;
+        }
+
+        char *s = strdup(saddr.c_str());
+        evdns_base_resolve_reverse(evdns_base, &addr, 0, main_callback, s);
     }
-
-    snprintf(res, res_len, "%u.%u.%u.%u.in-addr.arpa",
-             (unsigned)((uint8_t*)&iaddr)[3], (unsigned)((uint8_t*)&iaddr)[2],
-             (unsigned)((uint8_t*)&iaddr)[1], (unsigned)((uint8_t*)&iaddr)[0]);
-
-    return true;
 }
 
 void
-resolve_ptr() {
-    int n = 0;
-    ub_ctx *ctx;
-    volatile int resolving = 0;
-    auto_ptr<mongo::DBClientCursor> cur = mongo_conn.query("DNSCrawl.servers",
-                                                           mongo::BSONObj(),
-                                                           0,
-                                                           0,
-                                                           0,
-                                                           16);
+resolve_ptr()
+{
+    int i;
 
-    ctx = ub_ctx_create();
-    if (! ctx) {
-        cout << "error: could not open unbound context\n" << endl;
-        exit(-1);
-    }
+    for (i = 0; i < RESOLVE_MAX; i++) {
+        if (! mongo_cur->more())
+            break;
 
-    if (dns_server != NULL)
-        ub_ctx_set_fwd(ctx, dns_server);
+        mongo::BSONObj p = mongo_cur->next();
+        string  saddr = p.getStringField("_id");
+        in_addr addr;
 
-    while (cur->more()) {
-        mongo::BSONObj p = cur->next();
-        string saddr = p.getStringField("_id");
-        char   addr[32];
-        int    retval;
-
-        cout << n++ << " " << saddr << endl;
-
-        if (! get_ptr(saddr, addr, sizeof(addr))) {
+        if (evutil_inet_pton(AF_INET, saddr.c_str(), &addr)!=1) {
             continue;
         }
 
-        retval = ub_resolve_async(ctx, addr,
-                                  12, // TYPE PTR
-                                  1,  // CLASS IN
-                                  (void*)&resolving, ubcallback, NULL);
-
-        if (retval != 0) {
-            continue;
-        }
-
-        resolving++;
-
-        while (resolving >= RESOLVE_MAX) {
-            if (ub_poll(ctx)) {
-                ub_process(ctx);
-            }
-            usleep(100 * 1000);
-        }
+        char *s = strdup(saddr.c_str());
+        evdns_base_resolve_reverse(evdns_base, &addr, 0, main_callback, s);
     }
-
-    ub_wait(ctx);
-    ub_process(ctx);
-
-    ub_ctx_delete(ctx);
 }
 
 void
@@ -202,7 +129,17 @@ main(int argc, char *argv[]) {
         return -1;
     }
 
+    event_base = event_base_new();
+    evdns_base = evdns_base_new(event_base, 0);
+    
+    evdns_base_nameserver_ip_add(evdns_base, dns_server);
+
+    mongo_cur = mongo_conn.query("DNSCrawl.servers", mongo::BSONObj(), 0, 0, 0,
+                                 16);
+
     resolve_ptr();
+
+    event_base_dispatch(event_base);
 
     return 0;
 }
