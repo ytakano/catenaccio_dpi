@@ -158,7 +158,11 @@
  *  /                                               /
  *  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
  *
- * DNSKEY RDATA
+ *
+ * DNSSEC
+ * http://www.ietf.org/rfc/rfc4034.txt
+ *
+ * DNSKEY RDATA format
  *                       1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
  *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -166,27 +170,6 @@
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  /                                                               /
  *  /                            Public Key                         /
- *  /                                                               /
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- * RRSIG RDATA
- *                       1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
- *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |        Type Covered           |  Algorithm    |     Labels    |
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |                         Original TTL                          |
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |                      Signature Expiration                     |
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |                      Signature Inception                      |
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |            Key Tag            |                               /
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+         Signer's Name         /
- *  /                                                               /
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  /                                                               /
- *  /                            Signature                          /
  *  /                                                               /
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
@@ -198,6 +181,7 @@
 
 #include <boost/shared_ptr.hpp>
 
+#include "cdpi_bytes.hpp"
 #include "cdpi_proto.hpp"
 
 #define SIZEOF_DNS_HEADER 12
@@ -209,6 +193,7 @@ enum cdpi_dns_class {
 };
 
 enum cdpi_dns_type {
+<<<<<<< HEAD
     DNS_TYPE_A      = 1,
     DNS_TYPE_NS     = 2,
     DNS_TYPE_MD     = 3,
@@ -227,6 +212,25 @@ enum cdpi_dns_type {
     DNS_TYPE_TXT    = 16,
     DNS_TYPE_AAAA   = 28,
     DNS_TYPE_RRSIG  = 46,
+=======
+    DNS_TYPE_A     = 1,
+    DNS_TYPE_NS    = 2,
+    DNS_TYPE_MD    = 3,
+    DNS_TYPE_MF    = 4,
+    DNS_TYPE_CNAME = 5,
+    DNS_TYPE_SOA   = 6,
+    DNS_TYPE_MB    = 7,
+    DNS_TYPE_MG    = 8,
+    DNS_TYPE_MR    = 9,
+    DNS_TYPE_NULL  = 10,
+    DNS_TYPE_WKS   = 11,
+    DSN_TYPE_PTR   = 12,
+    DNS_TYPE_HINFO = 13,
+    DNS_TYPE_MINFO = 14,
+    DNS_TYPE_MX    = 15,
+    DNS_TYPE_TXT   = 16,
+    DNS_TYPE_AAAA  = 28,
+>>>>>>> master
     DNS_TYPE_DNSKEY = 48,
 };
 
@@ -307,6 +311,13 @@ struct cdpi_dns_aaaa : public cdpi_dns_rdata {
     char m_aaaa[16];
 };
 
+struct cdpi_dns_dnskey : public cdpi_dns_rdata {
+    uint16_t   m_flags;
+    uint8_t    m_proto;
+    uint8_t    m_alg;
+    cdpi_bytes m_pubkey;
+};
+
 typedef boost::shared_ptr<cdpi_dns_soa> ptr_cdpi_dns_soa;
 typedef boost::shared_ptr<cdpi_dns_txt> ptr_cdpi_dns_txt;
 typedef boost::shared_ptr<cdpi_dns_a> ptr_cdpi_dns_a;
@@ -316,6 +327,7 @@ typedef boost::shared_ptr<cdpi_dns_cname> ptr_cdpi_dns_cname;
 typedef boost::shared_ptr<cdpi_dns_mx> ptr_cdpi_dns_mx;
 typedef boost::shared_ptr<cdpi_dns_ptr> ptr_cdpi_dns_ptr;
 typedef boost::shared_ptr<cdpi_dns_hinfo> ptr_cdpi_dns_hinfo;
+typedef boost::shared_ptr<cdpi_dns_dnskey> ptr_cdpi_dns_dnskey;
 
 #define DNS_RDATA_TO_SOA(RDATA) boost::dynamic_pointer_cast<cdpi_dns_soa>(RDATA)
 #define DNS_RDATA_TO_TXT(RDATA) boost::dynamic_pointer_cast<cdpi_dns_txt>(RDATA)
@@ -326,6 +338,7 @@ typedef boost::shared_ptr<cdpi_dns_hinfo> ptr_cdpi_dns_hinfo;
 #define DNS_RDATA_TO_MX(RDATA) boost::dynamic_pointer_cast<cdpi_dns_mx>(RDATA)
 #define DNS_RDATA_TO_PTR(RDATA) boost::dynamic_pointer_cast<cdpi_dns_ptr>(RDATA)
 #define DNS_RDATA_TO_HINFO(RDATA) boost::dynamic_pointer_cast<cdpi_dns_hinfo>(RDATA)
+#define DNS_RDATA_TO_DNSKEY(RDATA) boost::dynamic_pointer_cast<cdpi_dns_dnskey>(RDATA)
 
 #define DNS_TO_RDATA(A) boost::dynamic_pointer_cast<cdpi_dns_rdata>(A)
 
@@ -369,8 +382,9 @@ private:
                   ptr_cdpi_dns_mx p_mx, uint16_t rdlen);
     int decode_txt(char *buf, ptr_cdpi_dns_txt p_txt, uint16_t rdlen);
     int decode_hinfo(char *buf, ptr_cdpi_dns_hinfo p_hinfo, uint16_t rdlen);
-    int decode_a(char *buf, ptr_cdpi_dns_a p_txt, uint16_t rdlen);
-    int decode_aaaa(char *buf, ptr_cdpi_dns_aaaa p_txt, uint16_t rdlen);
+    int decode_a(char *buf, ptr_cdpi_dns_a p_a, uint16_t rdlen);
+    int decode_aaaa(char *buf, ptr_cdpi_dns_aaaa p_aaaa, uint16_t rdlen);
+    int decode_dnskey(char *buf, ptr_cdpi_dns_dnskey p_dnskey, uint16_t rdlen);
     int read_domain(char *head, int total_len, char* buf, int buf_len,
                     std::string &domain, int counter = 0);
 };

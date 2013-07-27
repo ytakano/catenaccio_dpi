@@ -225,6 +225,17 @@ cdpi_dns::decode_rr(char *head, int total_len, char *buf, int buf_len, int num,
 
             break;
         }
+        case DNS_TYPE_HINFO:
+        {
+            ptr_cdpi_dns_hinfo p_hinfo(new cdpi_dns_hinfo);
+
+            if (decode_hinfo(buf, p_hinfo, rdlen) < 0)
+                return -1;
+
+            rr.m_rdata = DNS_TO_RDATA(p_hinfo);
+
+            break;
+        }
         case DNS_TYPE_MD:
         case DNS_TYPE_MF:
         case DNS_TYPE_MB:
@@ -232,7 +243,6 @@ cdpi_dns::decode_rr(char *head, int total_len, char *buf, int buf_len, int num,
         case DNS_TYPE_MR:
         case DNS_TYPE_NULL:
         case DNS_TYPE_WKS:
-        case DNS_TYPE_HINFO:
         case DNS_TYPE_MINFO:
         default:
             ;
@@ -246,6 +256,32 @@ cdpi_dns::decode_rr(char *head, int total_len, char *buf, int buf_len, int num,
     }
 
     return readlen;
+}
+
+int
+cdpi_dns::decode_dnskey(char *buf, ptr_cdpi_dns_dnskey p_dnskey, uint16_t rdlen)
+{
+    unsigned int n;
+
+    if (rdlen < 5)
+        return -1;
+
+    memcpy(&p_dnskey->m_flags, buf, 2);
+
+    p_dnskey->m_proto = buf[2];
+    p_dnskey->m_proto = buf[3];
+
+    n = (unsigned int)buf[4];
+
+    buf   += 5;
+    rdlen -= 5;
+
+    if (n != rdlen)
+        return -1;
+
+    p_dnskey->m_pubkey.set_buf(buf, n);
+
+    return n + 5;
 }
 
 int
@@ -363,7 +399,7 @@ int
 cdpi_dns::decode_a(char *buf, ptr_cdpi_dns_a p_a, uint16_t rdlen)
 {
     if (rdlen < sizeof(cdpi_dns_a))
-        return rdlen;
+        return -1;
 
     memcpy(&p_a->m_a, buf, 4);
 
@@ -374,7 +410,7 @@ int
 cdpi_dns::decode_aaaa(char *buf, ptr_cdpi_dns_aaaa p_aaaa, uint16_t rdlen)
 {
     if (rdlen < sizeof(cdpi_dns_aaaa))
-        return rdlen;
+        return -1;
 
     memcpy(&p_aaaa->m_aaaa, buf, 16);
 
@@ -425,7 +461,7 @@ cdpi_dns::decode_txt(char *buf, ptr_cdpi_dns_txt p_txt, uint16_t rdlen)
     uint8_t n;
 
     if (rdlen <= 1)
-        return rdlen;
+        return -1;
 
     n = (uint8_t)buf[0];
 
@@ -442,7 +478,7 @@ cdpi_dns::decode_mx(char *head, int total_len, char *buf, int buf_len,
                     ptr_cdpi_dns_mx p_mx, uint16_t rdlen)
 {
     if (rdlen < 2)
-        return rdlen;
+        return -1;
 
     memcpy(&p_mx->m_preference, buf, 2);
 
