@@ -213,6 +213,7 @@ send_query()
     saddr.sin_family = AF_INET;
 
     for (i = 0; i < 256; i++) {
+        time_t t0 = time(NULL);
         for (j = 0; j < 256; j++) {
             for (k = 0; k < 256; k++) {
                 for (m = 0; m < 256; m++) {
@@ -259,7 +260,12 @@ send_query()
             }
         }
         refresh();
-        event_base_loop(ev_base, EVLOOP_NONBLOCK);
+
+        time_t  t1 = time(NULL);
+        timeval tv = {1800 - (t1 - t0), 0};
+
+        event_base_loopexit(ev_base, &tv);
+        event_base_dispatch(ev_base);
     }
 
     cout << send_total << endl;
