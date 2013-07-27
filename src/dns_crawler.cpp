@@ -277,8 +277,8 @@ send_query()
     cout << send_total << endl;
 
     timeval tv = {30, 0};
-    ev_timer = event_new(ev_base, -1, EV_TIMEOUT, callback_exit, NULL);
-    event_add(ev_timer, &tv);
+    ev_exit = event_new(ev_base, -1, EV_TIMEOUT, callback_exit, NULL);
+    event_add(ev_exit, &tv);
 
     event_base_dispatch(ev_base);
 }

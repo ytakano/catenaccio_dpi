@@ -23,6 +23,7 @@ const char *dns_server = "8.8.8.8";
 
 event_base *event_base = NULL;
 evdns_base *evdns_base = NULL;
+event *ev_exit;
 
 mongo::DBClientConnection mongo_conn;
 auto_ptr<mongo::DBClientCursor> mongo_cur;
@@ -75,8 +76,8 @@ main_callback(int result, char type, int count, int ttl, void *addrs,
         evdns_base_resolve_reverse(evdns_base, &addr, 0, main_callback, s);
     } else {
         timeval tv = {30, 0};
-        ev_timer = event_new(ev_base, -1, EV_TIMEOUT, callback_exit, NULL);
-        event_add(ev_timer, &tv);
+        ev_exit = event_new(event_base, -1, EV_TIMEOUT, callback_exit, NULL);
+        event_add(ev_exit, &tv);
     }
 }
 
