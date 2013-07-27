@@ -8,16 +8,34 @@ function reduce(key, values) {
     return n;
 }
 
-function map() {
+function map_one() {
     try {
         if ('fqdn' in this) {
             var sp = this.fqdn.split('.');
 
             emit(sp[sp.length - 1], 1);
+        }
+    } catch (e) {
+    }
+}
+
+function map_two() {
+    try {
+        if ('fqdn' in this) {
+            var sp = this.fqdn.split('.');
 
             if (sp.length > 1) {
                 emit(sp[sp.length - 2] + '.' + sp[sp.length - 1], 1);
             }
+        }
+    } catch (e) {
+    }
+}
+
+function map_three() {
+    try {
+        if ('fqdn' in this) {
+            var sp = this.fqdn.split('.');
 
             if (sp.length > 2) {
                 emit(sp[sp.length - 3] + '.' +
@@ -29,13 +47,32 @@ function map() {
     }
 }
 
-res = db.servers.mapReduce(map, reduce,
-                           {out: {replace: 'fqdn_dist_all'}});
+res = db.servers.mapReduce(map_one, reduce,
+                           {out: {replace: 'fqdn1_dist_all'}});
 shellPrint(res);
+
+res = db.servers.mapReduce(map_two, reduce,
+                           {out: {replace: 'fqdn2_dist_all'}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_three, reduce,
+                           {out: {replace: 'fqdn3_dist_all'}});
+shellPrint(res);
+
 
 db.servers.ensureIndex({is_ra: 1});
 
-res = db.servers.mapReduce(map, reduce,
-                           {out: {replace: 'fqdn_dist_open_resolver'},
+res = db.servers.mapReduce(map_one, reduce,
+                           {out: {replace: 'fqdn1_dist_open_resolver'},
+                            query: {is_ra: true}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_two, reduce,
+                           {out: {replace: 'fqdn2_dist_open_resolver'},
+                            query: {is_ra: true}});
+shellPrint(res);
+
+res = db.servers.mapReduce(map_three, reduce,
+                           {out: {replace: 'fqdn3_dist_open_resolver'},
                             query: {is_ra: true}});
 shellPrint(res);
