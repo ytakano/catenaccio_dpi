@@ -29,5 +29,13 @@ function map() {
     }
 }
 
-res = db.servers.mapReduce(map, reduce, {out: {replace: 'fqdn_dist'}});
+res = db.servers.mapReduce(map, reduce,
+                           {out: {replace: 'fqdn_dist_all'}});
+shellPrint(res);
+
+db.servers.ensureIndex({is_ra: 1});
+
+res = db.servers.mapReduce(map, reduce,
+                           {out: {replace: 'fqdn_dist_open_resolver'},
+                            query: {is_ra: true}});
 shellPrint(res);
