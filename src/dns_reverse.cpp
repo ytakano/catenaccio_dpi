@@ -30,6 +30,12 @@ auto_ptr<mongo::DBClientCursor> mongo_cur;
 int total = 0;
 
 void
+callback_exit(evutil_socket_t fd, short what, void *arg)
+{
+    exit(0);
+}
+
+void
 main_callback(int result, char type, int count, int ttl, void *addrs,
               void *orig)
 {
@@ -67,6 +73,10 @@ main_callback(int result, char type, int count, int ttl, void *addrs,
 
         char *s = strdup(saddr.c_str());
         evdns_base_resolve_reverse(evdns_base, &addr, 0, main_callback, s);
+    } else {
+        timeval tv = {30, 0};
+        ev_timer = event_new(ev_base, -1, EV_TIMEOUT, callback_exit, NULL);
+        event_add(ev_timer, &tv);
     }
 }
 

@@ -262,10 +262,16 @@ send_query()
         refresh();
 
         time_t  t1 = time(NULL);
-        timeval tv = {1800 - (t1 - t0), 0};
 
-        event_base_loopexit(ev_base, &tv);
-        event_base_dispatch(ev_base);
+        if (t0 - t1 > 1800) {
+            event_base_loop(ev_base, EVLOOP_NONBLOCK);
+        } else {
+            cout << "sleep " << t0 - t1 << " sec" << endl;
+
+            timeval tv = {1800 - (t0 - t1), 0};
+            event_base_loopexit(ev_base, &tv);
+            event_base_dispatch(ev_base);
+        }
     }
 
     cout << send_total << endl;
