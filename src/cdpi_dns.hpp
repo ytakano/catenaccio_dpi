@@ -193,7 +193,6 @@ enum cdpi_dns_class {
 };
 
 enum cdpi_dns_type {
-<<<<<<< HEAD
     DNS_TYPE_A      = 1,
     DNS_TYPE_NS     = 2,
     DNS_TYPE_MD     = 3,
@@ -212,26 +211,6 @@ enum cdpi_dns_type {
     DNS_TYPE_TXT    = 16,
     DNS_TYPE_AAAA   = 28,
     DNS_TYPE_RRSIG  = 46,
-=======
-    DNS_TYPE_A     = 1,
-    DNS_TYPE_NS    = 2,
-    DNS_TYPE_MD    = 3,
-    DNS_TYPE_MF    = 4,
-    DNS_TYPE_CNAME = 5,
-    DNS_TYPE_SOA   = 6,
-    DNS_TYPE_MB    = 7,
-    DNS_TYPE_MG    = 8,
-    DNS_TYPE_MR    = 9,
-    DNS_TYPE_NULL  = 10,
-    DNS_TYPE_WKS   = 11,
-    DSN_TYPE_PTR   = 12,
-    DNS_TYPE_HINFO = 13,
-    DNS_TYPE_MINFO = 14,
-    DNS_TYPE_MX    = 15,
-    DNS_TYPE_TXT   = 16,
-    DNS_TYPE_AAAA  = 28,
->>>>>>> master
-    DNS_TYPE_DNSKEY = 48,
 };
 
 struct cdpi_dns_header {
