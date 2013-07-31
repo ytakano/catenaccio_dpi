@@ -10,23 +10,23 @@ con   = pymongo.Connection(mongo)
 
 db = con.DNSCrawl
 
-max_n = 25
+max_n = 50
 width = 1.0
 data  = {}
 x     = []
 n     = 0
 xmin  = 1
-xmax  = 1000000
+xmax  = 100000
 
-plt.figure(figsize=(12, 6))
+plt.figure(figsize=(12, 12))
 
-plt.axes([0.14, 0.1, 0.35, 0.8])
+plt.axes([0.18, 0.1, 0.31, 0.8])
 
 plt.xlim(xmin=xmin, xmax=xmax)
 plt.xscale('log')
 plt.xlabel('#address')
 
-for i in db.ver_dist_dnsmasq.find():
+for i in db.fqdn3_jp_dist_open_resolver.find():
     if i['_id'] == '' or i['_id'] == 'UNKNOWN':
         continue
     data[i['_id']] = i['value']
@@ -49,7 +49,7 @@ for k, v in sorted(data.items(), key = lambda x: x[1], reverse = True):
         plt.yticks(numpy.arange(len(x)) + width / 2, x)
         #break
 
-        plt.axes([0.62, 0.1, 0.35, 0.8])
+        plt.axes([0.65, 0.1, 0.31, 0.8])
         plt.xlim(xmin=xmin, xmax=xmax)
         plt.xscale('log')
         plt.xlabel('#address')

@@ -10,7 +10,7 @@ con   = pymongo.Connection(mongo)
 
 db = con.DNSCrawl
 
-max_n = 30
+max_n = 25
 width = 1.0
 data  = {}
 x     = []
