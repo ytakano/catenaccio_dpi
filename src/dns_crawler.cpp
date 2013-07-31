@@ -225,6 +225,13 @@ send_query()
                          16 <= arr3[k] && arr3[k] <= 31)   || // class B private
                         (arr4[m] == 192 && arr3[k] == 168) || // class C private
                         (arr4[m] == 169 && arr3[k] == 254) || // link local
+                        (arr4[m] == 173 && arr3[k] == 166) || // winbiz.com
+                        (arr4[m] == 132 && arr3[k] == 206 &&
+                         arr2[j] == 125)                   || // McGill Univ
+                        (arr4[m] == 132 && arr3[k] == 206 &&
+                         arr2[j] == 9)                     || // McGill Univ
+                        (arr4[m] == 132 && arr3[k] == 206 &&
+                         arr2[j] == 123)                   || // McGill Univ
                         (arr4[m] == 202 && arr3[k] == 241 &&
                          arr2[j] == 109)                   || // 農林水産省
                         (arr4[m] == 166 && arr3[k] == 119) || // 農林水産省
