@@ -257,18 +257,21 @@ send_query()
 
                     event_base_loop(ev_base, EVLOOP_NONBLOCK);
                 }
+                timeval tv = {0, 10000};
+                event_base_loopexit(ev_base, &tv);
+                event_base_dispatch(ev_base);
             }
         }
         refresh();
 
         time_t  t1 = time(NULL);
 
-        if (t1 - t0 > 1800) {
-            event_base_loop(ev_base, EVLOOP_NONBLOCK);
+        if (t1 - t0 > 900) {
+        event_base_loop(ev_base, EVLOOP_NONBLOCK);
         } else {
-            cout << "sleep " << 1800 - (t1 - t0) << " sec" << endl;
+            cout << "sleep " << 900 - (t1 - t0) << " sec" << endl;
 
-            timeval tv = {1800 - (t1 - t0), 0};
+            timeval tv = {900 - (t1 - t0), 0};
             event_base_loopexit(ev_base, &tv);
             event_base_dispatch(ev_base);
         }
