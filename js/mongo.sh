@@ -1,6 +1,6 @@
 #!/bin/sh
 
-js_http_files="mongo_http_hosts.js mongo_http_graph_trunc_host.js mongo_http_tld.js"
+js_http_files="mongo_http_hosts.js mongo_http_ip.js mongo_http_graph_trunc_host.js mongo_http_tld.js mongo_http_graph_trunc_host_ip.js"
 js_dns_files="mongo_dns.js"
 
 js_path=`dirname $0`
