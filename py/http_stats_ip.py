@@ -19,14 +19,6 @@ class http_stats:
         self._con    = pymongo.Connection(server)
         self._outdir = outdir
 
-        self._ip = []
-        self._soa_rname = {}
-        self._in_graph  = {}
-        self._out_graph = {}
-        self._max_ref   = 0.0
-        self._top_n     = set()
-        self._total_ref = 0
-
         self._dot_full   = 'http_full_graph.dot'
         self._dot_pruned = 'http_pruned_graph.dot'
         self._sif_full   = 'http_full_graph.sif'
@@ -317,15 +309,26 @@ function show_stats_soa(uri, hosts, trds, soa, id_host, id_refered, id_truncated
         return html
 
     def _get_ip(self):
+        self._ip = []
+
         db = self._con.HTTP
 
         for i in db.ip.find():
             self._ip.append(i['_id'])
 
+    def _init_var(self):
+        self._soa_rname = {}
+        self._in_graph  = {}
+        self._out_graph = {}
+        self._max_ref   = 0.0
+        self._top_n     = set()
+        self._total_ref = 0
+
     def print_html(self):
         self._get_ip()
 
         for ip in self._ip:
+            self._init_var()
             self._get_graph(ip)
             self._get_soa_rname()
 
@@ -340,7 +343,9 @@ function show_stats_soa(uri, hosts, trds, soa, id_host, id_refered, id_truncated
                                  'digest': digest }
 
             dname = os.path.join(self._outdir, digest)
-            os.makedirs(dname)
+
+            if not os.path.isdir(dname):
+                os.makedirs(dname)
 
             open(os.path.join(dname, self._dot_full), 'w').write(dot)
             open(os.path.join(dname, self._sif_full), 'w').write(sif)
