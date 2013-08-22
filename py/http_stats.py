@@ -197,6 +197,9 @@ function show_stats_soa(uri, hosts, trds, soa, id_host, id_refered, id_truncated
             self._in_graph[dst] = srcs
             self._total_ref += len(srcs)
 
+            if self._max_ref < len(srcs):
+                self._max_ref = len(srcs)
+
             for src in srcs:
                 if src in self._out_graph:
                     self._out_graph[src].append(dst)
@@ -235,7 +238,7 @@ function show_stats_soa(uri, hosts, trds, soa, id_host, id_refered, id_truncated
             val = 0
             for dst in v:
                 try:
-                    score = (float(len(self._in_graph[dst])) / self._total_ref) ** 2
+                    score = (float(len(self._in_graph[dst])) / self._max_ref) ** 2
                     val += score
                 except:
                     continue
@@ -249,7 +252,7 @@ function show_stats_soa(uri, hosts, trds, soa, id_host, id_refered, id_truncated
 
         i = 0
         for k, v in sites:
-            score = round(v * 100, 2)
+            score = round(v, 2)
 
             db = self._con.HTTP
             trd_hosts = []
@@ -283,12 +286,6 @@ function show_stats_soa(uri, hosts, trds, soa, id_host, id_refered, id_truncated
 
         top_n = self._get_top_n_refered(n)
 
-        max_ref = 0
-        for (soa, refs) in top_n:
-            for ref in refs:
-                if max_ref < len(ref['srcs']):
-                    max_ref = len(ref['srcs'])
-
         for (soa, refs) in top_n:
             html += '<div class="refs"><h3 class="soa">' + soa + '</h3>'
 
@@ -305,8 +302,8 @@ function show_stats_soa(uri, hosts, trds, soa, id_host, id_refered, id_truncated
                           'len': len(ref['srcs']),
                           'uris': json.dumps(ref['srcs'].keys()),
                           'truncated': json.dumps(trd_hosts),
-                          'color': 150 - int(150.0 * len_src / max_ref),
-                          'weight': 80.0 + 150.0 * len_src / max_ref}
+                          'color': 150 - int(150.0 * len_src / self._max_ref),
+                          'weight': 80.0 + 150.0 * len_src / self._max_ref}
 
                 html += '<span class="dst" style="font-size: %(weight)d%%;"><a style="text-decoration: none; color: rgb(%(color)d, %(color)d, %(color)d);" href="javascript:void(0);" onclick=\'show_stats("%(dst)s", %(uris)s, %(truncated)s, "host_dst", "refered_dst", "truncated_dst")\'>%(dst)s(%(len)d)</a></span> ' % params
 

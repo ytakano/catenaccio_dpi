@@ -1,5 +1,5 @@
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall -fPIC")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -fPIC")
 
 option(USE_MONGO "Use MongoDB" 0)
 option(USE_DIVERT "Use Divert" 0)
