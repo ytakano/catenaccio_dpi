@@ -27,7 +27,7 @@ IF(APPLE)
 ENDIF(APPLE)
 
 set(LIBS event boost_thread-mt boost_system-mt boost_regex-mt boost_iostreams-mt pcap crypto)
-set(LIBS_MONGO mongoclient ssl boost_filesystem-mt)
+set(LIBS_MONGO mongoclient ssl boost_filesystem-mt pthread)
 
 target_link_libraries(cattenacio_dpi ${LIBS})
 target_link_libraries(cdpi ${LIBS})
