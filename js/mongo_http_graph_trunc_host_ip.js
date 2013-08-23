@@ -253,8 +253,8 @@ function map() {
             return;
         }
 
-        tr_uri     = trunc_domain(uri);
-        tr_referer = trunc_domain(referer);
+        uri     = trunc_domain(uri);
+        referer = trunc_domain(referer);
 
         if (uri == referer)
             return;
