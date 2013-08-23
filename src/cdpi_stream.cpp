@@ -215,7 +215,7 @@ cdpi_stream::get_sent_bytes(cdpi_id_dir id_dir)
 
     it = m_info.find(id_dir);
     if (it == m_info.end())
-        return 0.0;
+        return 0;
 
     return it->second->m_total_size;
 }

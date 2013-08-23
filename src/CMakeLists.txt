@@ -1,5 +1,5 @@
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall -fPIC")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -fPIC")
 
 option(USE_MONGO "Use MongoDB" 0)
 option(USE_DIVERT "Use Divert" 0)
@@ -29,8 +29,8 @@ IF(APPLE)
     set_property(TARGET cdpi_static_i386 PROPERTY COMPILE_FLAGS "-arch i386")
 ENDIF(APPLE)
 
-set(LIBS event boost_thread-mt boost_system-mt boost_regex-mt boost_iostreams-mt pcap crypto pthread)
-set(LIBS_MONGO mongoclient ssl boost_filesystem-mt)
+set(LIBS event boost_thread-mt boost_system-mt boost_regex-mt boost_iostreams-mt pcap crypto)
+set(LIBS_MONGO mongoclient ssl boost_filesystem-mt pthread)
 
 target_link_libraries(cattenacio_dpi ${LIBS})
 target_link_libraries(cdpi ${LIBS})

@@ -4,6 +4,8 @@
 #include "cdpi_bytes.hpp"
 
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 
 #include <stdint.h>
 #include <string.h>
