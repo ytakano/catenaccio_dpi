@@ -34,6 +34,9 @@ void get_epoch_millis(mongo::Date_t &date)
 void
 ubcallback(void *mydata, int err, struct ub_result *result)
 {
+    if (err < 0)
+        return;
+
     int *resolving = (int*)mydata;
 
     (*resolving)--;
