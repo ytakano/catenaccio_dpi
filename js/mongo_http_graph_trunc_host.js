@@ -253,28 +253,31 @@ function trunc_hosts() {
 trunc_hosts();
 
 function map() {
-    if ('referer' in this) {
-        var referers = {};
-        var uri;
-        var referer;
-        var tr_uri;
-        var tr_referer;
+    try {
+        if ('referer' in this) {
+            var referers = {};
+            var uri;
+            var referer;
+            var tr_uri;
+            var tr_referer;
 
-        try {
-            uri     = this.uri.split('/')[2].split(':')[0];
-            referer = this.referer.split('/')[2].split(':')[0];
-        } catch (e) {
-            return;
+            try {
+                uri     = this.uri.split('/')[2].split(':')[0];
+                referer = this.referer.split('/')[2].split(':')[0];
+            } catch (e) {
+                return;
+            }
+
+            uri     = trunc_domain(uri);
+            referer = trunc_domain(referer);
+
+            if (uri == referer)
+                return;
+
+            referers[referer] = 1;
+            emit(uri, referers);
         }
-
-        uri     = trunc_domain(uri);
-        referer = trunc_domain(referer);
-
-        if (uri == referer)
-            return;
-
-        referers[referer] = 1;
-        emit(uri, referers);
+    } catch (e) {
     }
 }
 
