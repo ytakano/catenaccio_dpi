@@ -80,7 +80,7 @@ You can specify MongoDB's address like this.
 
 Then, run ./src/cdpi_mongo_soa to get SOA records of DNS
 
-    $ ./src/cdpi_mongo.soa
+    $ ./src/cdpi_mongo_soa
 
 Next, run py/http_stats.py for visualization like this. py/http_stats.py requires MongoDB's driver for python. -o option specifies output directory.
 
