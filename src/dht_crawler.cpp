@@ -13,6 +13,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include <time.h>
+
 using namespace std;
 
 string mongo_server("localhost:27017");
@@ -21,6 +23,8 @@ mongo::Date_t             start_date;
 const char *my_id = "01234567890123456789";
 int sockfd;
 int my_port = 21000;
+time_t rm_time = time(NULL);
+const time_t rm_period = 3600;
 
 void
 get_epoch_millis(mongo::Date_t &date)
@@ -171,7 +175,20 @@ query()
                 break;
         }
 
-        //sleep(5);
+        sleep(5);
+        time_t now = time(NULL);
+
+        if (now - rm_time > rm_period) {
+            mongo::Date_t an_hour_ago;
+            get_epoch_millis(an_hour_ago);
+
+            an_hour_ago.millis -= rm_period * 1000;
+
+            mongo_conn.remove("DHT.nodes",
+                              BSON("date" << BSON("$lt" << an_hour_ago)));
+
+            rm_time = now;
+        }
     }
 }
 
