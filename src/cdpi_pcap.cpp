@@ -9,6 +9,14 @@
 
 #include <iostream>
 
+#ifndef ETHERTYPE_VLAN
+#define ETHERTYPE_VLAN 0x8100 /* IEEE 802.1Q VLAN tagging */
+#endif
+
+#ifndef ETHERTYPE_IPV6
+#define ETHERTYPE_IPV6 0x86dd /* IPv6 */
+#endif
+
 using namespace std;
 
 boost::shared_ptr<cdpi_pcap> pcap_inst;
