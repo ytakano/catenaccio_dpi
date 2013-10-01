@@ -100,7 +100,7 @@ cdpi_dns::decode_rr(char *head, int total_len, char *buf, int buf_len, int num,
         if (dlen < 0)
             return -1;
 
-        buf += dlen;
+        buf     += dlen;
         buf_len -= dlen;
         readlen += dlen;
 
@@ -143,7 +143,7 @@ cdpi_dns::decode_rr(char *head, int total_len, char *buf, int buf_len, int num,
         {
             ptr_cdpi_dns_txt p_txt(new cdpi_dns_txt);
 
-            if (decode_txt(head, total_len, buf, buf_len, p_txt, rdlen) < 0)
+            if (decode_txt(buf, p_txt, rdlen) < 0)
                 return -1;
 
             rr.m_rdata = DNS_TO_RDATA(p_txt);
@@ -151,32 +151,137 @@ cdpi_dns::decode_rr(char *head, int total_len, char *buf, int buf_len, int num,
             break;
         }
         case DNS_TYPE_A:
+        {
+            ptr_cdpi_dns_a p_a(new cdpi_dns_a);
+
+            if (decode_a(buf, p_a, rdlen) < 0)
+                return -1;
+
+            rr.m_rdata = DNS_TO_RDATA(p_a);
+
+            break;
+        }
+        case DNS_TYPE_AAAA:
+        {
+            ptr_cdpi_dns_aaaa p_aaaa(new cdpi_dns_aaaa);
+
+            if (decode_aaaa(buf, p_aaaa, rdlen) < 0)
+                return -1;
+
+            rr.m_rdata = DNS_TO_RDATA(p_aaaa);
+
+            break;
+        }
         case DNS_TYPE_NS:
+        {
+            ptr_cdpi_dns_ns p_ns(new cdpi_dns_ns);
+            int dlen;
+
+            dlen = read_domain(head, total_len, buf, buf_len, p_ns->m_ns);
+
+            if (dlen < 0)
+                return -1;
+
+            rr.m_rdata = DNS_TO_RDATA(p_ns);
+
+            break;
+        }
+        case DNS_TYPE_CNAME:
+        {
+            ptr_cdpi_dns_cname p_cname(new cdpi_dns_cname);
+            int dlen;
+
+            dlen = read_domain(head, total_len, buf, buf_len, p_cname->m_cname);
+
+            if (dlen < 0)
+                return -1;
+
+            rr.m_rdata = DNS_TO_RDATA(p_cname);
+
+            break;
+        }
+        case DNS_TYPE_MX:
+        {
+            ptr_cdpi_dns_mx p_mx(new cdpi_dns_mx);
+
+            if (decode_mx(head, total_len, buf, buf_len, p_mx, rdlen) < 0)
+                return -1;
+
+            rr.m_rdata = DNS_TO_RDATA(p_mx);
+
+            break;
+        }
+        case DSN_TYPE_PTR:
+        {
+            ptr_cdpi_dns_ptr p_ptr(new cdpi_dns_ptr);
+            int dlen;
+
+            dlen = read_domain(head, total_len, buf, buf_len, p_ptr->m_ptr);
+
+            if (dlen < 0)
+                return -1;
+
+            rr.m_rdata = DNS_TO_RDATA(p_ptr);
+
+            break;
+        }
+        case DNS_TYPE_HINFO:
+        {
+            ptr_cdpi_dns_hinfo p_hinfo(new cdpi_dns_hinfo);
+
+            if (decode_hinfo(buf, p_hinfo, rdlen) < 0)
+                return -1;
+
+            rr.m_rdata = DNS_TO_RDATA(p_hinfo);
+
+            break;
+        }
         case DNS_TYPE_MD:
         case DNS_TYPE_MF:
-        case DNS_TYPE_CNAME:
         case DNS_TYPE_MB:
         case DNS_TYPE_MG:
         case DNS_TYPE_MR:
         case DNS_TYPE_NULL:
         case DNS_TYPE_WKS:
-        case DSN_TYPE_PTR:
-        case DNS_TYPE_HINFO:
         case DNS_TYPE_MINFO:
-        case DNS_TYPE_MX:
-        case DNS_TYPE_AAAA:
         default:
             ;
         }
 
         rr_list.push_back(rr);
 
-        buf += rdlen;
+        buf     += rdlen;
         buf_len -= rdlen;
         readlen += rdlen;
     }
 
     return readlen;
+}
+
+int
+cdpi_dns::decode_dnskey(char *buf, ptr_cdpi_dns_dnskey p_dnskey, uint16_t rdlen)
+{
+    unsigned int n;
+
+    if (rdlen < 5)
+        return -1;
+
+    memcpy(&p_dnskey->m_flags, buf, 2);
+
+    p_dnskey->m_proto = buf[2];
+    p_dnskey->m_proto = buf[3];
+
+    n = (unsigned int)buf[4];
+
+    buf   += 5;
+    rdlen -= 5;
+
+    if (n != rdlen)
+        return -1;
+
+    p_dnskey->m_pubkey.set_buf(buf, n);
+
+    return n + 5;
 }
 
 int
@@ -216,9 +321,12 @@ cdpi_dns::decode_question(char *head, int total_len,
 
 int
 cdpi_dns::read_domain(char *head, int total_len, char* buf, int buf_len,
-                      string &domain)
+                      string &domain, int counter)
 {
     int readlen = 0;
+
+    if (counter > 256)
+        return -1;
 
     for (;;) {
         uint16_t pos;
@@ -249,8 +357,8 @@ cdpi_dns::read_domain(char *head, int total_len, char* buf, int buf_len,
                     return -1;
                 }
 
-                if (read_domain(head, total_len,
-                                &head[pos], total_len - pos, domain) < 0) {
+                if (read_domain(head, total_len, &head[pos], total_len - pos,
+                                domain, counter + 1) < 0) {
                     return -1;
                 }
 
@@ -288,15 +396,74 @@ cdpi_dns::read_domain(char *head, int total_len, char* buf, int buf_len,
 }
 
 int
-cdpi_dns::decode_txt(char *head, int total_len, char *buf, int buf_len,
-                     ptr_cdpi_dns_txt p_txt, uint16_t rdlen)
+cdpi_dns::decode_a(char *buf, ptr_cdpi_dns_a p_a, uint16_t rdlen)
 {
-    unsigned char n;
+    if (rdlen < sizeof(cdpi_dns_a))
+        return -1;
+
+    memcpy(&p_a->m_a, buf, 4);
+
+    return rdlen;
+}
+
+int
+cdpi_dns::decode_aaaa(char *buf, ptr_cdpi_dns_aaaa p_aaaa, uint16_t rdlen)
+{
+    if (rdlen < sizeof(cdpi_dns_aaaa))
+        return -1;
+
+    memcpy(&p_aaaa->m_aaaa, buf, 16);
+
+    return rdlen;
+}
+
+int
+cdpi_dns::decode_hinfo(char *buf, ptr_cdpi_dns_hinfo p_hinfo, uint16_t rdlen)
+{
+    int readlen = 0;
+    uint8_t n;
+
+    // read cpu
+    if (rdlen < 1)
+        return -1;
+
+    n = (uint8_t)buf[0];
+
+    if (n > rdlen - 1)
+        return -1;
+
+    p_hinfo->m_cpu = string(buf + 1, n);
+
+    n++;
+
+    buf     += n;
+    rdlen   -= n;
+    readlen += n;
+
+
+    // read os
+    if (rdlen < 1)
+        return -1;
+
+    n = (uint8_t)buf[0];
+
+    if (n != rdlen - 1)
+        return -1;
+
+    p_hinfo->m_os = string(buf + 1, n);
+
+    return readlen + n + 1;
+}
+
+int
+cdpi_dns::decode_txt(char *buf, ptr_cdpi_dns_txt p_txt, uint16_t rdlen)
+{
+    uint8_t n;
 
     if (rdlen <= 1)
-        return rdlen;
+        return -1;
 
-    n = (unsigned char)buf[0];
+    n = (uint8_t)buf[0];
 
     if (n != rdlen - 1)
         return -1;
@@ -304,6 +471,23 @@ cdpi_dns::decode_txt(char *head, int total_len, char *buf, int buf_len,
     p_txt->m_txt = string(buf + 1, n);
 
     return rdlen;
+}
+
+int
+cdpi_dns::decode_mx(char *head, int total_len, char *buf, int buf_len,
+                    ptr_cdpi_dns_mx p_mx, uint16_t rdlen)
+{
+    if (rdlen < 2)
+        return -1;
+
+    memcpy(&p_mx->m_preference, buf, 2);
+
+    int dlen = read_domain(head, total_len, buf, buf_len, p_mx->m_exchange);
+
+    if (dlen < 0)
+        return -1;
+
+    return dlen + 2;
 }
 
 int
@@ -318,7 +502,7 @@ cdpi_dns::decode_soa(char *head, int total_len, char *buf, int buf_len,
     if (dlen < 0)
         return -1;
 
-    buf += dlen;
+    buf     += dlen;
     buf_len -= dlen;
     readlen += dlen;
 
@@ -327,7 +511,7 @@ cdpi_dns::decode_soa(char *head, int total_len, char *buf, int buf_len,
     if (dlen < 0)
         return -1;
 
-    buf += dlen;
+    buf     += dlen;
     buf_len -= dlen;
     readlen += dlen;
 
@@ -360,4 +544,64 @@ cdpi_dns::decode_soa(char *head, int total_len, char *buf, int buf_len,
     readlen += sizeof(p_soa->m_minimum);
 
     return readlen;
+}
+
+int
+cdpi_dns::get_rcode()
+{
+    return ntohs(m_header.m_flag) & 0x000f;
+}
+
+int
+cdpi_dns::get_opcode()
+{
+    return (ntohs(m_header.m_flag) & (0x000f << 11)) >> 11;
+}
+
+uint16_t
+cdpi_dns::get_id()
+{
+    return m_header.m_id;
+}
+
+bool
+cdpi_dns::is_qr()
+{
+    return (ntohs(m_header.m_flag) & (1 << 15)) != 0 ? true : false;
+}
+
+bool
+cdpi_dns::is_aa()
+{
+    return (ntohs(m_header.m_flag) & (1 << 10)) != 0 ? true : false;
+}
+
+bool
+cdpi_dns::is_tc()
+{
+    return (ntohs(m_header.m_flag) & (1 << 9)) != 0 ? true : false;
+}
+
+bool
+cdpi_dns::is_rd()
+{
+    return (ntohs(m_header.m_flag) & (1 << 8)) != 0 ? true : false;
+}
+
+bool
+cdpi_dns::is_ra()
+{
+    return (ntohs(m_header.m_flag) & (1 << 7)) != 0 ? true : false;
+}
+
+bool
+cdpi_dns::is_ad()
+{
+    return (ntohs(m_header.m_flag) & (1 << 5)) != 0 ? true : false;
+}
+
+bool
+cdpi_dns::is_cd()
+{
+    return (ntohs(m_header.m_flag) & (1 << 4)) != 0 ? true : false;
 }

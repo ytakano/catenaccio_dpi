@@ -34,6 +34,9 @@ void get_epoch_millis(mongo::Date_t &date)
 void
 ubcallback(void *mydata, int err, struct ub_result *result)
 {
+    if (err < 0)
+        return;
+
     int *resolving = (int*)mydata;
 
     (*resolving)--;
@@ -52,27 +55,29 @@ ubcallback(void *mydata, int err, struct ub_result *result)
                 if (ntohs(it_ans->m_type) == 6 && ntohs(it_ans->m_class) == 1) {
                     ptr_cdpi_dns_soa p_soa = DNS_RDATA_TO_SOA(it_ans->m_rdata);
 
-                    mongo::BSONObjBuilder b;
+                    mongo::BSONObjBuilder b1, b2;
                     mongo::BSONObj obj;
                     mongo::Date_t  date;
 
                     get_epoch_millis(date);
 
-                    b.append("_id", it_ans->m_name);
-                    b.append("mname", p_soa->m_mname);
-                    b.append("rname", p_soa->m_rname);
-                    b.append("serial", p_soa->m_serial);
-                    b.append("refresh", p_soa->m_refresh);
-                    b.append("retry", p_soa->m_retry);
-                    b.append("expire", p_soa->m_expire);
-                    b.append("minimum", p_soa->m_minimum);
-                    b.append("date", date);
+                    b2.append("_id", it_ans->m_name);
+                    b2.append("mname", p_soa->m_mname);
+                    b2.append("rname", p_soa->m_rname);
+                    b2.append("serial", p_soa->m_serial);
+                    b2.append("refresh", p_soa->m_refresh);
+                    b2.append("retry", p_soa->m_retry);
+                    b2.append("expire", p_soa->m_expire);
+                    b2.append("minimum", p_soa->m_minimum);
+                    b2.append("date", date);
 
-                    obj = b.obj();
+                    obj = b2.obj();
 
                     cout << obj.toString() << endl;
 
-                    mongo_conn.insert(http_soa, obj);
+                    b1.append("_id", it_ans->m_name);
+
+                    mongo_conn.update(http_soa, b1.obj(), obj, true);
                 }
             }
         }

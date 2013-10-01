@@ -13,9 +13,8 @@ Required:
 Optional for MongoDB:
 
 * [MongoDB](http://www.mongodb.org/ "MongoDB")
+* [PyMongo](https://github.com/mongodb/mongo-python-driver "pyMongo")
 * [libunbound](http://unbound.net/ "Unbound")
-* [matplotlib of Python](http://matplotlib.org/ "matplotlib")
-* [Graphviz](http://www.graphviz.org/ "Graphviz")
 * [libevent 2.0 or later](http://libevent.org/ "libevent")
 
 Optional for Divert Socket:
@@ -79,7 +78,11 @@ You can specify MongoDB's address like this.
 
     $ ./js/mongo.sh localhost:27017
 
-Next, run py/http_stats.py for visualization like this. py/http_stats.py requires MongoDB's driver for python and matplotlib. -o option specifies output directory.
+Then, run ./src/cdpi_mongo_soa to get SOA records of DNS
+
+    $ ./src/cdpi_mongo_soa
+
+Next, run py/http_stats.py for visualization like this. py/http_stats.py requires MongoDB's driver for python. -o option specifies output directory.
 
     $ ./py/http_stats.py -o output_direcotry
 

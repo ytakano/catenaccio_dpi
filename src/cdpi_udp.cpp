@@ -76,7 +76,6 @@ cdpi_udp::run()
                 istream         *is = &iss;
 
                 if (bc->decode(*is)) {
-                    cout << len << "[bytes]" << endl;
                     m_listener->in_datagram(CDPI_EVENT_BENCODE,
                                             packet.m_id_dir, 
                                             boost::dynamic_pointer_cast<cdpi_proto>(bc));
@@ -89,37 +88,19 @@ cdpi_udp::run()
 }
 
 void
-cdpi_udp::input_udp(cdpi_id &id, cdpi_direction dir, char *buf, int len)
-{
-    switch (id.get_l3_proto()) {
-    case IPPROTO_IP:
-        input_udp4(id, dir, buf, len);
-        break;
-    case IPPROTO_IPV6:
-        // TODO:
-        break;
-    default:
-        break;
-    }
-}
-
-void
-cdpi_udp::input_udp4(cdpi_id &id, cdpi_direction dir, char *buf, int len)
+cdpi_udp::input_udp(cdpi_id &id, cdpi_direction dir, char *buf, int len,
+                    char *l4hdr)
 {
     cdpi_udp_packet packet;
-    ip     *iph;
     udphdr *udph;
-    int     hlen;
 
-    iph  = (ip*)buf;
-    hlen = iph->ip_hl * 4;
-    udph = (udphdr*)(buf + hlen);
+    udph = (udphdr*)l4hdr;
 
     // TODO: checksum
 
     packet.m_id_dir.m_id  = id;
     packet.m_id_dir.m_dir = dir;
-    packet.m_bytes.set_buf((char*)udph, len - hlen);
+    packet.m_bytes.set_buf((char*)udph, len - (l4hdr - buf));
 
     {
         boost::mutex::scoped_lock lock(m_mutex);
