@@ -13,7 +13,8 @@
 
 using namespace std;
 
-cdpi_udp::cdpi_udp() : m_is_del(false),
+cdpi_udp::cdpi_udp() : m_is_dns_53(true),
+                       m_is_del(false),
                        m_thread(boost::bind(&cdpi_udp::run, this))
 {
 
@@ -56,8 +57,10 @@ cdpi_udp::run()
 
             {
                 // try to read DNS when port is 53
-                if ((ntohs(packet.m_id_dir.get_port_src()) == 53 ||
-                     ntohs(packet.m_id_dir.get_port_dst()) == 53)) {
+                if ((m_is_dns_53 &&
+                     (ntohs(packet.m_id_dir.get_port_src()) == 53 ||
+                      ntohs(packet.m_id_dir.get_port_dst()) == 53)) ||
+                    ! m_is_dns_53) {
                     ptr_cdpi_dns p_dns(new cdpi_dns);
 
                     if (p_dns->decode(data, len)) {

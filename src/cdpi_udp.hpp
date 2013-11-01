@@ -30,6 +30,8 @@ public:
         m_listener = listener;
     }
 
+    bool             m_is_dns_53; // parse DNS only if src or dst port is 56
+
 private:
     std::queue<cdpi_udp_packet> m_queue;
     ptr_cdpi_event_listener     m_listener;

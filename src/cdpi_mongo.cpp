@@ -9,7 +9,7 @@ using namespace std;
 string mongo_server("localhost");
 static const char *dht_nodes = "DHT.nodes";
 static const char *http_requests = "HTTP.requests";
-static const char *dns_servers = "DNS.servers";
+static const char *dns_requests = "DNS.requests";
 
 static boost::regex regex_http_uri("^http://.+/.*$");
 
@@ -274,6 +274,7 @@ my_event_listener::in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
 {
     switch (cev) {
     case CDPI_EVENT_BENCODE:
+        // for BitTorrent DHT
         in_bencode(id_dir, PROTO_TO_BENCODE(data));
         break;
     case CDPI_EVENT_DNS:
@@ -287,42 +288,69 @@ my_event_listener::in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
 void
 my_event_listener::in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns)
 {
-    mongo::BSONObjBuilder b1, b2, b3, b4, b5;
-    mongo::BSONObj        doc1, doc2, doc3;
+    mongo::BSONArrayBuilder qarr;
+    mongo::BSONObjBuilder b;
     mongo::Date_t         date;
 
-    char ip_str[128];
+    char ip_src[128], ip_dst[128];
 
-    if (ntohs(id_dir.get_port_src()) == 53) {
-        id_dir.get_addr_src(ip_str, sizeof(ip_str));
+    id_dir.get_addr_src(ip_src, sizeof(ip_src));
+    id_dir.get_addr_dst(ip_dst, sizeof(ip_dst));
 
-        get_epoch_millis(date);
+    get_epoch_millis(date);
 
-        b1.append("_id", ip_str);
-        b1.append("created", date);
-        b1.append("counter", 1);
+    b.append("ip src", ip_src);
+    b.append("ip dst", ip_dst);
+    b.append("port src", ntohs(id_dir.get_port_src()));
+    b.append("port dst", ntohs(id_dir.get_port_dst()));
+    b.append("date", date);
+    b.append("id", ntohs(p_dns->get_id()));
+    b.append("opcode", p_dns->get_opcode());
+    b.append("rcode", p_dns->get_rcode());
 
-        doc1 = b1.obj();
+    if (p_dns->is_qr())
+        b.append("is_qr", true);
 
-        cout << doc1.toString() << endl;
+    if (p_dns->is_aa())
+        b.append("is_aa", true);
 
-        m_mongo.insert(dns_servers, doc1);
+    if (p_dns->is_tc())
+        b.append("is_tc", true);
 
-        // update
-        b2.append("_id", ip_str);
+    if (p_dns->is_rd())
+        b.append("is_rd", true);
 
-        b3.append("updated", date);
-        b4.append("counter", 1);
-        b5.append("$set", b3.obj());
-        b5.append("$inc", b4.obj());
+    if (p_dns->is_ra())
+        b.append("is_ra", true);
 
-        doc2 = b2.obj();
-        doc3 = b5.obj();
+    if (p_dns->is_ad())
+        b.append("is_ad", true);
 
-        cout << doc2.toString() << ", " << doc3.toString() << endl;
+    if (p_dns->is_cd())
+        b.append("is_cd", true);
 
-        m_mongo.update(dns_servers, doc2, doc3);
+
+    // query
+    std::list<cdpi_dns_question>::const_iterator it_q;
+
+    for (it_q = p_dns->get_question().begin();
+         it_q != p_dns->get_question().end(); ++it_q) {
+        mongo::BSONObjBuilder b1;
+
+        b1.append("qname", it_q->m_qname);
+        b1.append("qtype", ntohs(it_q->m_qtype));
+        b1.append("qclass", ntohs(it_q->m_qclass));
+
+        qarr.append(b1.obj());
     }
+
+    b.append("query", qarr.arr());
+
+    mongo::BSONObj obj = b.obj();
+
+    cout << obj.toString() << endl;
+
+    m_mongo.insert(dns_requests, obj);
 }
 
 void

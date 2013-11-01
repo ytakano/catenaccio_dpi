@@ -34,7 +34,6 @@ cdpi_dns::decode(char *buf, int len)
     buf += SIZEOF_DNS_HEADER;
     len -= SIZEOF_DNS_HEADER;
 
-
     // read question section
     readlen = decode_question(head, total_len, buf, len,
                               ntohs(m_header.m_qd_count));
@@ -398,7 +397,7 @@ cdpi_dns::read_domain(char *head, int total_len, char* buf, int buf_len,
 int
 cdpi_dns::decode_a(char *buf, ptr_cdpi_dns_a p_a, uint16_t rdlen)
 {
-    if (rdlen < sizeof(cdpi_dns_a))
+    if (rdlen < 4)
         return -1;
 
     memcpy(&p_a->m_a, buf, 4);
@@ -409,7 +408,7 @@ cdpi_dns::decode_a(char *buf, ptr_cdpi_dns_a p_a, uint16_t rdlen)
 int
 cdpi_dns::decode_aaaa(char *buf, ptr_cdpi_dns_aaaa p_aaaa, uint16_t rdlen)
 {
-    if (rdlen < sizeof(cdpi_dns_aaaa))
+    if (rdlen < 16)
         return -1;
 
     memcpy(&p_aaaa->m_aaaa, buf, 16);
