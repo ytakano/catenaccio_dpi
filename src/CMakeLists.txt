@@ -11,6 +11,8 @@ FILE(GLOB CPPMongo cdpi_mongo.cpp)
 FILE(GLOB CPPMongoSOA cdpi_mongo_soa.cpp)
 FILE(GLOB CPPMongoCHAOS cdpi_mongo_chaos.cpp)
 
+find_package(Boost COMPONENTS thread system regex iostreams filesystem REQUIRED)
+
 IF(USE_DIVERT)
   add_definitions(-DUSE_DIVERT)
 ENDIF(USE_DIVERT)
@@ -26,8 +28,8 @@ IF(APPLE)
     set_property(TARGET cdpi_static_i386 PROPERTY COMPILE_FLAGS "-arch i386")
 ENDIF(APPLE)
 
-set(LIBS event boost_thread-mt boost_system-mt boost_regex-mt boost_iostreams-mt pcap crypto)
-set(LIBS_MONGO mongoclient ssl boost_filesystem-mt pthread)
+set(LIBS event ${Boost_THREAD_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_IOSTREAMS_LIBRARY} pcap crypto)
+set(LIBS_MONGO mongoclient ssl ${Boost_FILESYSTEM_LIBRARY} pthread)
 
 target_link_libraries(cattenacio_dpi ${LIBS})
 target_link_libraries(cdpi ${LIBS})
