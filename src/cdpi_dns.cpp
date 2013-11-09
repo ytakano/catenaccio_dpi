@@ -210,7 +210,7 @@ cdpi_dns::decode_rr(char *head, int total_len, char *buf, int buf_len, int num,
 
             break;
         }
-        case DSN_TYPE_PTR:
+        case DNS_TYPE_PTR:
         {
             ptr_cdpi_dns_ptr p_ptr(new cdpi_dns_ptr);
             int dlen;

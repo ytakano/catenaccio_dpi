@@ -289,6 +289,9 @@ void
 my_event_listener::in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns)
 {
     mongo::BSONArrayBuilder qarr;
+    mongo::BSONArrayBuilder ans_arr;
+    mongo::BSONArrayBuilder auth_arr;
+    mongo::BSONArrayBuilder add_arr;
     mongo::BSONObjBuilder b;
     mongo::Date_t         date;
 
@@ -346,11 +349,122 @@ my_event_listener::in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns)
 
     b.append("query", qarr.arr());
 
+    // answer
+    dns_rr(p_dns, ans_arr);
+    b.append("answer", ans_arr.arr());
+
+    // authority
+    dns_rr(p_dns, ans_arr);
+    b.append("authority", ans_arr.arr());
+
+    // additional
+    dns_rr(p_dns, ans_arr);
+    b.append("additional", ans_arr.arr());
+
     mongo::BSONObj obj = b.obj();
 
     cout << obj.toString() << endl;
 
     m_mongo.insert(dns_requests, obj);
+}
+
+void
+my_event_listener::dns_rr(ptr_cdpi_dns p_dns, mongo::BSONArrayBuilder &arr)
+{
+    std::list<cdpi_dns_rr>::const_iterator it;
+
+    for (it = p_dns->get_answer().begin();
+         it != p_dns->get_answer().end(); ++it) {
+        mongo::BSONObjBuilder b;
+
+        b.append("name", it->m_name);
+        b.append("type", ntohs(it->m_type));
+        b.append("class", ntohs(it->m_class));
+        b.append("ttl", ntohl(it->m_ttl));
+
+        switch (ntohs(it->m_type)) {
+        case DNS_TYPE_A:
+        {
+            ptr_cdpi_dns_a p_a = DNS_RDATA_TO_A(it->m_rdata);
+            char addr[32];
+
+            inet_ntop(PF_INET, &p_a->m_a, addr, sizeof(addr));
+
+            b.append("a", addr);
+            break;
+        }
+        case DNS_TYPE_AAAA:
+        {
+            ptr_cdpi_dns_aaaa p_aaaa = DNS_RDATA_TO_AAAA(it->m_rdata);
+            char addr[INET6_ADDRSTRLEN];
+
+            inet_ntop(PF_INET6, &p_aaaa->m_aaaa, addr, sizeof(addr));
+
+            b.append("aaaa", addr);
+            break;
+        }
+        case DNS_TYPE_PTR:
+        {
+            ptr_cdpi_dns_ptr p_ptr = DNS_RDATA_TO_PTR(it->m_rdata);
+            b.append("ptr", p_ptr->m_ptr);
+            break;
+        }
+        case DNS_TYPE_NS:
+        {
+            ptr_cdpi_dns_ns p_ns = DNS_RDATA_TO_NS(it->m_rdata);
+            b.append("ns", p_ns->m_ns);
+            break;
+        }
+        case DNS_TYPE_CNAME:
+        {
+            ptr_cdpi_dns_cname p_cname = DNS_RDATA_TO_CNAME(it->m_rdata);
+            b.append("cname", p_cname->m_cname);
+            break;
+        }
+        case DNS_TYPE_TXT:
+        {
+            ptr_cdpi_dns_txt p_txt = DNS_RDATA_TO_TXT(it->m_rdata);
+            b.append("txt", p_txt->m_txt);
+            break;
+        }
+        case DNS_TYPE_MX:
+        {
+            ptr_cdpi_dns_mx p_mx = DNS_RDATA_TO_MX(it->m_rdata);
+            b.append("preference", ntohs(p_mx->m_preference));
+            b.append("exchange", p_mx->m_exchange);
+            break;
+        }
+        case DNS_TYPE_HINFO:
+        {
+            ptr_cdpi_dns_hinfo p_hinfo = DNS_RDATA_TO_HINFO(it->m_rdata);
+            b.append("cpu", p_hinfo->m_cpu);
+            b.append("os", p_hinfo->m_os);
+            break;
+        }
+        case DNS_TYPE_SOA:
+        {
+            ptr_cdpi_dns_soa p_soa = DNS_RDATA_TO_SOA(it->m_rdata);
+            b.append("mname", p_soa->m_mname);
+            b.append("rname", p_soa->m_rname);
+            b.append("serial", ntohl(p_soa->m_serial));
+            b.append("refresh", ntohl(p_soa->m_refresh));
+            b.append("retry", ntohl(p_soa->m_retry));
+            b.append("expire", ntohl(p_soa->m_expire));
+            b.append("minumum", ntohl(p_soa->m_minimum));
+            break;
+        }
+        case DNS_TYPE_DNSKEY:
+        {
+            // TODO
+            ptr_cdpi_dns_dnskey p_dnskey = DNS_RDATA_TO_DNSKEY(it->m_rdata);
+            break;
+        }
+        default:
+            ;
+        }
+
+        arr.append(b.obj());
+    }
 }
 
 void

@@ -74,6 +74,7 @@ private:
     void in_dht_nodes(const cdpi_id_dir &id_dir,
                       cdpi_bencode::ptr_ben_str bstr);
     void in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns);
+    void dns_rr(ptr_cdpi_dns p_dns, mongo::BSONArrayBuilder &arr);
     void in_http(const cdpi_id_dir &id_dir, ptr_cdpi_http p_http);
     void insert_http(ptr_http_client_info client, ptr_http_server_info server);
 

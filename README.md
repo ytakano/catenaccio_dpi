@@ -41,6 +41,11 @@ If you want to build with mongoDB, set a option of USE_MONGO=1.
     $ cmake -DUSE_MONGO=1 -DCMAKE_BUILD_TYPE=Release CMakeLists.txt
     $ make
 
+If you want to build static library, set a option of COMPILE_STATIC_LIB=1.
+
+    $ cmake -DCOMPILE_STATIC_LIB=1 CMakeLists.txt
+    $ make
+
 You can use a verbose mode when compiling.
 
     $ make VERBOSE=1
@@ -69,6 +74,8 @@ Before running, please start up MongoDB server. After satrting up MongoDB, run c
 You can specify IP address and port number of MongoDB by -m option. If you don't pass -m option, it connects to localhost:27017 by default.
 
     $ ./src/cdpi_mongo -i eth0 -m localhost:27017
+
+### Example Usage of MongoDB (MindYourPrivacy)
 
 Then, run js/mongo.sh for statistics.
 

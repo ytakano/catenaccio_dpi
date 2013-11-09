@@ -204,7 +204,7 @@ enum cdpi_dns_type {
     DNS_TYPE_MR    = 9,
     DNS_TYPE_NULL  = 10,
     DNS_TYPE_WKS   = 11,
-    DSN_TYPE_PTR   = 12,
+    DNS_TYPE_PTR   = 12,
     DNS_TYPE_HINFO = 13,
     DNS_TYPE_MINFO = 14,
     DNS_TYPE_MX    = 15,
