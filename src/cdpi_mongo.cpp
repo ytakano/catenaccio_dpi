@@ -351,15 +351,18 @@ my_event_listener::in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns)
 
     // answer
     dns_rr(p_dns, ans_arr);
-    b.append("answer", ans_arr.arr());
+    if (ans_arr.arrSize() > 0)
+        b.append("answer", ans_arr.arr());
 
     // authority
-    dns_rr(p_dns, ans_arr);
-    b.append("authority", ans_arr.arr());
+    dns_rr(p_dns, auth_arr);
+    if (auth_arr.arrSize() > 0)
+        b.append("authority", auth_arr.arr());
 
     // additional
-    dns_rr(p_dns, ans_arr);
-    b.append("additional", ans_arr.arr());
+    dns_rr(p_dns, add_arr);
+    if (add_arr.arrSize() > 0)
+        b.append("additional", add_arr.arr());
 
     mongo::BSONObj obj = b.obj();
 
