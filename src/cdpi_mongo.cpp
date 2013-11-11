@@ -350,17 +350,17 @@ my_event_listener::in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns)
     b.append("query", qarr.arr());
 
     // answer
-    dns_rr(p_dns, ans_arr);
+    dns_rr(p_dns->get_answer(), ans_arr);
     if (ans_arr.arrSize() > 0)
         b.append("answer", ans_arr.arr());
 
     // authority
-    dns_rr(p_dns, auth_arr);
+    dns_rr(p_dns->get_authority(), auth_arr);
     if (auth_arr.arrSize() > 0)
         b.append("authority", auth_arr.arr());
 
     // additional
-    dns_rr(p_dns, add_arr);
+    dns_rr(p_dns->get_additional(), add_arr);
     if (add_arr.arrSize() > 0)
         b.append("additional", add_arr.arr());
 
@@ -372,12 +372,12 @@ my_event_listener::in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns)
 }
 
 void
-my_event_listener::dns_rr(ptr_cdpi_dns p_dns, mongo::BSONArrayBuilder &arr)
+my_event_listener::dns_rr(const std::list<cdpi_dns_rr> &rr,
+                          mongo::BSONArrayBuilder &arr)
 {
     std::list<cdpi_dns_rr>::const_iterator it;
 
-    for (it = p_dns->get_answer().begin();
-         it != p_dns->get_answer().end(); ++it) {
+    for (it = rr.begin(); it != rr.end(); ++it) {
         mongo::BSONObjBuilder b;
 
         b.append("name", it->m_name);
