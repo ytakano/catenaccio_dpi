@@ -340,7 +340,7 @@ my_event_listener::in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns)
          it_q != p_dns->get_question().end(); ++it_q) {
         mongo::BSONObjBuilder b1;
 
-        b1.append("qname", it_q->m_qname);
+        b1.append("qname", it_q->m_qname + ".");
         b1.append("qtype", ntohs(it_q->m_qtype));
         b1.append("qclass", ntohs(it_q->m_qclass));
 
@@ -380,7 +380,7 @@ my_event_listener::dns_rr(const std::list<cdpi_dns_rr> &rr,
     for (it = rr.begin(); it != rr.end(); ++it) {
         mongo::BSONObjBuilder b;
 
-        b.append("name", it->m_name);
+        b.append("name", it->m_name + ".");
         b.append("type", ntohs(it->m_type));
         b.append("class", ntohs(it->m_class));
         b.append("ttl", ntohl(it->m_ttl));
