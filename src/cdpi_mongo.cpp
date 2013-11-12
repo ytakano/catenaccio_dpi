@@ -77,6 +77,13 @@ my_event_listener::in_stream(cdpi_event cev, const cdpi_id_dir &id_dir,
         in_http(id_dir, PROTO_TO_HTTP(stream.get_proto(id_dir)));
         break;
     }
+    case CDPI_EVENT_SSL_CLIENT_HELLO:
+    case CDPI_EVENT_SSL_SERVER_HELLO:
+    case CDPI_EVENT_SSL_CERTIFICATE:
+    {
+        in_ssl(cev, id_dir, PROTO_TO_SSL(stream.get_proto(id_dir)));
+        break;
+    }
     default:
         ;
     }
@@ -284,6 +291,194 @@ my_event_listener::in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
         ;
     }
 }
+
+void
+my_event_listener::in_ssl(cdpi_event cev, const cdpi_id_dir &id_dir,
+                          ptr_cdpi_ssl p_ssl)
+{
+    std::map<cdpi_id, ssl_info>::iterator it;
+
+    it = m_ssl.find(id_dir.m_id);
+
+    if (it == m_ssl.end()) {
+        m_ssl[id_dir.m_id];
+        it = m_ssl.find(id_dir.m_id);
+    }
+
+    switch (cev) {
+    case CDPI_EVENT_SSL_CLIENT_HELLO:
+    {
+        it->second.m_client = p_ssl;
+        break;
+    }
+    case CDPI_EVENT_SSL_SERVER_HELLO:
+    {
+        it->second.m_server = p_ssl;
+
+        if (! it->second.m_server->get_session_id().is_zero()) {
+            insert_ssl(it->second.m_client, it->second.m_server);
+        }
+
+        break;
+    }
+    case CDPI_EVENT_SSL_CERTIFICATE:
+    {
+        insert_ssl(it->second.m_client, it->second.m_server);
+        break;
+    }
+    default:
+        ;
+    }
+}
+
+void
+my_event_listener::insert_ssl(ptr_cdpi_ssl client, ptr_cdpi_ssl server)
+{
+
+}
+
+/*
+void
+X509_print_ex(BIO *bp, X509 *x, unsigned long nmflags, unsigned long cflag)
+{
+    long l;
+    int ret=0,i;
+    char *m=NULL,mlch = ' ';
+    int nmindent = 0;
+    X509_CINF *ci;
+    ASN1_INTEGER *bs;
+    EVP_PKEY *pkey=NULL;
+    const char *neg;
+
+    if((nmflags & XN_FLAG_SEP_MASK) == XN_FLAG_SEP_MULTILINE) {
+        mlch = '\n';
+        nmindent = 12;
+    }
+
+    if(nmflags == X509_FLAG_COMPAT)
+        nmindent = 16;
+
+    ci=x->cert_info;
+    if(!(cflag & X509_FLAG_NO_HEADER))
+    {
+        if (BIO_write(bp,"Certificate:\n",13) <= 0) goto err;
+        if (BIO_write(bp,"    Data:\n",10) <= 0) goto err;
+    }
+    if(!(cflag & X509_FLAG_NO_VERSION))
+    {
+        l=X509_get_version(x);
+        if (BIO_printf(bp,"%8sVersion: %lu (0x%lx)\n","",l+1,l) <= 0) goto err;
+    }
+    if(!(cflag & X509_FLAG_NO_SERIAL))
+    {
+        if (BIO_write(bp,"        Serial Number:",22) <= 0) goto err;
+
+        bs=X509_get_serialNumber(x);
+        if (bs->length <= (int)sizeof(long))
+        {
+            l=ASN1_INTEGER_get(bs);
+            if (bs->type == V_ASN1_NEG_INTEGER)
+            {
+                l= -l;
+                neg="-";
+            }
+            else
+                neg="";
+            if (BIO_printf(bp," %s%lu (%s0x%lx)\n",neg,l,neg,l) <= 0)
+                goto err;
+        }
+        else
+        {
+            neg=(bs->type == V_ASN1_NEG_INTEGER)?" (Negative)":"";
+            if (BIO_printf(bp,"\n%12s%s","",neg) <= 0) goto err;
+
+            for (i=0; i<bs->length; i++)
+            {
+                if (BIO_printf(bp,"%02x%c",bs->data[i],
+                               ((i+1 == bs->length)?'\n':':')) <= 0)
+                    goto err;
+            }
+        }
+
+    }
+
+    if(!(cflag & X509_FLAG_NO_SIGNAME))
+    {
+        if(X509_signature_print(bp, x->sig_alg, NULL) <= 0)
+            goto err;
+#if 0
+        if (BIO_printf(bp,"%8sSignature Algorithm: ","") <= 0) 
+            goto err;
+        if (i2a_ASN1_OBJECT(bp, ci->signature->algorithm) <= 0)
+            goto err;
+        if (BIO_puts(bp, "\n") <= 0)
+            goto err;
+#endif
+    }
+
+    if(!(cflag & X509_FLAG_NO_ISSUER))
+    {
+        if (BIO_printf(bp,"        Issuer:%c",mlch) <= 0) goto err;
+        if (X509_NAME_print_ex(bp,X509_get_issuer_name(x),nmindent, nmflags) < 0) goto err;
+        if (BIO_write(bp,"\n",1) <= 0) goto err;
+    }
+    if(!(cflag & X509_FLAG_NO_VALIDITY))
+    {
+        if (BIO_write(bp,"        Validity\n",17) <= 0) goto err;
+        if (BIO_write(bp,"            Not Before: ",24) <= 0) goto err;
+        if (!ASN1_TIME_print(bp,X509_get_notBefore(x))) goto err;
+        if (BIO_write(bp,"\n            Not After : ",25) <= 0) goto err;
+        if (!ASN1_TIME_print(bp,X509_get_notAfter(x))) goto err;
+        if (BIO_write(bp,"\n",1) <= 0) goto err;
+    }
+    if(!(cflag & X509_FLAG_NO_SUBJECT))
+    {
+        if (BIO_printf(bp,"        Subject:%c",mlch) <= 0) goto err;
+        if (X509_NAME_print_ex(bp,X509_get_subject_name(x),nmindent, nmflags) < 0) goto err;
+        if (BIO_write(bp,"\n",1) <= 0) goto err;
+    }
+    if(!(cflag & X509_FLAG_NO_PUBKEY))
+    {
+        if (BIO_write(bp,"        Subject Public Key Info:\n",33) <= 0)
+            goto err;
+        if (BIO_printf(bp,"%12sPublic Key Algorithm: ","") <= 0)
+            goto err;
+        if (i2a_ASN1_OBJECT(bp, ci->key->algor->algorithm) <= 0)
+            goto err;
+        if (BIO_puts(bp, "\n") <= 0)
+            goto err;
+
+        pkey=X509_get_pubkey(x);
+        if (pkey == NULL)
+        {
+            BIO_printf(bp,"%12sUnable to load Public Key\n","");
+            ERR_print_errors(bp);
+        }
+        else
+        {
+            EVP_PKEY_print_public(bp, pkey, 16, NULL);
+            EVP_PKEY_free(pkey);
+        }
+    }
+
+    if (!(cflag & X509_FLAG_NO_EXTENSIONS))
+        X509V3_extensions_print(bp, "X509v3 extensions",
+                                ci->extensions, cflag, 8);
+
+    if(!(cflag & X509_FLAG_NO_SIGDUMP))
+    {
+        if(X509_signature_print(bp, x->sig_alg, x->signature) <= 0) goto err;
+    }
+    if(!(cflag & X509_FLAG_NO_AUX))
+    {
+        if (!X509_CERT_AUX_print(bp, x->aux, 0)) goto err;
+    }
+    ret=1;
+err:
+    if (m != NULL) OPENSSL_free(m);
+    return(ret);
+}
+*/
 
 void
 my_event_listener::in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns)
@@ -621,6 +816,7 @@ my_event_listener::close_tcp(const cdpi_id_dir &id_dir, cdpi_stream &stream)
     if (it->second.m_num_open == 0) {
         m_tcp.erase(it);
         m_http.erase(id_dir.m_id);
+        m_ssl.erase(id_dir.m_id);
     }
 }
 

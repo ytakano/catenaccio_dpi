@@ -64,19 +64,33 @@ private:
         std::queue<ptr_http_server_info> m_server;
     };
 
+    class ssl_info {
+    public:
+        ptr_cdpi_ssl m_client;
+        ptr_cdpi_ssl m_server;
+    };
+
     mongo::DBClientConnection    m_mongo;
     std::map<cdpi_id, tcp_info>  m_tcp;
     std::map<cdpi_id, http_info> m_http;
+    std::map<cdpi_id, ssl_info>  m_ssl;
 
     void open_tcp(const cdpi_id_dir &id_dir);
     void close_tcp(const cdpi_id_dir &id_dir, cdpi_stream &stream);
     void in_bencode(const cdpi_id_dir &id_dir, ptr_cdpi_bencode bc);
     void in_dht_nodes(const cdpi_id_dir &id_dir,
                       cdpi_bencode::ptr_ben_str bstr);
+    // DNS
     void in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns);
     void dns_rr(const std::list<cdpi_dns_rr> &rr, mongo::BSONArrayBuilder &arr);
+
+    // HTTP
     void in_http(const cdpi_id_dir &id_dir, ptr_cdpi_http p_http);
     void insert_http(ptr_http_client_info client, ptr_http_server_info server);
+
+    // SSL/TLS
+    void in_ssl(cdpi_event cev, const cdpi_id_dir &id_dir, ptr_cdpi_ssl p_ssl);
+    void insert_ssl(ptr_cdpi_ssl client, ptr_cdpi_ssl server);
 
     void get_epoch_millis(mongo::Date_t &date);
     std::string get_full_uri(std::string host, std::string server_ip,

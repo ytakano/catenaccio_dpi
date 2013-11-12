@@ -74,6 +74,12 @@ public:
         memset(m_ptr.get() + m_pos, 0, m_len);
     }
 
+    bool is_zero() {
+        boost::shared_array<char> z(new char[m_len - m_pos]);
+        memset(z.get(), 0, m_len - m_pos);
+        return memcmp(z.get(), m_ptr.get(), m_len - m_pos) == 0 ? true : false;
+    }
+
     void alloc(size_t len) {
         m_ptr = boost::shared_array<char>(new char[len]);
 

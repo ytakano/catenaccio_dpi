@@ -473,9 +473,6 @@ cdpi_ssl::parse(list<cdpi_bytes> &bytes)
 void
 cdpi_ssl::parse_change_cipher_spec(char *data, int len)
 {
-    if (len != 1)
-        throw cdpi_parse_error(__FILE__, __LINE__);
-
     if (data[0] == 1)
         m_is_change_cipher_spec = true;
 }
