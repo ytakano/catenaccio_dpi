@@ -10,6 +10,7 @@ string mongo_server("localhost");
 static const char *dht_nodes = "DHT.nodes";
 static const char *http_requests = "HTTP.requests";
 static const char *dns_requests = "DNS.requests";
+static const char *ssl_requests = "SSL.requests";
 
 static boost::regex regex_http_uri("^http://.+/.*$");
 
@@ -308,7 +309,17 @@ my_event_listener::in_ssl(cdpi_event cev, const cdpi_id_dir &id_dir,
     switch (cev) {
     case CDPI_EVENT_SSL_CLIENT_HELLO:
     {
-        it->second.m_client = p_ssl;
+        char ip_src[INET6_ADDRSTRLEN], ip_dst[INET6_ADDRSTRLEN];
+
+        id_dir.get_addr_src(ip_src, sizeof(ip_src));
+        id_dir.get_addr_dst(ip_dst, sizeof(ip_dst));
+
+        it->second.m_client      = p_ssl;
+        it->second.m_client_ip   = ip_src;
+        it->second.m_server_ip   = ip_dst;
+        it->second.m_client_port = ntohs(id_dir.get_port_src());
+        it->second.m_server_port = ntohs(id_dir.get_port_dst());
+
         break;
     }
     case CDPI_EVENT_SSL_SERVER_HELLO:
@@ -316,14 +327,14 @@ my_event_listener::in_ssl(cdpi_event cev, const cdpi_id_dir &id_dir,
         it->second.m_server = p_ssl;
 
         if (! it->second.m_server->get_session_id().is_zero()) {
-            insert_ssl(it->second.m_client, it->second.m_server);
+            insert_ssl(it->second);
         }
 
         break;
     }
     case CDPI_EVENT_SSL_CERTIFICATE:
     {
-        insert_ssl(it->second.m_client, it->second.m_server);
+        insert_ssl(it->second);
         break;
     }
     default:
@@ -332,9 +343,69 @@ my_event_listener::in_ssl(cdpi_event cev, const cdpi_id_dir &id_dir,
 }
 
 void
-my_event_listener::insert_ssl(ptr_cdpi_ssl client, ptr_cdpi_ssl server)
+my_event_listener::get_ssl_obj(ptr_cdpi_ssl p_ssl, mongo::BSONObjBuilder &b)
 {
+    mongo::BSONArrayBuilder cipher, compress;
+    cdpi_bytes session_id;
 
+    session_id = p_ssl->get_session_id();
+
+    b.append("unix time", p_ssl->get_gmt_unix_time());
+    b.append("random", bin2str((char*)p_ssl->get_random(), 32));
+
+    if (session_id.m_ptr)
+        b.append("session id",
+                 bin2str(session_id.m_ptr.get(), session_id.m_len));
+
+    const std::list<uint16_t> &cipher_suites = p_ssl->get_cipher_suites();
+    std::list<uint16_t>::const_iterator it;
+
+    for (it = cipher_suites.begin(); it != cipher_suites.end(); ++it) {
+        std::string c = p_ssl->num_to_cipher(*it);
+
+        if (c.size() == 0) {
+            cipher.append(*it);
+        } else {
+            cipher.append(c);
+        }
+    }
+
+    if (cipher.arrSize() > 0) {
+        b.append("cipher suite", cipher.arr());
+    }
+
+    const std::list<uint8_t> &compression_methods = p_ssl->get_compression_methods();
+    std::list<uint8_t>::const_iterator it2;
+    for (it2 = compression_methods.begin();
+         it2 != compression_methods.end(); ++it2) {
+        compress.append(p_ssl->num_to_compression(*it2));
+    }
+
+    if (compress.arrSize() > 0) {
+        b.append("compression method", compress.arr());
+    }
+}
+
+void
+my_event_listener::insert_ssl(ssl_info &info)
+{
+    mongo::BSONObjBuilder b, b1, b2;
+
+    get_ssl_obj(info.m_client, b1);
+    get_ssl_obj(info.m_server, b2);
+
+    b.append("client ip", info.m_client_ip);
+    b.append("server ip", info.m_server_ip);
+    b.append("client port", info.m_client_port);
+    b.append("server port", info.m_server_port);
+    b.append("client hello", b1.obj());
+    b.append("server hello", b2.obj());
+
+    mongo::BSONObj obj = b.obj();
+
+    cout << obj.toString() << endl;
+
+    m_mongo.insert(ssl_requests, obj);
 }
 
 /*

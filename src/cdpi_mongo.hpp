@@ -68,6 +68,10 @@ private:
     public:
         ptr_cdpi_ssl m_client;
         ptr_cdpi_ssl m_server;
+        std::string  m_client_ip;
+        std::string  m_server_ip;
+        uint16_t     m_client_port;
+        uint16_t     m_server_port;
     };
 
     mongo::DBClientConnection    m_mongo;
@@ -90,7 +94,8 @@ private:
 
     // SSL/TLS
     void in_ssl(cdpi_event cev, const cdpi_id_dir &id_dir, ptr_cdpi_ssl p_ssl);
-    void insert_ssl(ptr_cdpi_ssl client, ptr_cdpi_ssl server);
+    void insert_ssl(ssl_info &info);
+    void get_ssl_obj(ptr_cdpi_ssl p_ssl, mongo::BSONObjBuilder &b);
 
     void get_epoch_millis(mongo::Date_t &date);
     std::string get_full_uri(std::string host, std::string server_ip,
