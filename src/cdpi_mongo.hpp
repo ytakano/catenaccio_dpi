@@ -78,6 +78,7 @@ private:
     std::map<cdpi_id, tcp_info>  m_tcp;
     std::map<cdpi_id, http_info> m_http;
     std::map<cdpi_id, ssl_info>  m_ssl;
+    bool m_is_verbose;
 
     void open_tcp(const cdpi_id_dir &id_dir);
     void close_tcp(const cdpi_id_dir &id_dir, cdpi_stream &stream);
@@ -95,6 +96,7 @@ private:
     // SSL/TLS
     void in_ssl(cdpi_event cev, const cdpi_id_dir &id_dir, ptr_cdpi_ssl p_ssl);
     void insert_ssl(ssl_info &info);
+    void get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr);
     void get_ssl_obj(ptr_cdpi_ssl p_ssl, mongo::BSONObjBuilder &b);
 
     void get_epoch_millis(mongo::Date_t &date);

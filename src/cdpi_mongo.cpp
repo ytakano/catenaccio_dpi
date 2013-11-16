@@ -3,18 +3,21 @@
 #include <unistd.h>
 
 #include <boost/regex.hpp>
+#include <openssl/x509.h>
+
+#include <sstream>
 
 using namespace std;
 
 string mongo_server("localhost");
 static const char *dht_nodes = "DHT.nodes";
 static const char *http_requests = "HTTP.requests";
-static const char *dns_requests = "DNS.requests";
-static const char *ssl_requests = "SSL.requests";
+static const char *dns_requests  = "DNS.requests";
+static const char *ssl_requests  = "SSL.requests";
 
 static boost::regex regex_http_uri("^http://.+/.*$");
 
-my_event_listener::my_event_listener()
+my_event_listener::my_event_listener() : m_is_verbose(false)
 {
     string errmsg;
 
@@ -271,7 +274,8 @@ my_event_listener::insert_http(ptr_http_client_info client,
 
     doc = b.obj();
 
-    cout << doc.toString() << endl;
+    if (m_is_verbose)
+        cout << doc.toString() << endl;
 
     m_mongo.insert(http_requests, doc);
 }
@@ -283,7 +287,7 @@ my_event_listener::in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
     switch (cev) {
     case CDPI_EVENT_BENCODE:
         // for BitTorrent DHT
-        in_bencode(id_dir, PROTO_TO_BENCODE(data));
+        //in_bencode(id_dir, PROTO_TO_BENCODE(data));
         break;
     case CDPI_EVENT_DNS:
         in_dns(id_dir, PROTO_TO_DNS(data));
@@ -401,11 +405,93 @@ my_event_listener::insert_ssl(ssl_info &info)
     b.append("client hello", b1.obj());
     b.append("server hello", b2.obj());
 
+    mongo::BSONArrayBuilder arr;
+    get_x509(info, arr);
+
     mongo::BSONObj obj = b.obj();
 
-    cout << obj.toString() << endl;
+    if (m_is_verbose)
+        cout << obj.toString() << endl;
 
     m_mongo.insert(ssl_requests, obj);
+}
+
+void
+my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
+{
+    long l;
+    ASN1_INTEGER *bs;
+    const std::list<cdpi_bytes> &certs = info.m_server->get_certificats();
+    std::list<cdpi_bytes>::const_iterator it;
+
+    for (it = certs.begin(); it != certs.end(); ++it) {
+        // decode X509 certification
+        mongo::BSONObjBuilder b;
+        X509 *cert;
+        const unsigned char *p = (const unsigned char*)it->m_ptr.get();
+
+        cert = d2i_X509(NULL, &p, it->m_len);
+
+        if (cert == NULL)
+            return;
+
+        X509_print_fp(stdout, cert);
+
+        // version
+        l = X509_get_version(cert);
+        b.append("version", (int)l);
+
+        // serial
+        bs = X509_get_serialNumber(cert);
+        if (bs->length <= (int)sizeof(int)) {
+            l = ASN1_INTEGER_get(bs);
+            b.append("serial", (int)l);
+        } else {
+            b.append("serial", bin2str((char*)bs->data, bs->length));
+        }
+
+        // signature
+        BIO *mem = BIO_new(BIO_s_mem());
+        string sig;
+
+        if (X509_signature_print(mem, cert->sig_alg, cert->signature) > 0) {
+            while (! BIO_eof(mem)) {
+                char c;
+                BIO_read(mem, &c, 1);
+                sig += c;
+            }
+
+            // erase "    Signature Algorithm: "
+            sig.erase(0, 25);
+        }
+
+        istringstream is(sig);
+
+        char buf[128];
+        is.getline(buf, sizeof(buf));
+
+        BIO_free(mem);
+        b.append("signature algorithm", buf);
+
+        string dump;
+        while (is) {
+            char c;
+            is.get(c);
+
+            if (c != ' ' && c != ':' && c != '\n' && c != '\r')
+                dump += c;
+        }
+        b.append("signature", dump);
+
+        // TODO: issuer
+
+        arr.append(b.obj());
+
+        X509_free(cert);
+    }
+
+    if (arr.arrSize() > 0)
+        cout << arr.arr().toString() << endl;
 }
 
 /*
@@ -632,7 +718,8 @@ my_event_listener::in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns)
 
     mongo::BSONObj obj = b.obj();
 
-    cout << obj.toString() << endl;
+    if (m_is_verbose)
+        cout << obj.toString() << endl;
 
     m_mongo.insert(dns_requests, obj);
 }
