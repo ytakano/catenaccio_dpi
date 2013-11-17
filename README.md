@@ -13,9 +13,6 @@ Required:
 Optional for MongoDB:
 
 * [MongoDB](http://www.mongodb.org/ "MongoDB")
-* [PyMongo](https://github.com/mongodb/mongo-python-driver "pyMongo")
-* [libunbound](http://unbound.net/ "Unbound")
-* [libevent 2.0 or later](http://libevent.org/ "libevent")
 
 Optional for Divert Socket:
 
@@ -75,15 +72,30 @@ You can specify IP address and port number of MongoDB by -m option. If you don't
 
     $ ./src/cdpi_mongo -i eth0 -m localhost:27017
 
-### Example Usage of MongoDB (MindYourPrivacy)
+### Example Usage of MongoDB
+
+#### MindYourPrivacy
+MindYourPrivacy is a web tracking visualization system. It depends on libunboud and PyMongo.
+
+* [libunbound](http://unbound.net/ "Unbound")
+* [PyMongo](https://github.com/mongodb/mongo-python-driver "pyMongo")
+
+Compile with MIND_YOUR_PRIVACY flag.
+
+    $ cmake -DUSE_MONGO=1 -DMIND_YOUR_PRIVACY=1 CMaleLists.txt
+    $ make
+
+Go to directory of MindYourPrivacy.
+
+    $ cd examples/mindyourprivacy
 
 Then, run js/mongo.sh for statistics.
 
-    $ ./js/mongo.sh
+    $ ./js/mongo_http.sh
 
 You can specify MongoDB's address like this.
 
-    $ ./js/mongo.sh localhost:27017
+    $ ./js/mongo_http.sh localhost:27017
 
 Then, run ./src/cdpi_mongo_soa to get SOA records of DNS
 
@@ -98,4 +110,4 @@ Finally, you can see HTTP statistics by opening http_stats.html with your web br
     $ ls output_directory/http_stats.html
     output_directory/http_stats.html
 
-js/mongo.sh and py/http_stats.py should be run periodically for statistics. cron can help you to periodically update information.
+js/mongo_http.sh and py/http_stats.py should be run periodically for statistics. cron can help you to periodically update information.
