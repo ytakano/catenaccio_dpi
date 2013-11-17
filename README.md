@@ -75,7 +75,7 @@ You can specify IP address and port number of MongoDB by -m option. If you don't
 ### Example Usage of MongoDB
 
 #### MindYourPrivacy
-MindYourPrivacy is a web tracking visualization system. It depends on libunboud and PyMongo.
+MindYourPrivacy is a web tracking visualization system. It depends on libunbound and PyMongo.
 
 * [libunbound](http://unbound.net/ "Unbound")
 * [PyMongo](https://github.com/mongodb/mongo-python-driver "pyMongo")
@@ -97,9 +97,9 @@ You can specify MongoDB's address like this.
 
     $ ./js/mongo_http.sh localhost:27017
 
-Then, run ./src/cdpi_mongo_soa to get SOA records of DNS
+Then, run ./cdpi_mongo_soa to get SOA records of DNS
 
-    $ ./src/cdpi_mongo_soa
+    $ ./cdpi_mongo_soa
 
 Next, run py/http_stats.py for visualization like this. py/http_stats.py requires MongoDB's driver for python. -o option specifies output directory.
 

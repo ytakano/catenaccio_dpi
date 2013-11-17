@@ -432,6 +432,7 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
     for (it = certs.begin(); it != certs.end(); ++it) {
         // decode X509 certification
         mongo::BSONObjBuilder b;
+        char buf[1024];
         X509 *cert;
         const unsigned char *p = (const unsigned char*)it->m_ptr.get();
 
@@ -457,21 +458,19 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
 
         // signature
         BIO *mem = BIO_new(BIO_s_mem());
-        string sig;
 
         if (X509_signature_print(mem, cert->sig_alg, cert->signature) > 0) {
+            string sig;
+
             while (! BIO_eof(mem)) {
-                char c;
-                BIO_read(mem, &c, 1);
-                sig += c;
+                int len = BIO_read(mem, buf, sizeof(buf));
+                sig.append(buf, len);
             }
 
             // erase "    Signature Algorithm: "
             sig.erase(0, 25);
 
             istringstream is(sig);
-
-            char buf[1024];
             is.getline(buf, sizeof(buf));
 
             BIO_free(mem);
@@ -496,12 +495,9 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
 
         if (X509_NAME_print_ex(mem, X509_get_issuer_name(cert), 0, 0) > 0) {
             while (! BIO_eof(mem)) {
-                char c;
-                BIO_read(mem, &c, 1);
-                issuer += c;
+                int len = BIO_read(mem, buf, sizeof(buf));
+                issuer.append(buf, len);
             }
-
-            cout << issuer << endl;
         }
 
         if (issuer.size() > 0)
@@ -509,10 +505,55 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
 
         BIO_free(mem);
 
-        // TODO: validity
+        // validity
+        string not_before;
+        string not_after;
+        mongo::BSONObjBuilder bv;
+        mem = BIO_new(BIO_s_mem());
+
+        if (ASN1_TIME_print(mem, X509_get_notBefore(cert))) {
+            while (! BIO_eof(mem)) {
+                int len = BIO_read(mem, buf, sizeof(buf));
+                not_before.append(buf, len);
+            }
+            if (not_before.size() > 0)
+                bv.append("not before", not_before);
+        }
+
+        BIO_free(mem);
+        mem = BIO_new(BIO_s_mem());
+
+        if (ASN1_TIME_print(mem, X509_get_notAfter(cert))) {
+            while (! BIO_eof(mem)) {
+                int len = BIO_read(mem, buf, sizeof(buf));
+                not_after.append(buf, len);
+            }
+            if (not_after.size() > 0)
+                bv.append("not after", not_after);
+        }
+        BIO_free(mem);
+
+        mongo::BSONObj vobj = bv.obj();
+        if (! vobj.isEmpty())
+            b.append("validity", vobj);
+
+        // subject
+        string subject;
+        mem = BIO_new(BIO_s_mem());
+
+        if (X509_NAME_print_ex(mem, X509_get_subject_name(cert), 0, 0)) {
+            while (! BIO_eof(mem)) {
+                int len = BIO_read(mem, buf, sizeof(buf));
+                subject.append(buf, len);
+            }
+            if (subject.size() > 0)
+                b.append("subject", subject);
+        }
+        BIO_free(mem);
+
+        // TODO: pubkey
 
         arr.append(b.obj());
-
         X509_free(cert);
     }
 
