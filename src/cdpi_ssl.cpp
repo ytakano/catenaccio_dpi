@@ -473,8 +473,13 @@ cdpi_ssl::parse(list<cdpi_bytes> &bytes)
 void
 cdpi_ssl::parse_change_cipher_spec(char *data, int len)
 {
-    if (data[0] == 1)
+    if ((int)data[0] == 1) {
         m_is_change_cipher_spec = true;
+
+        // invoke event of change cipher spec
+        m_listener->in_stream(CDPI_EVENT_SSL_CHANGE_CIPHER_SPEC, m_id_dir,
+                              m_stream);
+    }
 }
 
 void
@@ -567,7 +572,7 @@ cdpi_ssl::parse_certificate(char *data, int len)
         len  -= cert_len;
     }
 
-    // event certificate
+    // invoke event of certificate
     m_listener->in_stream(CDPI_EVENT_SSL_CERTIFICATE, m_id_dir, m_stream);
 }
 
@@ -660,7 +665,7 @@ cdpi_ssl::parse_server_hello(char *data, int len)
 
         // TODO: read extensions
 
-        // event parse server hello
+        // invoke event of parse server hello
         m_listener->in_stream(CDPI_EVENT_SSL_SERVER_HELLO, m_id_dir,
                               m_stream);
 
@@ -783,7 +788,7 @@ cdpi_ssl::parse_client_hello(char *data, int len)
 
         // TODO: read extensions
 
-        // event parse client Hello
+        // invoke event of parse client Hello
         m_listener->in_stream(CDPI_EVENT_SSL_CLIENT_HELLO, m_id_dir,
                               m_stream);
 

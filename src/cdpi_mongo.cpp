@@ -83,7 +83,7 @@ my_event_listener::in_stream(cdpi_event cev, const cdpi_id_dir &id_dir,
     }
     case CDPI_EVENT_SSL_CLIENT_HELLO:
     case CDPI_EVENT_SSL_SERVER_HELLO:
-    case CDPI_EVENT_SSL_CERTIFICATE:
+    case CDPI_EVENT_SSL_CHANGE_CIPHER_SPEC:
     {
         in_ssl(cev, id_dir, PROTO_TO_SSL(stream.get_proto(id_dir)));
         break;
@@ -313,33 +313,22 @@ my_event_listener::in_ssl(cdpi_event cev, const cdpi_id_dir &id_dir,
     switch (cev) {
     case CDPI_EVENT_SSL_CLIENT_HELLO:
     {
-        char ip_src[INET6_ADDRSTRLEN], ip_dst[INET6_ADDRSTRLEN];
-
-        id_dir.get_addr_src(ip_src, sizeof(ip_src));
-        id_dir.get_addr_dst(ip_dst, sizeof(ip_dst));
-
-        it->second.m_client      = p_ssl;
-        it->second.m_client_ip   = ip_src;
-        it->second.m_server_ip   = ip_dst;
-        it->second.m_client_port = ntohs(id_dir.get_port_src());
-        it->second.m_server_port = ntohs(id_dir.get_port_dst());
-
+        it->second.m_client = p_ssl;
         break;
     }
     case CDPI_EVENT_SSL_SERVER_HELLO:
     {
         it->second.m_server = p_ssl;
-
-        if (! it->second.m_server->get_session_id().is_zero()) {
-            insert_ssl(it->second);
-        }
-
         break;
     }
-    case CDPI_EVENT_SSL_CERTIFICATE:
+    case CDPI_EVENT_SSL_CHANGE_CIPHER_SPEC:
     {
-        insert_ssl(it->second);
-        break;
+        if (it->second.m_client && it->second.m_server &&
+            it->second.m_client->is_change_cihper_spec() &&
+            it->second.m_server->is_change_cihper_spec()) {
+
+            insert_ssl(it->second);
+        }
     }
     default:
         ;
@@ -351,6 +340,9 @@ my_event_listener::get_ssl_obj(ptr_cdpi_ssl p_ssl, mongo::BSONObjBuilder &b)
 {
     mongo::BSONArrayBuilder cipher, compress;
     cdpi_bytes session_id;
+
+    if (! p_ssl)
+        return;
 
     session_id = p_ssl->get_session_id();
 
@@ -394,23 +386,36 @@ void
 my_event_listener::insert_ssl(ssl_info &info)
 {
     mongo::BSONObjBuilder b, b1, b2;
+    char ip_src[INET6_ADDRSTRLEN], ip_dst[INET6_ADDRSTRLEN];
+    cdpi_id_dir idc = info.m_client->get_id_dir();
+        
+    idc.get_addr_src(ip_src, sizeof(ip_src));
+    idc.get_addr_dst(ip_dst, sizeof(ip_dst));
 
     get_ssl_obj(info.m_client, b1);
     get_ssl_obj(info.m_server, b2);
 
-    b.append("client ip", info.m_client_ip);
-    b.append("server ip", info.m_server_ip);
-    b.append("client port", info.m_client_port);
-    b.append("server port", info.m_server_port);
-    b.append("client hello", b1.obj());
-    b.append("server hello", b2.obj());
+    b.append("client ip", ip_src);
+    b.append("server ip", ip_dst);
+    b.append("client port", ntohs(idc.get_port_src()));
+    b.append("server port", ntohs(idc.get_port_dst()));
+
+    mongo::BSONObj obj1, obj2;
+
+    obj1 = b1.obj();
+    if (! obj1.isEmpty())
+        b.append("client hello", obj1);
+
+    obj2 = b2.obj();
+    if (! obj2.isEmpty())
+        b.append("server hello", obj2);
 
     mongo::BSONArrayBuilder arr;
     get_x509(info, arr);
 
     mongo::BSONObj obj = b.obj();
 
-    if (m_is_verbose)
+    //if (m_is_verbose)
         cout << obj.toString() << endl;
 
     m_mongo.insert(ssl_requests, obj);
@@ -463,27 +468,48 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
 
             // erase "    Signature Algorithm: "
             sig.erase(0, 25);
+
+            istringstream is(sig);
+
+            char buf[1024];
+            is.getline(buf, sizeof(buf));
+
+            BIO_free(mem);
+            b.append("signature algorithm", buf);
+
+            string dump;
+            while (is) {
+                char c;
+                is.get(c);
+
+                if (c != ' ' && c != ':' && c != '\n' && c != '\r')
+                    dump += c;
+            }
+
+            if (dump.size() > 0)
+                b.append("signature", dump);
         }
 
-        istringstream is(sig);
+        // issuer
+        mem = BIO_new(BIO_s_mem());
+        string issuer;
 
-        char buf[128];
-        is.getline(buf, sizeof(buf));
+        if (X509_NAME_print_ex(mem, X509_get_issuer_name(cert), 0, 0) > 0) {
+            while (! BIO_eof(mem)) {
+                char c;
+                BIO_read(mem, &c, 1);
+                issuer += c;
+            }
+
+            cout << issuer << endl;
+        }
+
+        if (issuer.size() > 0)
+            b.append("issuer", issuer);
 
         BIO_free(mem);
-        b.append("signature algorithm", buf);
 
-        string dump;
-        while (is) {
-            char c;
-            is.get(c);
-
-            if (c != ' ' && c != ':' && c != '\n' && c != '\r')
-                dump += c;
-        }
-        b.append("signature", dump);
-
-        // TODO: issuer
+        // TODO: validity
 
         arr.append(b.obj());
 

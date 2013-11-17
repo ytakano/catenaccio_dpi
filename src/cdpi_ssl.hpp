@@ -58,6 +58,8 @@ public:
     const std::list<uint16_t>& get_cipher_suites() { return m_cipher_suites; }
     const std::list<uint8_t>& get_compression_methods() { return m_compression_methods; }
     const std::list<cdpi_bytes>& get_certificats() { return m_certificates; }
+    const cdpi_id_dir &get_id_dir() { return m_id_dir; }
+    bool is_change_cihper_spec() { return m_is_change_cipher_spec; }
 
     std::string num_to_cipher(uint16_t num);
     std::string num_to_compression(uint8_t num);

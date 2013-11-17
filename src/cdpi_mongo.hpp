@@ -68,10 +68,6 @@ private:
     public:
         ptr_cdpi_ssl m_client;
         ptr_cdpi_ssl m_server;
-        std::string  m_client_ip;
-        std::string  m_server_ip;
-        uint16_t     m_client_port;
-        uint16_t     m_server_port;
     };
 
     mongo::DBClientConnection    m_mongo;
