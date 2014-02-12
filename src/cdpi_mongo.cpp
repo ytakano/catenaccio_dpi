@@ -425,6 +425,7 @@ void
 my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
 {
     long l;
+    int  i;
     ASN1_INTEGER *bs;
     const std::list<cdpi_bytes> &certs = info.m_server->get_certificats();
     std::list<cdpi_bytes>::const_iterator it;
@@ -456,40 +457,17 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
             b.append("serial", bin2str((char*)bs->data, bs->length));
         }
 
+        // signature algorithm
+        i = OBJ_obj2nid(cert->sig_alg->algorithm);
+        b.append("signature algorithm",
+                 (i == NID_undef) ? "UNKNOWN" : OBJ_nid2ln(i));
+
         // signature
-        BIO *mem = BIO_new(BIO_s_mem());
-
-        if (X509_signature_print(mem, cert->sig_alg, cert->signature) > 0) {
-            string sig;
-
-            while (! BIO_eof(mem)) {
-                int len = BIO_read(mem, buf, sizeof(buf));
-                sig.append(buf, len);
-            }
-
-            // erase "    Signature Algorithm: "
-            sig.erase(0, 25);
-
-            istringstream is(sig);
-            is.getline(buf, sizeof(buf));
-
-            BIO_free(mem);
-            b.append("signature algorithm", buf);
-
-            string dump;
-            while (is) {
-                char c;
-                is.get(c);
-
-                if (c != ' ' && c != ':' && c != '\n' && c != '\r')
-                    dump += c;
-            }
-
-            if (dump.size() > 0)
-                b.append("signature", dump);
-        }
+        b.append("signature",
+                 bin2str((char*)cert->signature->data, cert->signature->length));
 
         // issuer
+        BIO *mem;
         mem = BIO_new(BIO_s_mem());
         string issuer;
 
@@ -551,7 +529,13 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
         }
         BIO_free(mem);
 
+        // Public Key Algorithm
+        i = OBJ_obj2nid(cert->sig_alg->algorithm);
+        b.append("public key algorithm",
+                 (i == NID_undef) ? "UNKNOWN" : OBJ_nid2ln(i));
+
         // TODO: pubkey
+
 
         arr.append(b.obj());
         X509_free(cert);

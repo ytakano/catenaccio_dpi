@@ -21,8 +21,8 @@ cdpi_id::set_iph(char *iph, int protocol, char **l4hdr)
     switch (protocol) {
     case IPPROTO_IP:
     {
-        shared_ptr<cdpi_peer> addr1(new cdpi_peer);
-        shared_ptr<cdpi_peer> addr2(new cdpi_peer);
+        boost::shared_ptr<cdpi_peer> addr1(new cdpi_peer);
+        boost::shared_ptr<cdpi_peer> addr2(new cdpi_peer);
         ip *iph4 = (ip*)iph;
 
         *l4hdr = NULL;
@@ -69,8 +69,8 @@ cdpi_id::set_iph(char *iph, int protocol, char **l4hdr)
     }
     case IPPROTO_IPV6:
     {
-        shared_ptr<cdpi_peer> addr1(new cdpi_peer);
-        shared_ptr<cdpi_peer> addr2(new cdpi_peer);
+        boost::shared_ptr<cdpi_peer> addr1(new cdpi_peer);
+        boost::shared_ptr<cdpi_peer> addr2(new cdpi_peer);
         ip6_hdr *iph6 = (ip6_hdr*)iph;
         uint8_t  nxt  = iph6->ip6_nxt;
         char    *p    = (char*)iph6 + sizeof(ip6_hdr);
