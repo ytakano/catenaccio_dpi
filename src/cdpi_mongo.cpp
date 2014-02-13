@@ -3,6 +3,10 @@
 #include <unistd.h>
 
 #include <boost/regex.hpp>
+
+#include <openssl/bn.h>
+#include <openssl/rsa.h>
+#include <openssl/dsa.h>
 #include <openssl/x509.h>
 
 #include <sstream>
@@ -530,11 +534,74 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
         BIO_free(mem);
 
         // Public Key Algorithm
-        i = OBJ_obj2nid(cert->sig_alg->algorithm);
+        i = OBJ_obj2nid(cert->cert_info->key->algor->algorithm);
         b.append("public key algorithm",
                  (i == NID_undef) ? "UNKNOWN" : OBJ_nid2ln(i));
 
-        // TODO: pubkey
+        // public key
+        string pubkey, rsa_exp;
+	X509_CINF *ci = cert->cert_info;
+        int len, mod_len, mod_bits;
+        RSA *rsa = NULL;
+        DSA *dsa = NULL;
+
+
+	char *s = (char *)ci->key->public_key->data;
+	len = ci->key->public_key->length;
+
+	switch (i) {
+	case NID_rsaEncryption:
+	case NID_rsa:
+            if (d2i_RSAPublicKey(&rsa, (const unsigned char **)&s, len) == NULL)
+                goto err;
+
+            mod_bits = BN_num_bits(rsa->n);
+            mod_len  = BN_num_bytes(rsa->n);
+
+            if (mod_len <= sizeof(buf)) {
+                BN_bn2bin(rsa->n, (unsigned char*)buf);
+                pubkey = bin2str(buf, mod_len);
+            } else {
+                goto err;
+            }
+
+            if (BN_num_bytes(rsa->e) <= sizeof(buf)) {
+                BN_bn2bin(rsa->e, (unsigned char*)buf);
+                rsa_exp = bin2str(buf, BN_num_bytes(rsa->e));
+            } else {
+                goto err;
+            }
+
+            break;
+	case NID_dsa:
+	case NID_dsaWithSHA:
+	case NID_dsaWithSHA1:
+            if (d2i_DSAPublicKey(&dsa, (const unsigned char **)&s, len) == NULL)
+                goto err;
+
+            mod_bits = BN_num_bits(dsa->pub_key);
+            mod_len  = BN_num_bytes(dsa->pub_key);
+
+            if (mod_len <= sizeof(buf)) {
+                BN_bn2bin(dsa->pub_key, (unsigned char*)buf);
+            } else {
+                goto err;
+            }
+
+            // TODO: DSA parameters, p, q, g
+
+            break;
+	default:
+            cout << "Unable to print this type of key" << endl;
+            goto err;
+        }
+
+        b.append("RSA modulus", pubkey);
+        b.append("RSA exponent", rsa_exp);
+
+    err:
+	if (rsa != NULL) RSA_free(rsa);
+	if (dsa != NULL) DSA_free(dsa);
 
 
         arr.append(b.obj());
