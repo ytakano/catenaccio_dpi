@@ -419,7 +419,7 @@ my_event_listener::insert_ssl(ssl_info &info)
 
     mongo::BSONObj obj = b.obj();
 
-    //if (m_is_verbose)
+    if (m_is_verbose)
         cout << obj.toString() << endl;
 
     m_mongo.insert(ssl_requests, obj);
@@ -539,9 +539,9 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
                  (i == NID_undef) ? "UNKNOWN" : OBJ_nid2ln(i));
 
         // public key
-        string pubkey, rsa_exp;
+        string pubkey, rsa_exp, dsa_p, dsa_q, dsa_g;
 	X509_CINF *ci = cert->cert_info;
-        int len, mod_len, mod_bits;
+        int len, pub_len, pub_bits;
         RSA *rsa = NULL;
         DSA *dsa = NULL;
 
@@ -555,12 +555,13 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
             if (d2i_RSAPublicKey(&rsa, (const unsigned char **)&s, len) == NULL)
                 goto err;
 
-            mod_bits = BN_num_bits(rsa->n);
-            mod_len  = BN_num_bytes(rsa->n);
+            pub_bits = BN_num_bits(rsa->n);
+            pub_len  = BN_num_bytes(rsa->n);
 
-            if (mod_len <= sizeof(buf)) {
+            if (pub_len <= sizeof(buf)) {
                 BN_bn2bin(rsa->n, (unsigned char*)buf);
-                pubkey = bin2str(buf, mod_len);
+                pubkey = bin2str(buf, pub_len);
+                b.append("RSA modulus", pubkey);
             } else {
                 goto err;
             }
@@ -568,8 +569,7 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
             if (BN_num_bytes(rsa->e) <= sizeof(buf)) {
                 BN_bn2bin(rsa->e, (unsigned char*)buf);
                 rsa_exp = bin2str(buf, BN_num_bytes(rsa->e));
-            } else {
-                goto err;
+                b.append("RSA exponent", rsa_exp);
             }
 
             break;
@@ -579,16 +579,35 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
             if (d2i_DSAPublicKey(&dsa, (const unsigned char **)&s, len) == NULL)
                 goto err;
 
-            mod_bits = BN_num_bits(dsa->pub_key);
-            mod_len  = BN_num_bytes(dsa->pub_key);
+            pub_bits = BN_num_bits(dsa->pub_key);
+            pub_len  = BN_num_bytes(dsa->pub_key);
 
-            if (mod_len <= sizeof(buf)) {
+            if (pub_len <= sizeof(buf)) {
                 BN_bn2bin(dsa->pub_key, (unsigned char*)buf);
+                pubkey = bin2str(buf, pub_len);
+                b.append("DSA pub", pubkey);
             } else {
                 goto err;
             }
 
-            // TODO: DSA parameters, p, q, g
+            // DSA parameters, p, q, g
+            if (BN_num_bytes(dsa->p) <= sizeof(buf)) {
+                BN_bn2bin(dsa->p, (unsigned char*)buf);
+                dsa_p = bin2str(buf, BN_num_bytes(dsa->p));
+                b.append("DSA p", dsa_p);
+            }
+
+            if (BN_num_bytes(dsa->q) <= sizeof(buf)) {
+                BN_bn2bin(dsa->q, (unsigned char*)buf);
+                dsa_q = bin2str(buf, BN_num_bytes(dsa->q));
+                b.append("DSA q", dsa_q);
+            }
+
+            if (BN_num_bytes(dsa->g) <= sizeof(buf)) {
+                BN_bn2bin(dsa->g, (unsigned char*)buf);
+                dsa_g = bin2str(buf, BN_num_bytes(dsa->g));
+                b.append("DSA g", dsa_g);
+            }
 
             break;
 	default:
@@ -596,13 +615,15 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
             goto err;
         }
 
-        b.append("RSA modulus", pubkey);
-        b.append("RSA exponent", rsa_exp);
-
     err:
 	if (rsa != NULL) RSA_free(rsa);
 	if (dsa != NULL) DSA_free(dsa);
 
+        // TODO: x509 extension
+
+
+//        X509V3_extensions_print(bp, "X509v3 extensions",
+//                                ci->extensions, cflag, 8);
 
         arr.append(b.obj());
         X509_free(cert);
@@ -611,149 +632,6 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
     if (arr.arrSize() > 0)
         cout << arr.arr().toString() << endl;
 }
-
-/*
-void
-X509_print_ex(BIO *bp, X509 *x, unsigned long nmflags, unsigned long cflag)
-{
-    long l;
-    int ret=0,i;
-    char *m=NULL,mlch = ' ';
-    int nmindent = 0;
-    X509_CINF *ci;
-    ASN1_INTEGER *bs;
-    EVP_PKEY *pkey=NULL;
-    const char *neg;
-
-    if((nmflags & XN_FLAG_SEP_MASK) == XN_FLAG_SEP_MULTILINE) {
-        mlch = '\n';
-        nmindent = 12;
-    }
-
-    if(nmflags == X509_FLAG_COMPAT)
-        nmindent = 16;
-
-    ci=x->cert_info;
-    if(!(cflag & X509_FLAG_NO_HEADER))
-    {
-        if (BIO_write(bp,"Certificate:\n",13) <= 0) goto err;
-        if (BIO_write(bp,"    Data:\n",10) <= 0) goto err;
-    }
-    if(!(cflag & X509_FLAG_NO_VERSION))
-    {
-        l=X509_get_version(x);
-        if (BIO_printf(bp,"%8sVersion: %lu (0x%lx)\n","",l+1,l) <= 0) goto err;
-    }
-    if(!(cflag & X509_FLAG_NO_SERIAL))
-    {
-        if (BIO_write(bp,"        Serial Number:",22) <= 0) goto err;
-
-        bs=X509_get_serialNumber(x);
-        if (bs->length <= (int)sizeof(long))
-        {
-            l=ASN1_INTEGER_get(bs);
-            if (bs->type == V_ASN1_NEG_INTEGER)
-            {
-                l= -l;
-                neg="-";
-            }
-            else
-                neg="";
-            if (BIO_printf(bp," %s%lu (%s0x%lx)\n",neg,l,neg,l) <= 0)
-                goto err;
-        }
-        else
-        {
-            neg=(bs->type == V_ASN1_NEG_INTEGER)?" (Negative)":"";
-            if (BIO_printf(bp,"\n%12s%s","",neg) <= 0) goto err;
-
-            for (i=0; i<bs->length; i++)
-            {
-                if (BIO_printf(bp,"%02x%c",bs->data[i],
-                               ((i+1 == bs->length)?'\n':':')) <= 0)
-                    goto err;
-            }
-        }
-
-    }
-
-    if(!(cflag & X509_FLAG_NO_SIGNAME))
-    {
-        if(X509_signature_print(bp, x->sig_alg, NULL) <= 0)
-            goto err;
-#if 0
-        if (BIO_printf(bp,"%8sSignature Algorithm: ","") <= 0) 
-            goto err;
-        if (i2a_ASN1_OBJECT(bp, ci->signature->algorithm) <= 0)
-            goto err;
-        if (BIO_puts(bp, "\n") <= 0)
-            goto err;
-#endif
-    }
-
-    if(!(cflag & X509_FLAG_NO_ISSUER))
-    {
-        if (BIO_printf(bp,"        Issuer:%c",mlch) <= 0) goto err;
-        if (X509_NAME_print_ex(bp,X509_get_issuer_name(x),nmindent, nmflags) < 0) goto err;
-        if (BIO_write(bp,"\n",1) <= 0) goto err;
-    }
-    if(!(cflag & X509_FLAG_NO_VALIDITY))
-    {
-        if (BIO_write(bp,"        Validity\n",17) <= 0) goto err;
-        if (BIO_write(bp,"            Not Before: ",24) <= 0) goto err;
-        if (!ASN1_TIME_print(bp,X509_get_notBefore(x))) goto err;
-        if (BIO_write(bp,"\n            Not After : ",25) <= 0) goto err;
-        if (!ASN1_TIME_print(bp,X509_get_notAfter(x))) goto err;
-        if (BIO_write(bp,"\n",1) <= 0) goto err;
-    }
-    if(!(cflag & X509_FLAG_NO_SUBJECT))
-    {
-        if (BIO_printf(bp,"        Subject:%c",mlch) <= 0) goto err;
-        if (X509_NAME_print_ex(bp,X509_get_subject_name(x),nmindent, nmflags) < 0) goto err;
-        if (BIO_write(bp,"\n",1) <= 0) goto err;
-    }
-    if(!(cflag & X509_FLAG_NO_PUBKEY))
-    {
-        if (BIO_write(bp,"        Subject Public Key Info:\n",33) <= 0)
-            goto err;
-        if (BIO_printf(bp,"%12sPublic Key Algorithm: ","") <= 0)
-            goto err;
-        if (i2a_ASN1_OBJECT(bp, ci->key->algor->algorithm) <= 0)
-            goto err;
-        if (BIO_puts(bp, "\n") <= 0)
-            goto err;
-
-        pkey=X509_get_pubkey(x);
-        if (pkey == NULL)
-        {
-            BIO_printf(bp,"%12sUnable to load Public Key\n","");
-            ERR_print_errors(bp);
-        }
-        else
-        {
-            EVP_PKEY_print_public(bp, pkey, 16, NULL);
-            EVP_PKEY_free(pkey);
-        }
-    }
-
-    if (!(cflag & X509_FLAG_NO_EXTENSIONS))
-        X509V3_extensions_print(bp, "X509v3 extensions",
-                                ci->extensions, cflag, 8);
-
-    if(!(cflag & X509_FLAG_NO_SIGDUMP))
-    {
-        if(X509_signature_print(bp, x->sig_alg, x->signature) <= 0) goto err;
-    }
-    if(!(cflag & X509_FLAG_NO_AUX))
-    {
-        if (!X509_CERT_AUX_print(bp, x->aux, 0)) goto err;
-    }
-    ret=1;
-err:
-    if (m != NULL) OPENSSL_free(m);
-    return(ret);
-}
-*/
 
 void
 my_event_listener::in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns)
