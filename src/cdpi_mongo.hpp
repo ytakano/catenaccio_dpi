@@ -78,9 +78,7 @@ private:
 
     void open_tcp(const cdpi_id_dir &id_dir);
     void close_tcp(const cdpi_id_dir &id_dir, cdpi_stream &stream);
-    void in_bencode(const cdpi_id_dir &id_dir, ptr_cdpi_bencode bc);
-    void in_dht_nodes(const cdpi_id_dir &id_dir,
-                      cdpi_bencode::ptr_ben_str bstr);
+
     // DNS
     void in_dns(const cdpi_id_dir &id_dir, ptr_cdpi_dns p_dns);
     void dns_rr(const std::list<cdpi_dns_rr> &rr, mongo::BSONArrayBuilder &arr);
@@ -98,6 +96,14 @@ private:
     void get_epoch_millis(mongo::Date_t &date);
     std::string get_full_uri(std::string host, std::string server_ip,
                              std::string uri);
+
+    // BitTorrent DHT
+    void in_bencode(const cdpi_id_dir &id_dir, ptr_cdpi_bencode bc);
+    void get_dht_nodes(cdpi_bencode::ptr_ben_str bstr,
+                       mongo::BSONArrayBuilder &arr);
+    bool get_ben_val(cdpi_bencode::ptr_ben_dict dict,
+                     const char *key, int keylen, std::string &ret);
+
 
 };
 

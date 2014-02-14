@@ -14,7 +14,7 @@
 using namespace std;
 
 string mongo_server("localhost");
-static const char *dht_nodes = "DHT.nodes";
+static const char *dht_requests  = "DHT.requests";
 static const char *http_requests = "HTTP.requests";
 static const char *dns_requests  = "DNS.requests";
 static const char *ssl_requests  = "SSL.requests";
@@ -30,9 +30,10 @@ my_event_listener::my_event_listener() : m_is_verbose(false)
         exit(-1);
     }
 
-    m_mongo.ensureIndex(http_requests, mongo::fromjson("{uri: 1}"));
-    m_mongo.ensureIndex(http_requests, mongo::fromjson("{referer: 1}"));
+    m_mongo.ensureIndex(dht_requests, mongo::fromjson("{date: 1}"));
     m_mongo.ensureIndex(http_requests, mongo::fromjson("{date: 1}"));
+    m_mongo.ensureIndex(dns_requests, mongo::fromjson("{date: 1}"));
+    m_mongo.ensureIndex(ssl_requests, mongo::fromjson("{date: 1}"));
 }
 
 my_event_listener::~my_event_listener()
@@ -291,7 +292,7 @@ my_event_listener::in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
     switch (cev) {
     case CDPI_EVENT_BENCODE:
         // for BitTorrent DHT
-        //in_bencode(id_dir, PROTO_TO_BENCODE(data));
+        in_bencode(id_dir, PROTO_TO_BENCODE(data));
         break;
     case CDPI_EVENT_DNS:
         in_dns(id_dir, PROTO_TO_DNS(data));
@@ -392,6 +393,9 @@ my_event_listener::insert_ssl(ssl_info &info)
     mongo::BSONObjBuilder b, b1, b2;
     char ip_src[INET6_ADDRSTRLEN], ip_dst[INET6_ADDRSTRLEN];
     cdpi_id_dir idc = info.m_client->get_id_dir();
+    mongo::Date_t         date;
+
+    get_epoch_millis(date);
         
     idc.get_addr_src(ip_src, sizeof(ip_src));
     idc.get_addr_dst(ip_dst, sizeof(ip_dst));
@@ -399,6 +403,7 @@ my_event_listener::insert_ssl(ssl_info &info)
     get_ssl_obj(info.m_client, b1);
     get_ssl_obj(info.m_server, b2);
 
+    b.append("date", date);
     b.append("client ip", ip_src);
     b.append("server ip", ip_dst);
     b.append("client port", ntohs(idc.get_port_src()));
@@ -416,6 +421,8 @@ my_event_listener::insert_ssl(ssl_info &info)
 
     mongo::BSONArrayBuilder arr;
     get_x509(info, arr);
+    if (arr.arrSize() > 0)
+        b.append("certificates", arr.arr());
 
     mongo::BSONObj obj = b.obj();
 
@@ -446,7 +453,7 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
         if (cert == NULL)
             return;
 
-        X509_print_fp(stdout, cert);
+        //X509_print_fp(stdout, cert);
 
         // version
         l = X509_get_version(cert);
@@ -611,7 +618,6 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
 
             break;
 	default:
-            cout << "Unable to print this type of key" << endl;
             goto err;
         }
 
@@ -629,8 +635,8 @@ my_event_listener::get_x509(ssl_info &info, mongo::BSONArrayBuilder &arr)
         X509_free(cert);
     }
 
-    if (arr.arrSize() > 0)
-        cout << arr.arr().toString() << endl;
+//    if (arr.arrSize() > 0)
+//        cout << arr.arr().toString() << endl;
 }
 
 void
@@ -819,49 +825,89 @@ my_event_listener::dns_rr(const std::list<cdpi_dns_rr> &rr,
     }
 }
 
+bool
+my_event_listener::get_ben_val(cdpi_bencode::ptr_ben_dict dict,
+                               const char *key, int keylen, string &ret)
+{
+    cdpi_bencode::ptr_ben_data data;
+    cdpi_bencode::ptr_ben_str  s;
+
+    data = dict->get_data(key, keylen);
+    if (data && data->get_type() == cdpi_bencode::STR) {
+        s = BEN_TO_STR(data);
+        ret = bin2str(s->m_ptr.get(), s->m_len);
+        return true;
+    }
+
+    return false;
+}
+
 void
 my_event_listener::in_bencode(const cdpi_id_dir &id_dir, ptr_cdpi_bencode bc)
 {
+    mongo::BSONObjBuilder b;
     cdpi_bencode::ptr_ben_data data = bc->get_data();
     cdpi_bencode::ptr_ben_dict dict;
     cdpi_bencode::ptr_ben_str  y_val;
+    cdpi_bencode::ptr_ben_str  t_val;
+    string y, t;
+    mongo::Date_t  date;
 
     if (! data || data->get_type() != cdpi_bencode::DICT)
         return;
 
     dict = BEN_TO_DICT(data);
 
-    data = dict->get_data("y", 1);
+    // get date
+    get_epoch_millis(date);
+    b.append("date", date);
 
+
+    // get value of y
+    data = dict->get_data("y", 1);
     if (! data || data->get_type() != cdpi_bencode::STR)
         return;
-
     y_val = BEN_TO_STR(data);
+    y = string(y_val->m_ptr.get(), y_val->m_len);
+    b.append("y", y);
+
+    // get value of t
+    if (get_ben_val(dict, "t", 1, t))
+        b.append("t", t);
 
     switch (y_val->m_ptr[0]) {
     case 'r': // response
     {
         cdpi_bencode::ptr_ben_dict r_val;
         cdpi_bencode::ptr_ben_str  nodes_val; 
+        cdpi_bencode::ptr_ben_str  id_val;
+        cdpi_bencode::ptr_ben_str  token_val;
+        string id, token;
 
         // get response dictionary
         data = dict->get_data("r", 1);
-
         if (! data || data->get_type() != cdpi_bencode::DICT)
             return;
-
         r_val = BEN_TO_DICT(data);
 
+        // get id
+        if (get_ben_val(r_val, "id", 2, id))
+            b.append("id", id);
+
+        // get token
+        if (get_ben_val(r_val, "token", 5, token))
+            b.append("token", token);
 
         // get nodes
         data = r_val->get_data("nodes", 5);
+        if (data && data->get_type() == cdpi_bencode::STR) {
+            mongo::BSONArrayBuilder arr;
+            nodes_val = BEN_TO_STR(data);
+            get_dht_nodes(nodes_val, arr);
 
-        if (! data || data->get_type() != cdpi_bencode::STR)
-            return;
-
-        nodes_val = BEN_TO_STR(data);
-
-        in_dht_nodes(id_dir, nodes_val);
+            if (arr.arrSize() > 0)
+                b.append("nodes", arr.arr());
+        }
 
         break;
     }
@@ -870,16 +916,19 @@ my_event_listener::in_bencode(const cdpi_id_dir &id_dir, ptr_cdpi_bencode bc)
     default:
         ;
     }
+
+    m_mongo.insert(dht_requests, b.obj());
 }
 
 void
-my_event_listener::in_dht_nodes(const cdpi_id_dir &id_dir,
-                                cdpi_bencode::ptr_ben_str bstr)
+my_event_listener::get_dht_nodes(cdpi_bencode::ptr_ben_str bstr,
+                                 mongo::BSONArrayBuilder &arr)
 {
     int   len   = bstr->m_len;
     char *nodes = bstr->m_ptr.get();
 
     for (int i = 0; i < len / 26; i++) {
+        mongo::BSONObjBuilder b;
         uint32_t ip;
         uint16_t port;
         char     id[20];
@@ -908,34 +957,11 @@ my_event_listener::in_dht_nodes(const cdpi_id_dir &id_dir,
 
         inet_ntop(AF_INET, &ip, ip_str, sizeof(ip_str));
 
-        // add to mongoDB
+        b.append("id", id_str);
+        b.append("ip", ip_str);
+        b.append("port", port);
 
-        mongo::BSONObjBuilder b1, b2, b3;
-        mongo::BSONObj doc1, doc2, doc3;
-        mongo::Date_t  date;
-
-        get_epoch_millis(date);
-
-        // insert ID
-        b1.append("_id", id_str);
-        doc1 = b1.obj();
-
-        cout << doc1.toString() << endl;
-
-        m_mongo.insert(dht_nodes, doc1);
-
-        // update ip, port, date
-        b2.append("ip", ip_str);
-        b2.append("port", port);
-        b2.append("date", date);
-        doc2 = b2.obj();
-
-        b3.append("$set", doc2);
-        doc3 = b3.obj();
-
-        cout << doc3.toString() << endl;
-
-        m_mongo.update(dht_nodes, doc1, doc3);
+        arr.append(b.obj());
     }
 }
 
