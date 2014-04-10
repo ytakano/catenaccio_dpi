@@ -24,6 +24,9 @@ private:
         ptr_regex   m_up, m_down;
         std::string m_name;
         std::string m_ux;
+        bool        m_is_tcp, m_is_udp;
+
+        ifrule() : m_is_tcp(false), m_is_udp(false) { }
     };
 
     struct uxpeer {

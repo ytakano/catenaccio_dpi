@@ -63,46 +63,48 @@ ux_accept(int fd, short events, void *arg)
 
         appif->m_fd2uxpeer[sock] = peer;
         appif->m_name2uxpeer[it->second->m_name].insert(sock);
+
+        cout << "accept: fd = " << sock << endl;
     }
 }
 
 void
 ux_read(int fd, short events, void *arg)
 {
-    if (! (events & EV_READ))
+    char buf[4096];
+    int  recv_size = read(fd, buf, sizeof(buf) - 1);
+
+    cout << "read: fd = " << fd << ", read_size = " << recv_size << endl;
+
+    if (recv_size > 0) {
+        cout.write(buf, recv_size);
+        cout << endl;
         return;
+    } else if (recv_size <= 0) {
+        cdpi_appif *appif = static_cast<cdpi_appif*>(arg);
+        boost::mutex::scoped_lock lock(appif->m_mutex);
 
-    for (;;) {
-        char buf[4096];
-        int  recv_size = read(fd, buf, sizeof(buf) - 1);
+        auto it1 = appif->m_fd2uxpeer.find(fd);
+        if (it1 != appif->m_fd2uxpeer.end()) {
+            auto it2 = appif->m_name2uxpeer.find(it1->second->m_name);
+            if (it2 != appif->m_name2uxpeer.end()) {
+                it2->second.erase(fd);
 
-        if (recv_size > 0) {
-            continue;
-        } else if (recv_size == 0) {
-            break;
-        } else {
-            cdpi_appif *appif = static_cast<cdpi_appif*>(arg);
-            boost::mutex::scoped_lock lock(appif->m_mutex);
-
-            auto it1 = appif->m_fd2uxpeer.find(fd);
-            if (it1 != appif->m_fd2uxpeer.end()) {
-                auto it2 = appif->m_name2uxpeer.find(it1->second->m_name);
-                if (it2 != appif->m_name2uxpeer.end()) {
-                    it2->second.erase(fd);
-
-                    if (it2->second.size() == 0) {
-                        appif->m_name2uxpeer.erase(it2);
-                    }
+                if (it2->second.size() == 0) {
+                    appif->m_name2uxpeer.erase(it2);
                 }
-
-                appif->m_fd2uxpeer.erase(it1);
             }
 
-            shutdown(fd, SHUT_RDWR);
-            close(fd);
+            event_del(it1->second->m_ev);
+            event_free(it1->second->m_ev);
 
-            break;
+            appif->m_fd2uxpeer.erase(it1);
         }
+
+        shutdown(fd, SHUT_RDWR);
+        close(fd);
+
+        cout << "close: fd = " << fd << endl;
     }
 }
 
@@ -215,6 +217,19 @@ cdpi_appif::read_conf(string conf)
                     rule->m_down = ptr_regex(new boost::regex(value));
                 } else if (key == "ux") {
                     rule->m_ux = value;
+                } else if (key == "protocol") {
+                    stringstream s4(value);
+
+                    while (s4) {
+                        std::string proto;
+                        std::getline(s4, proto, ',');
+
+                        if (proto == "TCP") {
+                            rule->m_is_tcp = true;
+                        } else if (proto == "UDP") {
+                            rule->m_is_udp = true;
+                        }
+                    }
                 }
 
                 break;
