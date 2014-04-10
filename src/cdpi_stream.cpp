@@ -13,7 +13,7 @@ cdpi_stream::~cdpi_stream()
 {
 
 }
-
+/*
 ptr_cdpi_proto
 cdpi_stream::get_proto(cdpi_id_dir id_dir)
 {
@@ -25,13 +25,25 @@ cdpi_stream::get_proto(cdpi_id_dir id_dir)
 
     return it->second->m_proto;
 }
+*/
 
 void
 cdpi_stream::in_stream_event(cdpi_stream_event st_event,
                              const cdpi_id_dir &id_dir, cdpi_bytes bytes)
 {
     switch (st_event) {
-    case STREAM_CREATED:
+    case STREAM_OPEN:
+    case STREAM_DATA:
+    case STREAM_FIN:
+    case STREAM_RST:
+    case STREAM_TIMEOUT:
+    case STREAM_DESTROYED:
+        ;
+    }
+
+/*
+    switch (st_event) {
+    case STREAM_OPEN:
         create_stream(id_dir);
         m_listener->in_stream(CDPI_EVENT_STREAM_OPEN, id_dir, *this);
         break;
@@ -54,8 +66,10 @@ cdpi_stream::in_stream_event(cdpi_stream_event st_event,
         destroy_stream(id_dir);
         break;
     }
+*/
 }
 
+/*
 void
 cdpi_stream::create_stream(const cdpi_id_dir &id_dir)
 {
@@ -231,3 +245,4 @@ cdpi_stream::get_bps(cdpi_id_dir id_dir)
 
     return (double)it->second->m_total_size * 8 / (double)(time(NULL) - it->second->m_init_time);
 }
+*/

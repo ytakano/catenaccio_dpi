@@ -1,4 +1,5 @@
 #include "cdpi.hpp"
+#include "cdpi_appif.hpp"
 
 #include <unistd.h>
 
@@ -13,10 +14,17 @@
 
 using namespace std;
 
+
 class my_event_listener : public cdpi_event_listener {
 public:
     virtual void in_stream(cdpi_event cev, const cdpi_id_dir &id_dir,
-                           cdpi_stream &stream) {
+                           cdpi_stream &stream) {}
+
+    virtual void in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
+                             ptr_cdpi_proto data) { }
+
+};
+/*
 
         
         // How to get IPv4 address and Port number
@@ -27,18 +35,6 @@ public:
 
         id_dir.get_addr_src(src, sizeof(src));
         id_dir.get_addr_dst(dst, sizeof(dst));
-
-        /*
-         * // L3 and L4 protocol
-         *
-         * if (id_dir.get_l3_proto() == IPPROTO_IP) {
-         * } else if (id_dir.get_l3_proto() == IPPROTO_IPV6) {
-         * }
-         *
-         * if (id_dir.get_l4_proto() == IPPROTO_TCP) {
-         * } else if (id_dir.get_l4_proto() == IPPROTO_UDP) {
-         * }
-         */
 
         ptr_cdpi_http p_http;
         ptr_cdpi_ssl  p_ssl;
@@ -478,6 +474,7 @@ public:
         }
     }
 };
+*/
 
 extern char *optarg;
 extern int optind, opterr, optopt;
@@ -533,6 +530,9 @@ main(int argc, char *argv[])
             return 0;
         }
     }
+
+    cdpi_appif appif;
+    appif.read_conf("cdpi.conf");
 
 #ifdef USE_DIVERT
     if (is_pcap) {

@@ -55,37 +55,7 @@ cdpi_udp::run()
             data = packet.m_bytes.m_ptr.get() + sizeof(udphdr);
             len  = packet.m_bytes.m_len - sizeof(udphdr);
 
-            {
-                // try to read DNS when port is 53
-                if ((m_is_dns_53 &&
-                     (ntohs(packet.m_id_dir.get_port_src()) == 53 ||
-                      ntohs(packet.m_id_dir.get_port_dst()) == 53)) ||
-                    ! m_is_dns_53) {
-                    ptr_cdpi_dns p_dns(new cdpi_dns);
-
-                    if (p_dns->decode(data, len)) {
-                        m_listener->in_datagram(CDPI_EVENT_DNS,
-                                                packet.m_id_dir,
-                                                boost::dynamic_pointer_cast<cdpi_proto>(p_dns));
-                        continue;
-                    }
-                }
-            }
-
-            {
-                // try to read bencode
-                ptr_cdpi_bencode bc(new cdpi_bencode);
-                istringstream    iss(string(data, len));
-                istream         *is = &iss;
-
-                if (bc->decode(*is)) {
-                    m_listener->in_datagram(CDPI_EVENT_BENCODE,
-                                            packet.m_id_dir, 
-                                            boost::dynamic_pointer_cast<cdpi_proto>(bc));
-
-                    continue;
-                }
-            }
+            // TODO: write to pipe
         }
     }
 }

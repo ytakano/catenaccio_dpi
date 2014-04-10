@@ -6,21 +6,20 @@
 
 class cdpi_callback {
 public:
-    cdpi_callback() { }
+    cdpi_callback();
     virtual ~cdpi_callback() { }
 
     void set_event_listener(ptr_cdpi_event_listener listener) {
-        m_tcp.set_event_listener(listener);
+        //m_tcp.set_event_listener(listener);
         m_udp.set_event_listener(listener);
     }
 
     void operator() (char *bytes, size_t len, uint8_t proto);
 private:
+    ptr_cdpi_stream m_stream;
     cdpi_tcp m_tcp;
     cdpi_udp m_udp;
 
 };
-
-typedef boost::shared_ptr<cdpi_callback> cdpi_callback_ptr;
 
 #endif

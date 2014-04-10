@@ -204,3 +204,18 @@ decompress_zlib(const char *buf, int len, std::string &out_buf)
 
     io::write(os, buf, len);
 }
+
+string
+trim(const string &str, const char *trimCharacterList)
+{
+    string result;
+
+    string::size_type left = str.find_first_not_of(trimCharacterList);
+
+    if (left != string::npos) {
+        string::size_type right = str.find_last_not_of(trimCharacterList);
+        result = str.substr(left, right - left + 1);
+    }
+
+    return result;
+}

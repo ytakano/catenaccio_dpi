@@ -59,21 +59,23 @@ typedef boost::multi_index::multi_index_container<
 
 class cdpi_tcp {
 public:
-    cdpi_tcp();
+    cdpi_tcp(ptr_cdpi_stream st);
     virtual ~cdpi_tcp();
 
     void input_tcp(cdpi_id &id, cdpi_direction dir, char *buf, int len,
                    char *l4hdr);
     void run();
     void garbage_collector();
+/*
     void set_event_listener(ptr_cdpi_event_listener listener) {
-        m_stream.set_event_listener(listener);
+        //m_stream.set_event_listener(listener);
     }
+*/
 
 private:
     std::map<cdpi_id, ptr_cdpi_tcp_flow> m_flow;
     cdpi_id_dir_cont                     m_events;
-    cdpi_stream                          m_stream;
+    ptr_cdpi_stream                      m_stream;
 
     bool get_packet(const cdpi_id &id, cdpi_direction dir,
                     cdpi_tcp_packet &packet);

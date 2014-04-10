@@ -4,6 +4,11 @@
 
 #include <netinet/in.h>
 
+cdpi_callback::cdpi_callback() : m_stream(new cdpi_stream),
+                                 m_tcp(m_stream)
+{
+
+}
 
 void
 cdpi_callback::operator() (char *bytes, size_t len, uint8_t proto) {

@@ -21,10 +21,11 @@ using namespace std;
 
 #define TCP_GC_TIMER 120
 
-cdpi_tcp::cdpi_tcp() : m_is_del(false),
-                       m_thread_run(boost::bind(&cdpi_tcp::run, this)),
-                       m_thread_gc(boost::bind(&cdpi_tcp::garbage_collector,
-                                               this))
+cdpi_tcp::cdpi_tcp(ptr_cdpi_stream st) :
+    m_stream(st),
+    m_is_del(false),
+    m_thread_run(boost::bind(&cdpi_tcp::run, this)),
+    m_thread_gc(boost::bind(&cdpi_tcp::garbage_collector, this))
 {
 
 }
@@ -140,31 +141,29 @@ cdpi_tcp::run()
                 continue;
             }
 
-            if ((tcp_event.m_dir == FROM_ADDR1 &&
-                 it_flow->second->m_flow1.m_is_rm) ||
-                (tcp_event.m_dir == FROM_ADDR2 &&
-                 it_flow->second->m_flow2.m_is_rm)) {
+            cdpi_bytes bytes;
+            bool       is_rm = false;
 
-#ifdef DEBUG
-                cout << "garbage collected: addr1 = "
-                     << addr1 << ":"
-                     << ntohs(tcp_event.m_id.m_addr1->l4_port)
-                     << ", addr2 = "
-                     << addr2 << ":"
-                     << ntohs(tcp_event.m_id.m_addr2->l4_port)
-                     << endl;
-#endif // DEBUG
+            if (tcp_event.m_dir == FROM_ADDR1 &&
+                it_flow->second->m_flow1.m_is_rm) {
+                m_stream->in_stream_event(STREAM_TIMEOUT, tcp_event, bytes);
+                is_rm = true;
+            }
 
-                cdpi_bytes bytes;
+            if (tcp_event.m_dir == FROM_ADDR2 &&
+                it_flow->second->m_flow2.m_is_rm) {
+                m_stream->in_stream_event(STREAM_TIMEOUT, tcp_event, bytes);
+                is_rm = true;
+            }
 
-                tcp_event.m_dir = FROM_ADDR1;
-                m_stream.in_stream_event(STREAM_ERROR, tcp_event, bytes);
-
-                tcp_event.m_dir = FROM_ADDR2;
-                m_stream.in_stream_event(STREAM_ERROR, tcp_event, bytes);
-
+            if (is_rm) {
                 lock.unlock();
                 rm_flow(tcp_event.m_id, tcp_event.m_dir);
+
+                tcp_event.m_dir = FROM_NONE;
+                m_stream->in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
+
+                continue;
             }
         }
 
@@ -184,11 +183,12 @@ cdpi_tcp::run()
 #endif // DEBUG
 
                 cdpi_bytes bytes;
-                m_stream.in_stream_event(STREAM_CREATED, tcp_event, bytes);
+                m_stream->in_stream_event(STREAM_OPEN, tcp_event, bytes);
+
             } else if (packet.m_flags & TH_FIN) {
                 cdpi_bytes bytes;
 
-                m_stream.in_stream_event(STREAM_DATA_IN, tcp_event, bytes);
+                m_stream->in_stream_event(STREAM_FIN, tcp_event, bytes);
 
 #ifdef DEBUG
                 cout << "connection closed: addr1 = "
@@ -202,11 +202,9 @@ cdpi_tcp::run()
 #endif // DEBUG
 
                 if (recv_fin(tcp_event.m_id, tcp_event.m_dir)) {
-                    tcp_event.m_dir = FROM_ADDR1;
-                    m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
-
-                    tcp_event.m_dir = FROM_ADDR2;
-                    m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
+                    tcp_event.m_dir = FROM_NONE;
+                    m_stream->in_stream_event(STREAM_DESTROYED,
+                                              tcp_event, bytes);
                 }
             } else if (packet.m_flags & TH_RST) {
 #ifdef DEBUG
@@ -223,40 +221,15 @@ cdpi_tcp::run()
 
                 rm_flow(tcp_event.m_id, tcp_event.m_dir);
 
-                tcp_event.m_dir = FROM_ADDR1;
-                m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
-
-                tcp_event.m_dir = FROM_ADDR2;
-                m_stream.in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
+                tcp_event.m_dir = FROM_NONE;
+                m_stream->in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
             } else {
                 packet.m_bytes.m_len = packet.m_data_len;
                 packet.m_bytes.m_pos = packet.m_data_pos;
 
-                m_stream.in_stream_event(STREAM_DATA_IN, tcp_event,
-                                         packet.m_bytes);
+                m_stream->in_stream_event(STREAM_DATA, tcp_event,
+                                          packet.m_bytes);
             }
-        }
-
-        if (num_packets(tcp_event.m_id, tcp_event.m_dir) > MAX_PACKETS) {
-#ifdef DEBUG
-            cout << "connection error(packets limit exceeded): addr1 = "
-                 << addr1 << ":"
-                 << ntohs(tcp_event.m_id.m_addr1->l4_port)
-                 << ", addr2 = "
-                 << addr2 << ":"
-                 << ntohs(tcp_event.m_id.m_addr2->l4_port)
-                 << endl;
-#endif // DEBUG
-
-            cdpi_bytes bytes;
-
-            tcp_event.m_dir = FROM_ADDR1;
-            m_stream.in_stream_event(STREAM_ERROR, tcp_event, bytes);
-
-            tcp_event.m_dir = FROM_ADDR2;
-            m_stream.in_stream_event(STREAM_ERROR, tcp_event, bytes);
-
-            rm_flow(tcp_event.m_id, tcp_event.m_dir);
         }
     }
 }
