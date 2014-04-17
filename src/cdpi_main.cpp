@@ -499,13 +499,14 @@ main(int argc, char *argv[])
 {
     int opt;
     string dev;
+    string conf;
 
 #ifdef USE_DIVERT
     int  dvt_port = 100;
     bool is_pcap  = true;
-    const char *optstr = "d4:pi:h";
+    const char *optstr = "d4:pi:hc:";
 #else
-    const char *optstr = "i:h";
+    const char *optstr = "i:hc:";
 #endif // USE_DIVERT
 
     while ((opt = getopt(argc, argv, optstr)) != -1) {
@@ -524,6 +525,9 @@ main(int argc, char *argv[])
         case 'i':
             dev = optarg;
             break;
+        case 'c':
+            conf = optarg;
+            break;
         case 'h':
         default:
             print_usage(argv[0]);
@@ -532,7 +536,8 @@ main(int argc, char *argv[])
     }
 
     cdpi_appif appif;
-    appif.read_conf("cdpi.conf");
+    appif.read_conf(conf);
+    appif.run();
 
 #ifdef USE_DIVERT
     if (is_pcap) {

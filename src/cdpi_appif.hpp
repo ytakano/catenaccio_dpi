@@ -16,6 +16,7 @@ public:
 
     void read_conf(std::string conf);
     void ux_listen();
+    void run();
 
 private:
     typedef boost::shared_ptr<boost::regex> ptr_regex;
@@ -25,6 +26,7 @@ private:
         std::string m_name;
         std::string m_ux;
         bool        m_is_tcp, m_is_udp;
+        std::list<std::pair<uint16_t, uint16_t> > m_port;
 
         ifrule() : m_is_tcp(false), m_is_udp(false) { }
     };
@@ -50,8 +52,6 @@ private:
     ptr_thread       m_thread_send;
 
     event_base      *m_ev_base;
-
-    void run();
 
 
     friend void ux_accept(int fd, short events, void *arg);

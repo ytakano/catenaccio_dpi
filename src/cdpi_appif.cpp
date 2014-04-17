@@ -14,6 +14,7 @@
 #include <sstream>
 
 #include <boost/bind.hpp>
+#include <boost/lexical_cast.hpp>
 
 using namespace std;
 
@@ -132,6 +133,8 @@ cdpi_appif::ux_listen()
  
             struct sockaddr_un sa = {0};
             sa.sun_family = AF_UNIX;
+
+            cout << "ux: " << (*it)->m_ux << endl;
             strncpy(sa.sun_path, (*it)->m_ux.c_str(), sizeof(sa.sun_path));
  
             remove(sa.sun_path);
@@ -188,7 +191,7 @@ cdpi_appif::read_conf(string conf)
             if (c != ' ') {
                 state = SECTION;
                 m_ifrule.push_back(rule);
-                cout << "add the rule" << endl;
+                cout << "add the rule, ux: " << rule->m_ux << endl;
             } else {
                 for (int i = 0; i < 4; i++) {
                     s3.get(c);
@@ -218,22 +221,61 @@ cdpi_appif::read_conf(string conf)
                 } else if (key == "ux") {
                     rule->m_ux = value;
                 } else if (key == "protocol") {
+                    if (value == "TCP") {
+                        rule->m_is_tcp = true;
+                    } else if (value == "UDP") {
+                        rule->m_is_udp = true;
+                    }
+                } else if (key == "port") {
                     stringstream s4(value);
 
                     while (s4) {
-                        std::string proto;
-                        std::getline(s4, proto, ',');
+                        string port, n1, n2;
+                        std::getline(s4, port, ',');
 
-                        if (proto == "TCP") {
-                            rule->m_is_tcp = true;
-                        } else if (proto == "UDP") {
-                            rule->m_is_udp = true;
+                        if (port.empty())
+                            break;
+
+                        port = trim(port);
+
+                        stringstream s5(port);
+                        std::getline(s5, n1, '-');
+                        std::getline(s5, n2);
+
+                        n1 = trim(n1);
+                        n2 = trim(n2);
+
+                        pair<uint16_t, uint16_t> range;
+
+                        try {
+                            range.first = boost::lexical_cast<uint16_t>(n1);
+                        } catch (boost::bad_lexical_cast e) {
+                            cerr << "cannot convert \"" << n1
+                                 << "\" to uint16_t" << endl;
+                            continue;
                         }
+
+                        if (n2.size() > 0) {
+                            try {
+                                range.second = boost::lexical_cast<uint16_t>(n2);
+                            } catch (boost::bad_lexical_cast e) {
+                                cerr << "cannot convert \"" << n2
+                                     << "\" to uint16_t" << endl;
+                                continue;
+                            }
+                        } else {
+                            range.second = range.first;
+                        }
+
+                        cout << "port range: " << range.first << " - "
+                             << range.second << endl;
+
+                        rule->m_port.push_back(range);
                     }
                 }
-
-                break;
             }
+
+            break;
         }
         case SECTION:
         {
@@ -252,6 +294,4 @@ cdpi_appif::read_conf(string conf)
         }
         }
     }
-
-    run();
 }
