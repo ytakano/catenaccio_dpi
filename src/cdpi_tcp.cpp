@@ -21,8 +21,8 @@ using namespace std;
 
 #define TCP_GC_TIMER 120
 
-cdpi_tcp::cdpi_tcp(ptr_cdpi_stream st) :
-    m_stream(st),
+cdpi_tcp::cdpi_tcp(ptr_cdpi_appif appif) :
+    m_appif(appif),
     m_is_del(false),
     m_thread_run(boost::bind(&cdpi_tcp::run, this)),
     m_thread_gc(boost::bind(&cdpi_tcp::garbage_collector, this))
@@ -146,13 +146,13 @@ cdpi_tcp::run()
 
             if (tcp_event.m_dir == FROM_ADDR1 &&
                 it_flow->second->m_flow1.m_is_rm) {
-                m_stream->in_stream_event(STREAM_TIMEOUT, tcp_event, bytes);
+                m_appif->in_stream_event(STREAM_TIMEOUT, tcp_event, bytes);
                 is_rm = true;
             }
 
             if (tcp_event.m_dir == FROM_ADDR2 &&
                 it_flow->second->m_flow2.m_is_rm) {
-                m_stream->in_stream_event(STREAM_TIMEOUT, tcp_event, bytes);
+                m_appif->in_stream_event(STREAM_TIMEOUT, tcp_event, bytes);
                 is_rm = true;
             }
 
@@ -161,7 +161,7 @@ cdpi_tcp::run()
                 rm_flow(tcp_event.m_id, tcp_event.m_dir);
 
                 tcp_event.m_dir = FROM_NONE;
-                m_stream->in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
+                m_appif->in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
 
                 continue;
             }
@@ -183,12 +183,12 @@ cdpi_tcp::run()
 #endif // DEBUG
 
                 cdpi_bytes bytes;
-                m_stream->in_stream_event(STREAM_OPEN, tcp_event, bytes);
+                m_appif->in_stream_event(STREAM_OPEN, tcp_event, bytes);
 
             } else if (packet.m_flags & TH_FIN) {
                 cdpi_bytes bytes;
 
-                m_stream->in_stream_event(STREAM_FIN, tcp_event, bytes);
+                m_appif->in_stream_event(STREAM_FIN, tcp_event, bytes);
 
 #ifdef DEBUG
                 cout << "connection closed: addr1 = "
@@ -203,8 +203,8 @@ cdpi_tcp::run()
 
                 if (recv_fin(tcp_event.m_id, tcp_event.m_dir)) {
                     tcp_event.m_dir = FROM_NONE;
-                    m_stream->in_stream_event(STREAM_DESTROYED,
-                                              tcp_event, bytes);
+                    m_appif->in_stream_event(STREAM_DESTROYED,
+                                             tcp_event, bytes);
                 }
             } else if (packet.m_flags & TH_RST) {
 #ifdef DEBUG
@@ -222,13 +222,13 @@ cdpi_tcp::run()
                 rm_flow(tcp_event.m_id, tcp_event.m_dir);
 
                 tcp_event.m_dir = FROM_NONE;
-                m_stream->in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
+                m_appif->in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
             } else {
                 packet.m_bytes.m_len = packet.m_data_len;
                 packet.m_bytes.m_pos = packet.m_data_pos;
 
-                m_stream->in_stream_event(STREAM_DATA, tcp_event,
-                                          packet.m_bytes);
+                m_appif->in_stream_event(STREAM_DATA, tcp_event,
+                                         packet.m_bytes);
             }
         }
     }

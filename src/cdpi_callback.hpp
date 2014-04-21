@@ -6,7 +6,7 @@
 
 class cdpi_callback {
 public:
-    cdpi_callback();
+    cdpi_callback(std::string conf);
     virtual ~cdpi_callback() { }
 
     void set_event_listener(ptr_cdpi_event_listener listener) {
@@ -15,8 +15,9 @@ public:
     }
 
     void operator() (char *bytes, size_t len, uint8_t proto);
+
 private:
-    ptr_cdpi_stream m_stream;
+    ptr_cdpi_appif m_appif;
     cdpi_tcp m_tcp;
     cdpi_udp m_udp;
 

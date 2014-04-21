@@ -3,7 +3,7 @@
 
 #include "cdpi_bytes.hpp"
 #include "cdpi_id.hpp"
-#include "cdpi_stream.hpp"
+#include "cdpi_appif.hpp"
 
 #include <stdint.h>
 #include <time.h>
@@ -59,7 +59,7 @@ typedef boost::multi_index::multi_index_container<
 
 class cdpi_tcp {
 public:
-    cdpi_tcp(ptr_cdpi_stream st);
+    cdpi_tcp(ptr_cdpi_appif appif);
     virtual ~cdpi_tcp();
 
     void input_tcp(cdpi_id &id, cdpi_direction dir, char *buf, int len,
@@ -75,7 +75,7 @@ public:
 private:
     std::map<cdpi_id, ptr_cdpi_tcp_flow> m_flow;
     cdpi_id_dir_cont                     m_events;
-    ptr_cdpi_stream                      m_stream;
+    ptr_cdpi_appif                       m_appif;
 
     bool get_packet(const cdpi_id &id, cdpi_direction dir,
                     cdpi_tcp_packet &packet);

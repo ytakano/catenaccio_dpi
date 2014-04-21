@@ -11,10 +11,11 @@
 #include <sstream>
 
 #include <boost/shared_ptr.hpp>
-
+/*
 #define PROTO_TO_HTTP(PROTO) boost::dynamic_pointer_cast<cdpi_http>(PROTO)
 #define PROTO_TO_SSL(PROTO)  boost::dynamic_pointer_cast<cdpi_ssl>(PROTO)
-
+*/
+/*
 enum cdpi_stream_event {
     STREAM_OPEN, // SYN
     STREAM_DATA, // data
@@ -23,6 +24,7 @@ enum cdpi_stream_event {
     STREAM_TIMEOUT,   // timeout
     STREAM_DESTROYED, // close, RST, timeout
 };
+*/
 
 /*
 struct cdpi_stream_info {
@@ -61,7 +63,7 @@ typedef boost::shared_ptr<cdpi_stream_info> ptr_cdpi_stream_info;
 class cdpi_event_listener;
 typedef boost::shared_ptr<cdpi_event_listener> ptr_cdpi_event_listener;
 */
-
+/*
 class cdpi_stream {
 public:
     cdpi_stream();
@@ -69,7 +71,7 @@ public:
 
     void in_stream_event(cdpi_stream_event st_event, const cdpi_id_dir &id_dir,
                          cdpi_bytes bytes);
-
+*/
 /*
     void set_event_listener(ptr_cdpi_event_listener &listener) {
         m_listener = listener;
@@ -81,7 +83,7 @@ public:
     ptr_cdpi_proto get_proto(cdpi_id_dir id_dir);
 */
 
-private:
+/*private:*/
 /*
     std::map<cdpi_id_dir, ptr_cdpi_stream_info> m_info;
 
@@ -92,8 +94,9 @@ private:
     ptr_cdpi_event_listener m_listener;
 */
 
-};
+/*};
 
 typedef boost::shared_ptr<cdpi_stream> ptr_cdpi_stream;
+*/
 
 #endif // CDPI_STREAM_HPP

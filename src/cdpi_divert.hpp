@@ -19,7 +19,7 @@
 
 class cdpi_divert {
 public:
-    cdpi_divert() {}
+    cdpi_divert(std::string conf) : m_callback(conf) {}
     virtual ~cdpi_divert() {}
 
     void set_ev_base(event_base *ev_base) { m_ev_base = ev_base; }
@@ -46,10 +46,10 @@ private:
 
 template <class LISTENER>
 void
-run_divert(int port)
+run_divert(int port, std::string conf)
 {
     event_base *ev_base = event_base_new();
-    cdpi_divert dvt;
+    cdpi_divert dvt(conf);
 
     if (!ev_base) {
         std::cerr << "couldn't new event_base" << std::endl;

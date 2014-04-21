@@ -17,10 +17,11 @@
 #include <boost/lexical_cast.hpp>
 
 using namespace std;
+namespace fs = boost::filesystem;
 
 void ux_read(int fd, short events, void *arg);
 
-cdpi_appif::cdpi_appif()
+cdpi_appif::cdpi_appif() : m_home(new fs::path(fs::current_path()))
 {
 
 }
@@ -48,6 +49,7 @@ ux_accept(int fd, short events, void *arg)
 
     {
         boost::mutex::scoped_lock lock(appif->m_mutex);
+
         auto it = appif->m_fd2ifrule.find(fd);
         if (it == appif->m_fd2ifrule.end()) {
             return;
@@ -110,6 +112,28 @@ ux_read(int fd, short events, void *arg)
 }
 
 void
+cdpi_appif::makedir(fs::path path)
+{
+    cout << "path = " << path.string() << endl;
+
+    if (fs::exists(path)) {
+        if (! fs::is_directory(path)) {
+            cerr << path.string() << " is not directory" << endl;
+            exit(-1);
+        }
+    } else {
+        try {
+            fs::create_directories(path);
+        } catch (fs::filesystem_error e) {
+            cerr << "cannot create directories: " << e.path1().string()
+                 << endl;
+            exit(-1);
+        }
+    }
+}
+
+
+void
 cdpi_appif::ux_listen()
 {
     int sock;
@@ -123,6 +147,12 @@ cdpi_appif::ux_listen()
     {
         boost::mutex::scoped_lock lock(m_mutex);
 
+        cout << "m_home = " << m_home->string() << endl;
+
+        makedir(*m_home);
+        makedir(*m_home / fs::path("tcp"));
+        makedir(*m_home / fs::path("udp"));
+
         for (auto it = m_ifrule.begin(); it != m_ifrule.end(); ++it) {
             sock = socket(AF_UNIX, SOCK_STREAM, 0);
 
@@ -134,8 +164,18 @@ cdpi_appif::ux_listen()
             struct sockaddr_un sa = {0};
             sa.sun_family = AF_UNIX;
 
-            cout << "ux: " << (*it)->m_ux << endl;
-            strncpy(sa.sun_path, (*it)->m_ux.c_str(), sizeof(sa.sun_path));
+            fs::path path;
+
+            if ((*it)->m_proto == IF_UDP) {
+                path = *m_home / fs::path("udp") / *(*it)->m_ux;
+            } else if ((*it)->m_proto == IF_TCP) {
+                path = *m_home / fs::path("tcp") / *(*it)->m_ux;
+            } else {
+                path = *m_home / *(*it)->m_ux;
+            }
+
+            cout << "ux: " << path.string() << endl;
+            strncpy(sa.sun_path, path.string().c_str(), sizeof(sa.sun_path));
  
             remove(sa.sun_path);
  
@@ -166,6 +206,7 @@ cdpi_appif::read_conf(string conf)
 {
     ifstream   ifs(conf);
     ptr_ifrule rule;
+    string     section;
 
     enum {
         SECTION,
@@ -190,8 +231,13 @@ cdpi_appif::read_conf(string conf)
 
             if (c != ' ') {
                 state = SECTION;
-                m_ifrule.push_back(rule);
-                cout << "add the rule, ux: " << rule->m_ux << endl;
+
+                if (section != "global") {
+                    rule->m_ux = ptr_path(new fs::path(section));
+                    m_ifrule.push_back(rule);
+                    cout << "add the rule, ux: " << rule->m_ux->string()
+                         << endl;
+                }
             } else {
                 for (int i = 0; i < 4; i++) {
                     s3.get(c);
@@ -218,13 +264,11 @@ cdpi_appif::read_conf(string conf)
                     rule->m_up = ptr_regex(new boost::regex(value));
                 } else if (key == "down") {
                     rule->m_down = ptr_regex(new boost::regex(value));
-                } else if (key == "ux") {
-                    rule->m_ux = value;
-                } else if (key == "protocol") {
+                } else if (key == "proto") {
                     if (value == "TCP") {
-                        rule->m_is_tcp = true;
+                        rule->m_proto = IF_TCP;
                     } else if (value == "UDP") {
-                        rule->m_is_udp = true;
+                        rule->m_proto = IF_UDP;
                     }
                 } else if (key == "port") {
                     stringstream s4(value);
@@ -272,6 +316,10 @@ cdpi_appif::read_conf(string conf)
 
                         rule->m_port.push_back(range);
                     }
+                } else if (section == "global") {
+                    if (key == "home") {
+                        m_home = ptr_path(new fs::path(value));
+                    }
                 }
             }
 
@@ -285,6 +333,8 @@ cdpi_appif::read_conf(string conf)
             rule = ptr_ifrule(new ifrule);
             line = trim(line);
 
+            section = line;
+
             cout << "section: " << line << endl;
             state = KEY_VALUE;
 
@@ -293,5 +343,20 @@ cdpi_appif::read_conf(string conf)
             break;
         }
         }
+    }
+}
+
+void
+cdpi_appif::in_stream_event(cdpi_stream_event st_event,
+                            const cdpi_id_dir &id_dir, cdpi_bytes bytes)
+{
+    switch (st_event) {
+    case STREAM_OPEN:
+    case STREAM_DATA:
+    case STREAM_FIN:
+    case STREAM_RST:
+    case STREAM_TIMEOUT:
+    case STREAM_DESTROYED:
+        ;
     }
 }

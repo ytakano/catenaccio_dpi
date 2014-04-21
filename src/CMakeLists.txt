@@ -22,7 +22,7 @@ list(REMOVE_ITEM CPPSources ${CPPMain} ${CPPMongo} ${CPPMongoCHAOS})
 add_library(cdpi SHARED ${CPPSources})
 add_executable(cattenacio_dpi ${CPPMain})
 
-set(LIBS cdpi event ${Boost_THREAD_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_IOSTREAMS_LIBRARY} pcap crypto)
+set(LIBS cdpi event ${Boost_THREAD_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_IOSTREAMS_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} pcap crypto)
 
 target_link_libraries(cattenacio_dpi ${LIBS})
 target_link_libraries(cdpi ${LIBS})
@@ -39,7 +39,7 @@ ENDIF(COMPILE_STATIC_LIB)
 INSTALL(FILES ${CPPHeaders} DESTINATION include/cdpi)
 
 IF(USE_MONGO)
-  set(LIBS_MONGO mongoclient ssl ${Boost_FILESYSTEM_LIBRARY} pthread)
+  set(LIBS_MONGO mongoclient ssl pthread)
   add_executable(cdpi_mongo ${CPPMongo})
 #  add_executable(cdpi_mongo_chaos ${CPPMongoCHAOS})
   target_link_libraries(cdpi_mongo ${LIBS_MONGO} ${LIBS})

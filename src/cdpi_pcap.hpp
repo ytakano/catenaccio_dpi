@@ -12,7 +12,8 @@
 
 class cdpi_pcap {
 public:
-    cdpi_pcap() : m_handle(NULL), m_is_break(false) { }
+    cdpi_pcap(std::string conf) : m_handle(NULL), m_is_break(false),
+                                  m_callback(conf) { }
     virtual ~cdpi_pcap() {
         if (m_handle != NULL)
             pcap_close(m_handle);
@@ -47,7 +48,7 @@ void stop_pcap();
 
 template <class LISTENER>
 void
-run_pcap(std::string dev)
+run_pcap(std::string dev, std::string conf)
 {
     for (;;) {
         if (pcap_is_running) {
@@ -60,7 +61,7 @@ run_pcap(std::string dev)
 
     pcap_is_running = true;
 
-    pcap_inst = boost::shared_ptr<cdpi_pcap>(new cdpi_pcap);
+    pcap_inst = boost::shared_ptr<cdpi_pcap>(new cdpi_pcap(conf));
 
     pcap_inst->set_event_listener(ptr_cdpi_event_listener(new LISTENER));
     pcap_inst->set_dev(dev);

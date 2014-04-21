@@ -535,18 +535,14 @@ main(int argc, char *argv[])
         }
     }
 
-    cdpi_appif appif;
-    appif.read_conf(conf);
-    appif.run();
-
 #ifdef USE_DIVERT
     if (is_pcap) {
-        run_pcap<my_event_listener>(dev);
+        run_pcap<my_event_listener>(dev, conf);
     } else {
-        run_divert<my_event_listener>(dvt_port);
+        run_divert<my_event_listener>(dvt_port, conf);
     }
 #else
-    run_pcap<my_event_listener>(dev);
+    run_pcap<my_event_listener>(dev, conf);
 #endif // USE_DIVERT
 
     return 0;

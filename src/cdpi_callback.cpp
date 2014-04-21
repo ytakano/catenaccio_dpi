@@ -4,10 +4,11 @@
 
 #include <netinet/in.h>
 
-cdpi_callback::cdpi_callback() : m_stream(new cdpi_stream),
-                                 m_tcp(m_stream)
+cdpi_callback::cdpi_callback(std::string conf) :
+    m_appif(new cdpi_appif), m_tcp(m_appif)
 {
-
+    m_appif->read_conf(conf);
+    m_appif->run();
 }
 
 void

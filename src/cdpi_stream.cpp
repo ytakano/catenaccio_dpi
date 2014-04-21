@@ -3,7 +3,7 @@
 #include "cdpi_http.hpp"
 
 using namespace std;
-
+/*
 cdpi_stream::cdpi_stream()
 {
 
@@ -13,7 +13,7 @@ cdpi_stream::~cdpi_stream()
 {
 
 }
-/*
+
 ptr_cdpi_proto
 cdpi_stream::get_proto(cdpi_id_dir id_dir)
 {
@@ -25,7 +25,6 @@ cdpi_stream::get_proto(cdpi_id_dir id_dir)
 
     return it->second->m_proto;
 }
-*/
 
 void
 cdpi_stream::in_stream_event(cdpi_stream_event st_event,
@@ -40,7 +39,7 @@ cdpi_stream::in_stream_event(cdpi_stream_event st_event,
     case STREAM_DESTROYED:
         ;
     }
-
+*/
 /*
     switch (st_event) {
     case STREAM_OPEN:
@@ -67,7 +66,7 @@ cdpi_stream::in_stream_event(cdpi_stream_event st_event,
         break;
     }
 */
-}
+//}
 
 /*
 void
