@@ -5,6 +5,9 @@
 
 #include <event.h>
 
+#include <sys/time.h>
+
+#include <map>
 #include <string>
 
 #include <boost/regex.hpp>
@@ -14,12 +17,15 @@
 #include <boost/filesystem/operations.hpp>
 
 enum cdpi_stream_event {
-    STREAM_OPEN, // SYN
-    STREAM_DATA, // data
-    STREAM_FIN,  // FIN
-    STREAM_RST,  // RST
-    STREAM_TIMEOUT,   // timeout
-    STREAM_DESTROYED, // close, RST, timeout
+    // abstraction events
+    STREAM_DESTROYED,
+    STREAM_DATA,
+
+    // primitive event
+    STREAM_SYN,
+    STREAM_FIN,
+    STREAM_TIMEOUT,
+    STREAM_RST,
 };
 
 class cdpi_appif {
@@ -44,14 +50,20 @@ private:
         IF_OTHER
     };
 
+    enum ifformat {
+        IF_BINARY,
+        IF_TEXT
+    };
+
     struct ifrule {
         ptr_regex   m_up, m_down;
         std::string m_name;
         ifproto     m_proto;
+        ifformat    m_format;
         ptr_path    m_ux;
         std::list<std::pair<uint16_t, uint16_t> > m_port;
 
-        ifrule() : m_proto(IF_OTHER) { }
+        ifrule() : m_proto(IF_OTHER), m_format(IF_BINARY) { }
     };
 
     struct uxpeer {
@@ -60,9 +72,23 @@ private:
         std::string  m_name;
     };
 
+    struct stream_info {
+        timeval  m_create_time;
+        uint64_t m_dsize1, m_dsize2;
+        std::list<cdpi_bytes> m_buf1, m_buf2;
+
+        stream_info() : m_dsize1(0), m_dsize2(0) {
+            gettimeofday(&m_create_time, NULL);
+        }
+    };
+
+
     typedef boost::shared_ptr<ifrule>        ptr_ifrule;
     typedef boost::shared_ptr<uxpeer>        ptr_uxpeer;
     typedef boost::shared_ptr<boost::thread> ptr_thread;
+    typedef boost::shared_ptr<stream_info>   ptr_info;
+
+    std::map<cdpi_id, ptr_info> m_info;
 
     std::list<ptr_ifrule>     m_ifrule;
     std::map<int, ptr_ifrule> m_fd2ifrule;

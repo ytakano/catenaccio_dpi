@@ -64,8 +64,8 @@ cdpi_tcp::garbage_collector()
 
             std::map<cdpi_id, ptr_cdpi_tcp_flow>::iterator it;
 
-            // close half opened connections
             for (it = m_flow.begin(); it != m_flow.end(); ++it) {
+                // close half opened connections
                 if (((it->second->m_flow1.m_is_syn &&
                       ! it->second->m_flow2.m_is_syn) ||
                      (it->second->m_flow1.m_is_fin &&
@@ -95,6 +95,9 @@ cdpi_tcp::garbage_collector()
 
                     m_events.insert(id_dir);
                 }
+
+
+                // TODO: close compromised connection
             }
         }
     }
@@ -183,8 +186,7 @@ cdpi_tcp::run()
 #endif // DEBUG
 
                 cdpi_bytes bytes;
-                m_appif->in_stream_event(STREAM_OPEN, tcp_event, bytes);
-
+                m_appif->in_stream_event(STREAM_SYN, tcp_event, bytes);
             } else if (packet.m_flags & TH_FIN) {
                 cdpi_bytes bytes;
 
@@ -218,6 +220,8 @@ cdpi_tcp::run()
 #endif // DEBUG
 
                 cdpi_bytes bytes;
+
+                m_appif->in_stream_event(STREAM_RST, tcp_event, bytes);
 
                 rm_flow(tcp_event.m_id, tcp_event.m_dir);
 

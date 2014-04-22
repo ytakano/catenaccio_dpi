@@ -233,7 +233,6 @@ cdpi_appif::read_conf(string conf)
                 state = SECTION;
 
                 if (section != "global") {
-                    rule->m_ux = ptr_path(new fs::path(section));
                     m_ifrule.push_back(rule);
                     cout << "add the rule, ux: " << rule->m_ux->string()
                          << endl;
@@ -270,6 +269,14 @@ cdpi_appif::read_conf(string conf)
                     } else if (value == "UDP") {
                         rule->m_proto = IF_UDP;
                     }
+                } else if (key == "format") {
+                    if (value == "binary") {
+                        rule->m_format = IF_BINARY;
+                    } else if (value == "text") {
+                        rule->m_format = IF_TEXT;
+                    }
+                } else if (key == "if") {
+                    rule->m_ux = ptr_path(new fs::path(value));
                 } else if (key == "port") {
                     stringstream s4(value);
 
@@ -350,13 +357,71 @@ void
 cdpi_appif::in_stream_event(cdpi_stream_event st_event,
                             const cdpi_id_dir &id_dir, cdpi_bytes bytes)
 {
+    uint16_t sport, dport;
+    char src[64], dst[64];
+    cdpi_id_dir id_dir2 = id_dir;
+
+    id_dir2.m_dir = FROM_NONE;
+
+    id_dir2.get_addr_src(src, sizeof(src));
+    id_dir2.get_addr_dst(dst, sizeof(dst));
+    sport = ntohs(id_dir2.get_port_src());
+    dport = ntohs(id_dir2.get_port_dst());
+
     switch (st_event) {
-    case STREAM_OPEN:
+    case STREAM_SYN:
+    {
+        auto it = m_info.find(id_dir.m_id);
+
+        if (it == m_info.end()) {
+            ptr_info info = ptr_info(new stream_info);
+
+            m_info[id_dir.m_id] = info;
+
+            // TODO: invoke CREATED event
+
+            cout << "created: src = " << src << ":" << sport
+                 << ", dst = " << dst << ":" << dport << endl;
+        }
+
+        // TODO: invoke SYN event
+
+        break;
+    }
     case STREAM_DATA:
-    case STREAM_FIN:
-    case STREAM_RST:
-    case STREAM_TIMEOUT:
+    {
+        // TODO invoke DATA event
+
+        break;
+    }
     case STREAM_DESTROYED:
-        ;
+    {
+        m_info.erase(id_dir.m_id);
+
+        cout << "destroyed: src = " << src << ":" << sport
+             << ", dst = " << dst << ":" << dport << endl;
+
+        // TODO: invoke DESTROYED event
+
+        break;
+    }
+    case STREAM_FIN:
+    {
+        // TODO: invoke FIN event
+
+        break;
+    }
+    case STREAM_TIMEOUT:
+    {
+        // TODO: invoke TIMEOUT event
+
+        break;
+    }
+    case STREAM_RST:
+    {
+        // TODO: invoke RST event
+
+        break;
+    }
     }
 }
