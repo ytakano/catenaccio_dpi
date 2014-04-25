@@ -72,9 +72,12 @@ private:
         std::string  m_name;
     };
 
+    typedef boost::shared_ptr<ifrule>        ptr_ifrule;
+
     struct stream_info {
-        timeval  m_create_time;
-        uint64_t m_dsize1, m_dsize2;
+        ptr_ifrule m_ifrule;
+        timeval    m_create_time;
+        uint64_t   m_dsize1, m_dsize2;
         std::list<cdpi_bytes> m_buf1, m_buf2;
 
         stream_info() : m_dsize1(0), m_dsize2(0) {
@@ -82,8 +85,6 @@ private:
         }
     };
 
-
-    typedef boost::shared_ptr<ifrule>        ptr_ifrule;
     typedef boost::shared_ptr<uxpeer>        ptr_uxpeer;
     typedef boost::shared_ptr<boost::thread> ptr_thread;
     typedef boost::shared_ptr<stream_info>   ptr_info;

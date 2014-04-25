@@ -19,7 +19,7 @@ struct cdpi_peer {
     } l3_addr;
 
     uint16_t l4_port; // big endian
-    uint8_t  loop;
+    uint8_t  hop;
     uint8_t  reserved;
 
     cdpi_peer() { memset(this, 0, sizeof(*this)); }

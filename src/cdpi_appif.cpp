@@ -1,5 +1,5 @@
 #include "cdpi_appif.hpp"
-#include "cdpi_bytes.hpp"
+#include "cdpi_conf.hpp"
 
 #include <stdio.h>
 #include <string.h>
@@ -204,151 +204,102 @@ cdpi_appif::ux_listen()
 void
 cdpi_appif::read_conf(string conf)
 {
-    ifstream   ifs(conf);
-    ptr_ifrule rule;
-    string     section;
+    cdpi_conf c;
 
-    enum {
-        SECTION,
-        KEY_VALUE,
-    } state = SECTION;
+    if (! c.read_conf(conf))
+        exit(-1);
 
-    while (ifs) {
-        int n = 1;
-        string line;
-        std::getline(ifs, line);
+    cout << "here" << endl;
 
-        stringstream s1(line);
-        std::getline(s1, line, '#');
+    for (auto it1 = c.m_conf.begin(); it1 != c.m_conf.end(); ++it1) {
+        if (it1->first == "global") {
+            auto it2 = it1->second.find("home");
+            if (it2 != it1->second.end()) {
+                m_home = ptr_path(new fs::path(it2->second));
+            }
+        } else {
+            ptr_ifrule rule = ptr_ifrule(new ifrule);
 
-        switch (state) {
-        case KEY_VALUE:
-        {
-            stringstream s3(line);
-            char c;
+            rule->m_ux = ptr_path(new fs::path(it1->first));
 
-            c = (char)s3.peek();
+            auto it3 = it1->second.find("up");
+            if (it3 != it1->second.end()) {
+                rule->m_up = ptr_regex(new boost::regex(it3->second));
+            }
 
-            if (c != ' ') {
-                state = SECTION;
+            it3 = it1->second.find("down");
+            if (it3 != it1->second.end()) {
+                rule->m_down = ptr_regex(new boost::regex(it3->second));
+            }
 
-                if (section != "global") {
-                    m_ifrule.push_back(rule);
-                    cout << "add the rule, ux: " << rule->m_ux->string()
-                         << endl;
-                }
-            } else {
-                for (int i = 0; i < 4; i++) {
-                    s3.get(c);
-
-                    if (c != ' ') {
-                        cerr << "An error occurred while reading config file \""
-                             << conf << ":" << n
-                             << "\". The indent must be 4 bytes white space."
-                             << endl;
-                        exit(-1);
-                    }
-                }
-
-                string key, value;
-                std::getline(s3, key, '=');
-                std::getline(s3, value);
-
-                key   = trim(key);
-                value = trim(value);
-
-                cout << "key: " << key << ", value: " << value << endl;
-
-                if (key == "up") {
-                    rule->m_up = ptr_regex(new boost::regex(value));
-                } else if (key == "down") {
-                    rule->m_down = ptr_regex(new boost::regex(value));
-                } else if (key == "proto") {
-                    if (value == "TCP") {
-                        rule->m_proto = IF_TCP;
-                    } else if (value == "UDP") {
-                        rule->m_proto = IF_UDP;
-                    }
-                } else if (key == "format") {
-                    if (value == "binary") {
-                        rule->m_format = IF_BINARY;
-                    } else if (value == "text") {
-                        rule->m_format = IF_TEXT;
-                    }
-                } else if (key == "if") {
-                    rule->m_ux = ptr_path(new fs::path(value));
-                } else if (key == "port") {
-                    stringstream s4(value);
-
-                    while (s4) {
-                        string port, n1, n2;
-                        std::getline(s4, port, ',');
-
-                        if (port.empty())
-                            break;
-
-                        port = trim(port);
-
-                        stringstream s5(port);
-                        std::getline(s5, n1, '-');
-                        std::getline(s5, n2);
-
-                        n1 = trim(n1);
-                        n2 = trim(n2);
-
-                        pair<uint16_t, uint16_t> range;
-
-                        try {
-                            range.first = boost::lexical_cast<uint16_t>(n1);
-                        } catch (boost::bad_lexical_cast e) {
-                            cerr << "cannot convert \"" << n1
-                                 << "\" to uint16_t" << endl;
-                            continue;
-                        }
-
-                        if (n2.size() > 0) {
-                            try {
-                                range.second = boost::lexical_cast<uint16_t>(n2);
-                            } catch (boost::bad_lexical_cast e) {
-                                cerr << "cannot convert \"" << n2
-                                     << "\" to uint16_t" << endl;
-                                continue;
-                            }
-                        } else {
-                            range.second = range.first;
-                        }
-
-                        cout << "port range: " << range.first << " - "
-                             << range.second << endl;
-
-                        rule->m_port.push_back(range);
-                    }
-                } else if (section == "global") {
-                    if (key == "home") {
-                        m_home = ptr_path(new fs::path(value));
-                    }
+            it3 = it1->second.find("proto");
+            if (it3 != it1->second.end()) {
+                if (it3->second == "TCP") {
+                    rule->m_proto = IF_TCP;
+                } else if (it3->second == "UDP") {
+                    rule->m_proto = IF_UDP;
                 }
             }
 
-            break;
-        }
-        case SECTION:
-        {
-            stringstream s2(line);
-            std::getline(s2, line, ':');
+            it3 = it1->second.find("format");
+            if (it3 != it1->second.end()) {
+                if (it3->second == "binary") {
+                    rule->m_format = IF_BINARY;
+                } else if (it3->second == "text") {
+                    rule->m_format = IF_TEXT;
+                }
+            }
 
-            rule = ptr_ifrule(new ifrule);
-            line = trim(line);
+            it3 = it1->second.find("port");
+            if (it3 != it1->second.end()) {
+                stringstream ss(it3->second);
 
-            section = line;
+                while (ss) {
+                    string port, n1, n2;
+                    std::getline(ss, port, ',');
 
-            cout << "section: " << line << endl;
-            state = KEY_VALUE;
+                    if (port.empty())
+                        break;
 
-            rule->m_name = line;
+                    port = trim(port);
 
-            break;
-        }
+                    stringstream ss2(port);
+                    std::getline(ss2, n1, '-');
+                    std::getline(ss2, n2);
+
+                    n1 = trim(n1);
+                    n2 = trim(n2);
+
+                    pair<uint16_t, uint16_t> range;
+
+                    try {
+                        range.first = boost::lexical_cast<uint16_t>(n1);
+                    } catch (boost::bad_lexical_cast e) {
+                        cerr << "cannot convert \"" << n1
+                             << "\" to uint16_t" << endl;
+                        continue;
+                    }
+
+                    if (n2.size() > 0) {
+                        try {
+                            range.second = boost::lexical_cast<uint16_t>(n2);
+                        } catch (boost::bad_lexical_cast e) {
+                            cerr << "cannot convert \"" << n2
+                                 << "\" to uint16_t" << endl;
+                            continue;
+                        }
+                    } else {
+                        range.second = range.first;
+                    }
+
+                    cout << "port range: " << range.first << " - "
+                         << range.second << endl;
+
+                    rule->m_port.push_back(range);
+                }
+            }
+
+            m_ifrule.push_back(rule);
         }
     }
 }
@@ -384,13 +335,21 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
                  << ", dst = " << dst << ":" << dport << endl;
         }
 
-        // TODO: invoke SYN event
-
         break;
     }
     case STREAM_DATA:
     {
-        // TODO invoke DATA event
+        // TODO: invoke DATA event
+
+        if (bytes.m_len <= 0)
+            return;
+
+        auto it = m_info.find(id_dir.m_id);
+
+        if (it == m_info.end())
+            return;
+
+        // TODO: classify
 
         break;
     }
@@ -406,22 +365,9 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
         break;
     }
     case STREAM_FIN:
-    {
-        // TODO: invoke FIN event
-
-        break;
-    }
     case STREAM_TIMEOUT:
-    {
-        // TODO: invoke TIMEOUT event
-
-        break;
-    }
     case STREAM_RST:
-    {
-        // TODO: invoke RST event
-
+        // nothing to do
         break;
-    }
     }
 }
