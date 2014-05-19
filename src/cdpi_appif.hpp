@@ -74,13 +74,25 @@ private:
 
     typedef boost::shared_ptr<ifrule>        ptr_ifrule;
 
+    enum match_dir {
+        MATCH_UP,
+        MATCH_DOWN,
+        MATCH_NONE,
+    };
+
     struct stream_info {
         ptr_ifrule m_ifrule;
         timeval    m_create_time;
         uint64_t   m_dsize1, m_dsize2;
+        bool       m_is_created;         // sent created event?
+        bool       m_is_buf1, m_is_buf2; // recv data?
         std::list<cdpi_bytes> m_buf1, m_buf2;
+        match_dir  m_buf1_dir, m_buf2_dir;
+        bool       m_is_giveup;
 
-        stream_info() : m_dsize1(0), m_dsize2(0) {
+        stream_info() : m_dsize1(0), m_dsize2(0), m_is_created(false),
+                        m_buf1_dir(MATCH_NONE), m_buf2_dir(MATCH_NONE),
+                        m_is_giveup(false) {
             gettimeofday(&m_create_time, NULL);
         }
     };
@@ -92,8 +104,8 @@ private:
     std::map<cdpi_id, ptr_info> m_info;
 
     std::list<ptr_ifrule>     m_ifrule;
-    std::map<int, ptr_ifrule> m_fd2ifrule;
-    std::map<int, ptr_uxpeer> m_fd2uxpeer;
+    std::map<int, ptr_ifrule> m_fd2ifrule; // listen socket
+    std::map<int, ptr_uxpeer> m_fd2uxpeer; // accepted socket
     std::map<std::string, std::set<int> > m_name2uxpeer;
 
     boost::mutex     m_mutex;
@@ -106,6 +118,7 @@ private:
     ptr_path m_home;
 
     void makedir(boost::filesystem::path path);
+    void send_data(ptr_info p_info, cdpi_id_dir id_dir);
 
     friend void ux_accept(int fd, short events, void *arg);
     friend void ux_read(int fd, short events, void *arg);

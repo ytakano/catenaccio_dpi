@@ -15,6 +15,7 @@
 
 #include <boost/bind.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/regex.hpp>
 
 using namespace std;
 namespace fs = boost::filesystem;
@@ -339,8 +340,6 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
     }
     case STREAM_DATA:
     {
-        // TODO: invoke DATA event
-
         if (bytes.m_len <= 0)
             return;
 
@@ -349,18 +348,46 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
         if (it == m_info.end())
             return;
 
-        // TODO: classify
+        if (it->second->m_is_giveup)
+            return;
+
+        if (id_dir.m_dir == FROM_ADDR1) {
+            it->second->m_buf1.push_back(bytes);
+            it->second->m_dsize1 += bytes.m_len - bytes.m_pos;
+            it->second->m_is_buf1 = true;
+        } else if (id_dir.m_dir == FROM_ADDR2) {
+            it->second->m_buf2.push_back(bytes);
+            it->second->m_dsize2 += bytes.m_len - bytes.m_pos;
+            it->second->m_is_buf2 = true;
+        } else {
+            return;
+        }
+
+        send_data(it->second, id_dir);
 
         break;
     }
     case STREAM_DESTROYED:
     {
-        m_info.erase(id_dir.m_id);
+        auto it = m_info.find(id_dir.m_id);
+
+        if (it == m_info.end())
+            return;
+
+        it->second->m_is_buf1 = true;
+        it->second->m_is_buf2 = true;
+
+        send_data(it->second, id_dir);
+
+        m_info.erase(it);
 
         cout << "destroyed: src = " << src << ":" << sport
              << ", dst = " << dst << ":" << dport << endl;
 
         // TODO: invoke DESTROYED event
+
+        if (! it->second->m_ifrule)
+            return;
 
         break;
     }
@@ -370,4 +397,85 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
         // nothing to do
         break;
     }
+}
+
+void
+cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
+{
+    if (! p_info->m_ifrule) {
+        // classify
+        if (p_info->m_is_buf1 && p_info->m_is_buf2) {
+            for (auto it2 = m_ifrule.begin(); it2 != m_ifrule.end();
+                 ++it2) {
+
+                cout << "here1" << endl;
+
+                if ((*it2)->m_proto != IF_TCP)
+                    continue;
+
+                cout << "here2" << endl;
+
+                bool is_port = false;
+                for (auto it3 = (*it2)->m_port.begin();
+                     it3 != (*it2)->m_port.end(); ++it3) {
+
+                    if ((it3->first <= ntohs(id_dir.get_port_src()) &&
+                         ntohs(id_dir.get_port_src()) <= it3->second) ||
+                        (it3->first <= ntohs(id_dir.get_port_dst()) &&
+                         ntohs(id_dir.get_port_dst()) <= it3->second)) {
+                        is_port = true;
+                    }
+                }
+
+                cout << "here3" << endl;
+
+                if (! is_port)
+                    continue;
+
+                if ((*it2)->m_up && (*it2)->m_down) {
+                    char buf1[4096], buf2[4096];
+                    int  len1, len2;
+
+                    len1 = read_bytes(p_info->m_buf1, buf1,
+                                      sizeof(buf1));
+                    string s1(buf1, len1);
+
+                    len2 = read_bytes(p_info->m_buf2,
+                                      buf2, sizeof(buf2));
+                    string s2(buf2, len2);
+
+                    if (boost::regex_match(s1, *(*it2)->m_up) &&
+                        boost::regex_match(s2, *(*it2)->m_down)) {
+                        p_info->m_buf1_dir = MATCH_UP;
+                        p_info->m_buf2_dir = MATCH_DOWN;
+                    } else if (boost::regex_match(s2, *(*it2)->m_up) &&
+                               boost::regex_match(s1, *(*it2)->m_down)) {
+                        p_info->m_buf1_dir = MATCH_DOWN;
+                        p_info->m_buf2_dir = MATCH_UP;
+                    } else {
+                        continue;
+                    }
+                }
+
+                cout << "here4" << endl;
+
+                p_info->m_ifrule = *it2;
+                break;
+            }
+        } else {
+            return;
+        }
+    }
+
+    if (! p_info->m_ifrule) {
+        // give up?
+        if (p_info->m_dsize1 > 4096 && p_info->m_dsize2 > 4096) {
+            p_info->m_is_giveup = true;
+            p_info->m_buf1.clear();
+            p_info->m_buf2.clear();
+            return;
+        }
+    }
+
+    // TODO: invoke DATA event and send data to I/F
 }
