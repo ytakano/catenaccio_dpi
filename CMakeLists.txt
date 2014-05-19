@@ -1,3 +1,4 @@
+cmake_policy(SET CMP0022 OLD)
 cmake_minimum_required (VERSION 2.6)
 project (catenaccio_dpi)
 set (CDPI_VERSION_MAJOR 0)

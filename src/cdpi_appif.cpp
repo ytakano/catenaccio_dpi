@@ -180,8 +180,8 @@ cdpi_appif::ux_listen()
  
             remove(sa.sun_path);
  
-            if (bind(sock, (struct sockaddr*) &sa,
-                     sizeof(struct sockaddr_un)) == -1) {
+            if (::bind(sock, (struct sockaddr*) &sa,
+                       sizeof(struct sockaddr_un)) == -1) {
                 perror("bind");
                 exit(-1);
             }
@@ -379,15 +379,14 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
 
         send_data(it->second, id_dir);
 
+        if (it->second->m_ifrule) {
+            // TODO: invoke DESTROYED event
+        }
+
         m_info.erase(it);
 
         cout << "destroyed: src = " << src << ":" << sport
              << ", dst = " << dst << ":" << dport << endl;
-
-        // TODO: invoke DESTROYED event
-
-        if (! it->second->m_ifrule)
-            return;
 
         break;
     }
@@ -408,12 +407,8 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
             for (auto it2 = m_ifrule.begin(); it2 != m_ifrule.end();
                  ++it2) {
 
-                cout << "here1" << endl;
-
                 if ((*it2)->m_proto != IF_TCP)
                     continue;
-
-                cout << "here2" << endl;
 
                 bool is_port = false;
                 for (auto it3 = (*it2)->m_port.begin();
@@ -426,8 +421,6 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
                         is_port = true;
                     }
                 }
-
-                cout << "here3" << endl;
 
                 if (! is_port)
                     continue;
@@ -456,8 +449,6 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
                         continue;
                     }
                 }
-
-                cout << "here4" << endl;
 
                 p_info->m_ifrule = *it2;
                 break;
