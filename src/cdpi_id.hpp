@@ -19,8 +19,7 @@ struct cdpi_peer {
     } l3_addr;
 
     uint16_t l4_port; // big endian
-    uint8_t  hop;
-    uint8_t  reserved;
+    uint16_t padding;
 
     cdpi_peer() { memset(this, 0, sizeof(*this)); }
     cdpi_peer(const cdpi_peer &rhs) { *this = rhs; }
@@ -51,7 +50,7 @@ enum cdpi_direction {
 
 class cdpi_id {
 public:
-    cdpi_id() { }
+    cdpi_id() : m_hop(0) { }
     virtual ~cdpi_id(){ };
 
     cdpi_direction set_iph(char *iph, int protocol, char **l4hdr);
@@ -99,6 +98,7 @@ public:
     uint8_t get_l4_proto() const { return m_l4_proto; }
 
     boost::shared_ptr<cdpi_peer> m_addr1, m_addr2;
+    uint8_t m_hop;
 
 private:
     uint8_t m_l3_proto;
@@ -141,6 +141,14 @@ struct cdpi_id_dir {
         get_addr(addr, buf, len);
     }
 
+    void get_addr1(char *buf, int len) const {
+        get_addr(m_id.m_addr1, buf, len);
+    }
+
+    void get_addr2(char *buf, int len) const {
+        get_addr(m_id.m_addr2, buf, len);
+    }
+
     uint32_t get_ipv4_addr_src() const {
         return m_dir == FROM_ADDR1 ?
             m_id.m_addr1->l3_addr.b32 :
@@ -163,6 +171,14 @@ struct cdpi_id_dir {
         return m_dir == FROM_ADDR1 ?
             m_id.m_addr2->l4_port :
             m_id.m_addr1->l4_port;
+    }
+
+    uint16_t get_port1() const {
+        return m_id.m_addr1->l4_port;
+    }
+
+    uint16_t get_port2() const {
+        return m_id.m_addr2->l4_port;
     }
 
     uint8_t get_l3_proto() const { return m_id.get_l3_proto(); }

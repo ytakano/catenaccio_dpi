@@ -9,6 +9,7 @@
 
 #include <map>
 #include <string>
+#include <deque>
 
 #include <boost/regex.hpp>
 #include <boost/thread.hpp>
@@ -20,6 +21,7 @@ enum cdpi_stream_event {
     // abstraction events
     STREAM_DESTROYED,
     STREAM_DATA,
+    STREAM_CREATED,
 
     // primitive event
     STREAM_SYN,
@@ -86,7 +88,7 @@ private:
         uint64_t   m_dsize1, m_dsize2;
         bool       m_is_created;         // sent created event?
         bool       m_is_buf1, m_is_buf2; // recv data?
-        std::list<cdpi_bytes> m_buf1, m_buf2;
+        std::deque<cdpi_bytes> m_buf1, m_buf2;
         match_dir  m_buf1_dir, m_buf2_dir;
         bool       m_is_giveup;
 
@@ -119,6 +121,8 @@ private:
 
     void makedir(boost::filesystem::path path);
     void send_data(ptr_info p_info, cdpi_id_dir id_dir);
+    void write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
+                    cdpi_stream_event event, int bodylen = 0);
 
     friend void ux_accept(int fd, short events, void *arg);
     friend void ux_read(int fd, short events, void *arg);

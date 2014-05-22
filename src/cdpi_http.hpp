@@ -7,7 +7,6 @@
 #include "cdpi_proto.hpp"
 #include "cdpi_stream.hpp"
 
-#include <list>
 #include <map>
 #include <queue>
 #include <set>
@@ -24,10 +23,10 @@ public:
               cdpi_stream &stream, ptr_cdpi_event_listener listener);
     virtual ~cdpi_http();
 
-    static bool is_http_client(std::list<cdpi_bytes> &bytes);
-    static bool is_http_server(std::list<cdpi_bytes> &bytes);
+    static bool is_http_client(std::deque<cdpi_bytes> &bytes);
+    static bool is_http_server(std::deque<cdpi_bytes> &bytes);
 
-    void parse(std::list<cdpi_bytes> &bytes);
+    void parse(std::deque<cdpi_bytes> &bytes);
     void set_peer(ptr_cdpi_http peer) { m_peer = peer; }
     void set_event_listener(ptr_cdpi_event_listener &listener) {
         m_listener = listener;
@@ -44,8 +43,8 @@ public:
     std::string get_res_msg() const { return m_res_msg; }
     std::string get_header(std::string key) const;
     std::string get_trailer(std::string key) const;
-    void get_header_keys(std::list<std::string> &keys) const;
-    void get_trailer_keys(std::list<std::string> &keys) const;
+    void get_header_keys(std::deque<std::string> &keys) const;
+    void get_trailer_keys(std::deque<std::string> &keys) const;
     cdpi_bytes get_content() { return m_content; }
 
 private:
@@ -75,17 +74,17 @@ private:
     cdpi_id_dir   m_id_dir;
     cdpi_stream  &m_stream;
     cdpi_bytes    m_content;
-    std::list<cdpi_bytes>   m_chunks;
+    std::deque<cdpi_bytes>   m_chunks;
     ptr_cdpi_event_listener m_listener;
 
 
-    bool parse_method(std::list<cdpi_bytes> &bytes);
-    bool parse_response(std::list<cdpi_bytes> &bytes);
-    bool parse_head(std::list<cdpi_bytes> &bytes);
-    bool parse_body(std::list<cdpi_bytes> &bytes);
-    bool parse_chunk_len(std::list<cdpi_bytes> &bytes);
-    bool parse_chunk_body(std::list<cdpi_bytes> &bytes);
-    bool parse_chunk_el(std::list<cdpi_bytes> &bytes);
+    bool parse_method(std::deque<cdpi_bytes> &bytes);
+    bool parse_response(std::deque<cdpi_bytes> &bytes);
+    bool parse_head(std::deque<cdpi_bytes> &bytes);
+    bool parse_body(std::deque<cdpi_bytes> &bytes);
+    bool parse_chunk_len(std::deque<cdpi_bytes> &bytes);
+    bool parse_chunk_body(std::deque<cdpi_bytes> &bytes);
+    bool parse_chunk_el(std::deque<cdpi_bytes> &bytes);
 
     void set_header(std::string key, std::string val);
     void set_trailer(std::string key, std::string val);

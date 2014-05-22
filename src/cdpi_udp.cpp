@@ -52,8 +52,8 @@ cdpi_udp::run()
             packet = m_queue.front();
             m_queue.pop();
 
-            data = packet.m_bytes.m_ptr.get() + sizeof(udphdr);
-            len  = packet.m_bytes.m_len - sizeof(udphdr);
+            data = packet.m_bytes.get_head() + sizeof(udphdr);
+            len  = packet.m_bytes.get_len() - sizeof(udphdr);
 
             // TODO: write to pipe
         }

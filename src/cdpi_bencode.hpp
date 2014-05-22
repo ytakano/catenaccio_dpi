@@ -96,8 +96,7 @@ public:
             
             *str1 = k;
 
-            str2->alloc(len);
-            memcpy(str2->m_ptr.get(), v, len);
+            str2->set_buf(v, len);
 
             m_dict[key] = val;
         }
@@ -128,8 +127,7 @@ public:
             p = (cdpi_bytes*)&str;
 
             if (keylen >= 0) {
-                p->alloc(keylen);
-                memcpy(p->m_ptr.get(), key, keylen);
+                p->set_buf(key, keylen);
             } else {
                 *p = key;
             }

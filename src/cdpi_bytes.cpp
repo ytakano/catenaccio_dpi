@@ -15,9 +15,9 @@ namespace io = boost::iostreams; //<-- good practice
 
 
 int
-read_bytes_ec(const list<cdpi_bytes> &bytes, char *buf, int len, char c)
+read_bytes_ec(const deque<cdpi_bytes> &bytes, char *buf, int len, char c)
 {
-    list<cdpi_bytes>::const_iterator it;
+    deque<cdpi_bytes>::const_iterator it;
     int read_len = 0;
 
     for (it = bytes.begin(); it != bytes.end(); ++it) {
@@ -43,9 +43,9 @@ read_bytes_ec(const list<cdpi_bytes> &bytes, char *buf, int len, char c)
 }
 
 int
-skip_bytes(list<cdpi_bytes> &bytes, int len)
+skip_bytes(deque<cdpi_bytes> &bytes, int len)
 {
-    list<cdpi_bytes>::iterator it;
+    deque<cdpi_bytes>::iterator it;
     int skip_len = 0;
 
     for (it = bytes.begin(); it != bytes.end();) {
@@ -70,9 +70,9 @@ skip_bytes(list<cdpi_bytes> &bytes, int len)
 }
 
 int
-read_bytes(list<cdpi_bytes> &bytes, char *buf, int len)
+read_bytes(deque<cdpi_bytes> &bytes, char *buf, int len)
 {
-    list<cdpi_bytes>::iterator it;
+    deque<cdpi_bytes>::iterator it;
     int read_len = 0;
 
     for (it = bytes.begin(); it != bytes.end(); ++it) {

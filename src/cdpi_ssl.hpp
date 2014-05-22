@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 
+#include <deque>
 #include <list>
 #include <map>
 
@@ -46,10 +47,10 @@ public:
              cdpi_stream &stream, ptr_cdpi_event_listener listener);
     virtual ~cdpi_ssl();
 
-    static bool is_ssl_client(std::list<cdpi_bytes> &bytes);
-    static bool is_ssl_server(std::list<cdpi_bytes> &bytes);
+    static bool is_ssl_client(std::deque<cdpi_bytes> &bytes);
+    static bool is_ssl_server(std::deque<cdpi_bytes> &bytes);
 
-    void parse(std::list<cdpi_bytes> &bytes);
+    void parse(std::deque<cdpi_bytes> &bytes);
 
     uint16_t get_ver() { return m_ver; }
     const uint8_t* get_random() { return m_random; }
@@ -57,7 +58,7 @@ public:
     uint32_t get_gmt_unix_time() { return m_gmt_unix_time; }
     const std::list<uint16_t>& get_cipher_suites() { return m_cipher_suites; }
     const std::list<uint8_t>& get_compression_methods() { return m_compression_methods; }
-    const std::list<cdpi_bytes>& get_certificats() { return m_certificates; }
+    const std::deque<cdpi_bytes>& get_certificats() { return m_certificates; }
     const cdpi_id_dir &get_id_dir() { return m_id_dir; }
     bool is_change_cihper_spec() { return m_is_change_cipher_spec; }
 
@@ -69,7 +70,7 @@ private:
     uint8_t                 m_random[28];
     uint32_t                m_gmt_unix_time;
     cdpi_bytes              m_session_id;
-    std::list<cdpi_bytes>   m_certificates;
+    std::deque<cdpi_bytes>   m_certificates;
     std::list<uint16_t>     m_cipher_suites;
     std::list<uint8_t>      m_compression_methods;
     cdpi_id_dir             m_id_dir;

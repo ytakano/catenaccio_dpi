@@ -228,8 +228,7 @@ cdpi_tcp::run()
                 tcp_event.m_dir = FROM_NONE;
                 m_appif->in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
             } else {
-                packet.m_bytes.m_len = packet.m_data_len;
-                packet.m_bytes.m_pos = packet.m_data_pos;
+                packet.m_bytes.skip(packet.m_data_pos);
 
                 m_appif->in_stream_event(STREAM_DATA, tcp_event,
                                          packet.m_bytes);

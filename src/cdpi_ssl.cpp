@@ -392,33 +392,31 @@ cdpi_ssl::~cdpi_ssl()
 }
 
 bool
-cdpi_ssl::is_ssl_client(list<cdpi_bytes> &bytes)
+cdpi_ssl::is_ssl_client(deque<cdpi_bytes> &bytes)
 {
     if (bytes.size() == 0)
         return false;
 
     cdpi_bytes buf = bytes.front();
-    string     data(buf.m_ptr.get() + buf.m_pos,
-                    buf.m_ptr.get() + buf.m_pos + buf.m_len);
+    string     data(buf.get_head(), buf.get_len());
 
     return boost::regex_match(data, regex_ssl_client_hello);
 }
 
 bool
-cdpi_ssl::is_ssl_server(list<cdpi_bytes> &bytes)
+cdpi_ssl::is_ssl_server(deque<cdpi_bytes> &bytes)
 {
     if (bytes.size() == 0)
         return false;
 
     cdpi_bytes buf = bytes.front();
-    string     data(buf.m_ptr.get() + buf.m_pos,
-                    buf.m_ptr.get() + buf.m_pos + buf.m_len);
+    string     data(buf.get_head(), buf.get_len());
 
     return boost::regex_match(data, regex_ssl_server_hello);
 }
 
 void
-cdpi_ssl::parse(list<cdpi_bytes> &bytes)
+cdpi_ssl::parse(deque<cdpi_bytes> &bytes)
 {
     uint16_t ver;
     uint16_t len;

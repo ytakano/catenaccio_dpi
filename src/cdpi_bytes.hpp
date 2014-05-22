@@ -5,7 +5,7 @@
 
 #include <string.h>
 
-#include <list>
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -91,10 +91,16 @@ public:
         m_len = len;
     }
 
-    void set_buf(char *buf, int len) {
+    void set_buf(const char *buf, int len) {
         m_ptr = boost::shared_array<char>(new char[len]);
         memcpy(m_ptr.get(), buf, len);
 
+        m_len = len;
+        m_pos = 0;
+    }
+
+    void set_buf(boost::shared_array<char> ptr, int len) {
+        m_ptr = ptr;
         m_len = len;
         m_pos = 0;
     }
@@ -105,15 +111,38 @@ public:
         m_len = 0;
     }
 
+    char* get_head() {
+        return m_ptr.get() + m_pos;
+    }
+
+    int get_len() {
+        return m_len;
+    }
+
+    void skip(int len) {
+        m_pos += len;
+        m_len -= len;
+
+        assert(m_len >= 0);
+    }
+
+protected:
     boost::shared_array<char> m_ptr;
     int m_pos;
     int m_len;
+
+    friend int read_bytes_ec(const std::deque<cdpi_bytes> &bytes, char *buf,
+                             int len, char c);
+    friend int read_bytes(std::deque<cdpi_bytes> &bytes, char *buf, int len);
+    friend int skip_bytes(std::deque<cdpi_bytes> &bytes, int len);
+    friend void get_digest(cdpi_bytes &md_value, const char *alg,
+                           const char *buf, unsigned int len);
 };
 
-int read_bytes_ec(const std::list<cdpi_bytes> &bytes, char *buf, int len,
+int read_bytes_ec(const std::deque<cdpi_bytes> &bytes, char *buf, int len,
                   char c);
-int read_bytes(std::list<cdpi_bytes> &bytes, char *buf, int len);
-int skip_bytes(std::list<cdpi_bytes> &bytes, int len);
+int read_bytes(std::deque<cdpi_bytes> &bytes, char *buf, int len);
+int skip_bytes(std::deque<cdpi_bytes> &bytes, int len);
 int find_char(const char *buf, int len, char c);
 void get_digest(cdpi_bytes &md_value, const char *alg, const char *buf,
                 unsigned int len);

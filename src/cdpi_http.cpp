@@ -34,33 +34,31 @@ cdpi_http::~cdpi_http()
 }
 
 bool
-cdpi_http::is_http_client(list<cdpi_bytes> &bytes)
+cdpi_http::is_http_client(deque<cdpi_bytes> &bytes)
 {
     if (bytes.size() == 0)
         return false;
 
     cdpi_bytes buf = bytes.front();
-    string     data(buf.m_ptr.get() + buf.m_pos,
-                    buf.m_ptr.get() + buf.m_pos + buf.m_len);
+    string     data(buf.get_head(), buf.get_len());
 
     return boost::regex_match(data, regex_http_req);
 }
 
 bool
-cdpi_http::is_http_server(list<cdpi_bytes> &bytes)
+cdpi_http::is_http_server(deque<cdpi_bytes> &bytes)
 {
     if (bytes.size() == 0)
         return false;
 
     cdpi_bytes buf = bytes.front();
-    string     data(buf.m_ptr.get() + buf.m_pos,
-                    buf.m_ptr.get() + buf.m_pos + buf.m_len);
+    string     data(buf.get_head(), buf.get_len());
 
     return boost::regex_match(data, regex_http_res);
 }
 
 void
-cdpi_http::parse(list<cdpi_bytes> &bytes)
+cdpi_http::parse(deque<cdpi_bytes> &bytes)
 {
     for (;;) {
          bool ret = false;
@@ -96,7 +94,7 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
  }
 
  bool
- cdpi_http::parse_method(list<cdpi_bytes> &bytes)
+ cdpi_http::parse_method(deque<cdpi_bytes> &bytes)
  {
      int   len;
      int   remain;
@@ -156,7 +154,7 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
  }
 
  bool
- cdpi_http::parse_response(list<cdpi_bytes> &bytes)
+ cdpi_http::parse_response(deque<cdpi_bytes> &bytes)
  {
      int  n;
      int  remain;
@@ -219,7 +217,7 @@ cdpi_http::parse(list<cdpi_bytes> &bytes)
  }
 
  bool
- cdpi_http::parse_head(list<cdpi_bytes> &bytes)
+ cdpi_http::parse_head(deque<cdpi_bytes> &bytes)
  {
      char buf[1024 * 8];
 
@@ -436,7 +434,7 @@ cdpi_http::get_trailer(string key) const
 }
 
 void
-cdpi_http::get_header_keys(list<string> &keys) const
+cdpi_http::get_header_keys(deque<string> &keys) const
 {
     map<string, string>::const_iterator it;
 
@@ -446,7 +444,7 @@ cdpi_http::get_header_keys(list<string> &keys) const
 }
 
 void
-cdpi_http::get_trailer_keys(list<string> &keys) const
+cdpi_http::get_trailer_keys(deque<string> &keys) const
 {
     map<string, string>::const_iterator it;
 
@@ -456,7 +454,7 @@ cdpi_http::get_trailer_keys(list<string> &keys) const
 }
 
 bool
-cdpi_http::parse_body(list<cdpi_bytes> &bytes)
+cdpi_http::parse_body(deque<cdpi_bytes> &bytes)
 {
     stringstream ss;
     int  content_len;
@@ -466,7 +464,7 @@ cdpi_http::parse_body(list<cdpi_bytes> &bytes)
     ss << get_header("content-length");
     ss >> content_len;
 
-    if (is_in_mime_to_read() && m_content.m_len == 0) {
+    if (is_in_mime_to_read() && m_content.get_len() == 0) {
         m_content.alloc(content_len);
     }
 
@@ -474,8 +472,8 @@ cdpi_http::parse_body(list<cdpi_bytes> &bytes)
         len = content_len - m_body_read;
         len = len < (int)sizeof(buf) ? len : sizeof(buf);
 
-        if (m_content.m_len > 0)
-            read_bytes(bytes, &m_content.m_ptr[m_body_read], len);
+        if (m_content.get_len() > 0)
+            read_bytes(bytes, &m_content.get_head()[m_body_read], len);
 
         len = skip_bytes(bytes, len);
 
@@ -520,7 +518,7 @@ cdpi_http::parse_body(list<cdpi_bytes> &bytes)
 }
 
 bool
-cdpi_http::parse_chunk_len(list<cdpi_bytes> &bytes)
+cdpi_http::parse_chunk_len(deque<cdpi_bytes> &bytes)
 {
     stringstream ss;
     int  len;
@@ -554,7 +552,7 @@ cdpi_http::parse_chunk_len(list<cdpi_bytes> &bytes)
 }
 
 bool
-cdpi_http::parse_chunk_body(list<cdpi_bytes> &bytes)
+cdpi_http::parse_chunk_body(deque<cdpi_bytes> &bytes)
 {
     int  len;
     char buf[1024];
@@ -566,7 +564,7 @@ cdpi_http::parse_chunk_body(list<cdpi_bytes> &bytes)
         if (is_in_mime_to_read()) {
             cdpi_bytes buf = m_chunks.back();
 
-            read_bytes(bytes, &buf.m_ptr[m_body_read], len);
+            read_bytes(bytes, &buf.get_head()[m_body_read], len);
         }
 
         len = skip_bytes(bytes, len);
@@ -586,7 +584,7 @@ cdpi_http::parse_chunk_body(list<cdpi_bytes> &bytes)
 }
 
 bool
-cdpi_http::parse_chunk_el(list<cdpi_bytes> &bytes)
+cdpi_http::parse_chunk_el(deque<cdpi_bytes> &bytes)
 {
     int  len;
     char buf[8];
@@ -606,19 +604,20 @@ cdpi_http::parse_chunk_el(list<cdpi_bytes> &bytes)
         m_body_read = 0;
 
         if (m_chunks.size() > 0) {
-            list<cdpi_bytes>::iterator it;
+            deque<cdpi_bytes>::iterator it;
             int content_len = 0;
             int pos = 0;
 
             for (it = m_chunks.begin(); it != m_chunks.end(); ++it) {
-                content_len += it->m_len;
+                content_len += it->get_len();
             }
 
             m_content.alloc(content_len);
             
             for (it = m_chunks.begin(); it != m_chunks.end(); ++it) {
-                memcpy(&m_content.m_ptr[pos], it->m_ptr.get(), it->m_len);
-                pos += it->m_len;
+                memcpy(&m_content.get_head()[pos],
+                       it->get_head(), it->get_len());
+                pos += it->get_len();
             }
         }
 

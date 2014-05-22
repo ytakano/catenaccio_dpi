@@ -48,33 +48,34 @@ ux_accept(int fd, short events, void *arg)
     int sock = accept(fd, NULL, NULL);
     cdpi_appif *appif = static_cast<cdpi_appif*>(arg);
 
-    {
-        boost::mutex::scoped_lock lock(appif->m_mutex);
+    boost::mutex::scoped_lock lock(appif->m_mutex);
 
-        auto it = appif->m_fd2ifrule.find(fd);
-        if (it == appif->m_fd2ifrule.end()) {
-            return;
-        }
-
-        event *ev = event_new(appif->m_ev_base, sock, EV_READ | EV_PERSIST,
-                              ux_read, arg);
-        event_add(ev, NULL);
-
-        auto peer = cdpi_appif::ptr_uxpeer(new cdpi_appif::uxpeer);
-        peer->m_fd   = sock;
-        peer->m_ev   = ev;
-        peer->m_name = it->second->m_name;
-
-        appif->m_fd2uxpeer[sock] = peer;
-        appif->m_name2uxpeer[it->second->m_name].insert(sock);
-
-        cout << "accept: fd = " << sock << endl;
+    auto it = appif->m_fd2ifrule.find(fd);
+    if (it == appif->m_fd2ifrule.end()) {
+        return;
     }
+
+    event *ev = event_new(appif->m_ev_base, sock, EV_READ | EV_PERSIST,
+                          ux_read, arg);
+    event_add(ev, NULL);
+
+    auto peer = cdpi_appif::ptr_uxpeer(new cdpi_appif::uxpeer);
+    peer->m_fd   = sock;
+    peer->m_ev   = ev;
+    peer->m_name = it->second->m_name;
+
+    appif->m_fd2uxpeer[sock] = peer;
+    appif->m_name2uxpeer[it->second->m_name].insert(sock);
+
+    cout << "accept: fd = " << sock << endl;
 }
 
 void
 ux_read(int fd, short events, void *arg)
 {
+    cdpi_appif *appif = static_cast<cdpi_appif*>(arg);
+    boost::mutex::scoped_lock lock(appif->m_mutex);
+
     char buf[4096];
     int  recv_size = read(fd, buf, sizeof(buf) - 1);
 
@@ -85,9 +86,6 @@ ux_read(int fd, short events, void *arg)
         cout << endl;
         return;
     } else if (recv_size <= 0) {
-        cdpi_appif *appif = static_cast<cdpi_appif*>(arg);
-        boost::mutex::scoped_lock lock(appif->m_mutex);
-
         auto it1 = appif->m_fd2uxpeer.find(fd);
         if (it1 != appif->m_fd2uxpeer.end()) {
             auto it2 = appif->m_name2uxpeer.find(it1->second->m_name);
@@ -221,7 +219,8 @@ cdpi_appif::read_conf(string conf)
         } else {
             ptr_ifrule rule = ptr_ifrule(new ifrule);
 
-            rule->m_ux = ptr_path(new fs::path(it1->first));
+            rule->m_name = it1->first;
+            rule->m_ux   = ptr_path(new fs::path(it1->first));
 
             auto it3 = it1->second.find("up");
             if (it3 != it1->second.end()) {
@@ -330,17 +329,14 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
 
             m_info[id_dir.m_id] = info;
 
-            // TODO: invoke CREATED event
-
-            cout << "created: src = " << src << ":" << sport
-                 << ", dst = " << dst << ":" << dport << endl;
+            it = m_info.find(id_dir.m_id);
         }
 
         break;
     }
     case STREAM_DATA:
     {
-        if (bytes.m_len <= 0)
+        if (bytes.get_len() <= 0)
             return;
 
         auto it = m_info.find(id_dir.m_id);
@@ -353,11 +349,11 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
 
         if (id_dir.m_dir == FROM_ADDR1) {
             it->second->m_buf1.push_back(bytes);
-            it->second->m_dsize1 += bytes.m_len - bytes.m_pos;
+            it->second->m_dsize1 += bytes.get_len();
             it->second->m_is_buf1 = true;
         } else if (id_dir.m_dir == FROM_ADDR2) {
             it->second->m_buf2.push_back(bytes);
-            it->second->m_dsize2 += bytes.m_len - bytes.m_pos;
+            it->second->m_dsize2 += bytes.get_len();
             it->second->m_is_buf2 = true;
         } else {
             return;
@@ -380,13 +376,24 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
         send_data(it->second, id_dir);
 
         if (it->second->m_ifrule) {
-            // TODO: invoke DESTROYED event
+            // invoke DESTROYED event
+            boost::mutex::scoped_lock lock(m_mutex);
+
+            auto it2 = m_name2uxpeer.find(it->second->m_ifrule->m_name);
+
+            cout << "destroyed(" << it->second->m_ifrule->m_name << "): ";
+            id_dir.m_id.print_id();
+
+            if (it2 != m_name2uxpeer.end()) {
+                for (auto it3 = it2->second.begin(); it3 != it2->second.end();
+                     ++it3) {
+                    write_head(*it3, id_dir, it->second->m_ifrule->m_format,
+                               STREAM_DESTROYED);
+                }
+            }
         }
 
         m_info.erase(it);
-
-        cout << "destroyed: src = " << src << ":" << sport
-             << ", dst = " << dst << ":" << dport << endl;
 
         break;
     }
@@ -395,6 +402,8 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
     case STREAM_RST:
         // nothing to do
         break;
+    default:
+        assert(st_event != STREAM_CREATED);
     }
 }
 
@@ -450,7 +459,26 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
                     }
                 }
 
+                // matched rule
                 p_info->m_ifrule = *it2;
+
+                // invoke CREATED event
+                {
+                    boost::mutex::scoped_lock lock(m_mutex);
+
+                    auto it4 = m_name2uxpeer.find((*it2)->m_name);
+
+                    cout << "created(" << (*it2)->m_name << "): ";
+                    id_dir.m_id.print_id();
+
+                    if (it4 != m_name2uxpeer.end()) {
+                        for (auto it5 = it4->second.begin();
+                             it5 != it4->second.end(); ++it5) {
+                            write_head(*it5, id_dir, p_info->m_ifrule->m_format,
+                                       STREAM_CREATED);
+                        }
+                    }
+                }
                 break;
             }
         } else {
@@ -458,7 +486,41 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
         }
     }
 
-    if (! p_info->m_ifrule) {
+    if (p_info->m_ifrule) {
+        // invoke DATA event and send data to I/F
+        deque<cdpi_bytes> *bufs;
+
+        if (id_dir.m_dir == FROM_ADDR1) {
+            bufs = &p_info->m_buf1;
+        } else {
+            bufs = &p_info->m_buf2;
+        }
+
+        while (! bufs->empty()) {
+            boost::mutex::scoped_lock lock(m_mutex);
+
+            auto front = bufs->front();
+            auto it2 = m_name2uxpeer.find(p_info->m_ifrule->m_name);
+
+            cout << "data(" << p_info->m_ifrule->m_name << "): ";
+            id_dir.m_id.print_id();
+
+
+            if (it2 != m_name2uxpeer.end()) {
+                for (auto it3 = it2->second.begin(); it3 != it2->second.end();
+                     ++it3) {
+                    write_head(*it3, id_dir, p_info->m_ifrule->m_format,
+                               STREAM_DATA, front.get_len());
+
+                    // TODO: write data
+                    write(*it3, front.get_head(), front.get_len());
+                }
+            }
+
+            bufs->pop_front();
+        }
+
+    } else {
         // give up?
         if (p_info->m_dsize1 > 4096 && p_info->m_dsize2 > 4096) {
             p_info->m_is_giveup = true;
@@ -467,6 +529,58 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
             return;
         }
     }
+}
 
-    // TODO: invoke DATA event and send data to I/F
+void
+cdpi_appif::write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
+                       cdpi_stream_event event, int bodylen)
+{
+    if (format == IF_TEXT) {
+        string s;
+        char buf[256];
+
+        s  = "ip1=";
+        id_dir.get_addr1(buf, sizeof(buf));
+        s += buf;
+
+        s += ",ip2=";
+        id_dir.get_addr2(buf, sizeof(buf));
+        s += buf;
+
+        s += ",port1=";
+        s += boost::lexical_cast<string>(id_dir.get_port1());
+
+        s += ",port2=";
+        s += boost::lexical_cast<string>(id_dir.get_port2());
+
+        s += ",hop=";
+        s += boost::lexical_cast<string>((int)id_dir.m_id.m_hop);
+
+        switch (event) {
+        case STREAM_CREATED:
+            s += ",event=CREATED\n";
+            break;
+        case STREAM_DESTROYED:
+            s += ",event=DESTROYED\n";
+            break;
+        case STREAM_DATA:
+            s += ",event=DATA,from=";
+
+            if (id_dir.m_dir == FROM_ADDR1) {
+                s += "1";
+            } else {
+                s += "2";
+            }
+
+            s += ",len=";
+            s += boost::lexical_cast<string>(bodylen);
+            s += "\n";
+            break;
+        default:
+            assert(false);
+        }
+
+        write(fd, s.c_str(), s.size());
+    } else {
+    }
 }

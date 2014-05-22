@@ -110,7 +110,7 @@ cdpi_bencode::dec_dict(istream &in, ptr_ben_data &data)
 
 
         // for info_hash
-        if (memcmp(str->m_ptr.get(), "info", 4) == 0) {
+        if (memcmp(str->get_head(), "info", 4) == 0) {
             m_dict_info_begin = pos;
             m_dict_info_end   = in.tellg();
             calc_info_hash(in);
@@ -191,6 +191,7 @@ cdpi_bencode::read_str(istream &in, ptr_ben_str ben_str)
 {
     stringbuf num;
     char c;
+    int  len;
 
     in.get(num, ':');
     in.get(c);
@@ -198,17 +199,16 @@ cdpi_bencode::read_str(istream &in, ptr_ben_str ben_str)
     if (c != ':')
         return false;
 
-    ben_str->m_len = (size_t)atoi(num.str().c_str());
+    len = (size_t)atoi(num.str().c_str());
 
-
-    p_char buf(new char[ben_str->m_len + 1]);
-    in.read(buf.get(), ben_str->m_len);
+    p_char buf(new char[len + 1]);
+    in.read(buf.get(), len);
     if (in.bad())
         return false;
 
-    buf[ben_str->m_len] = '\0';
+    buf[len] = '\0';
 
-    ben_str->m_ptr = buf;
+    ben_str->set_buf(buf, len);
 
     return true;
 }
@@ -247,8 +247,8 @@ cdpi_bencode::encode_dict(ostream &out, ptr_ben_data data)
 
     pair<bencode_str, ptr_ben_data> p;
     BOOST_FOREACH(p, ben_dict->m_dict) {
-        out << p.first.m_len << ":";
-        out.write(p.first.m_ptr.get(), p.first.m_len);
+        out << p.first.get_len() << ":";
+        out.write(p.first.get_head(), p.first.get_len());
         encode(out, p.second);
     }
 
@@ -282,8 +282,8 @@ cdpi_bencode::encode_str(ostream &out, ptr_ben_data data)
 {
     ptr_ben_str ben_str = BEN_TO_STR(data);
 
-    out << ben_str->m_len << ":";
-    out.write(ben_str->m_ptr.get(), ben_str->m_len);
+    out << ben_str->get_len() << ":";
+    out.write(ben_str->get_head(), ben_str->get_len());
 }
 
 void
@@ -319,8 +319,8 @@ cdpi_bencode::encode_dict(evbuffer *buf, ptr_ben_data data)
 
     pair<bencode_str, ptr_ben_data> p;
     BOOST_FOREACH(p, ben_dict->m_dict) {
-        evbuffer_add_printf(buf, "%d:", (int)p.first.m_len);
-        evbuffer_add(buf, p.first.m_ptr.get(), p.first.m_len);
+        evbuffer_add_printf(buf, "%d:", (int)p.first.get_len());
+        evbuffer_add(buf, p.first.get_head(), p.first.get_len());
         encode(buf, p.second);
     }
 
@@ -353,8 +353,8 @@ cdpi_bencode::encode_str(evbuffer *buf, ptr_ben_data data)
 {
     ptr_ben_str ben_str = BEN_TO_STR(data);
 
-    evbuffer_add_printf(buf, "%d:", (int)ben_str->m_len);
-    evbuffer_add(buf, ben_str->m_ptr.get(), ben_str->m_len);
+    evbuffer_add_printf(buf, "%d:", ben_str->get_len());
+    evbuffer_add(buf, ben_str->get_head(), ben_str->get_len());
 }
 
 void
@@ -370,8 +370,8 @@ cdpi_bencode::calc_info_hash(istream &in)
 
     get_digest(md_value, HASH_TYPE, info.get(), len);
 
-    m_info_hash = boost::shared_array<char>(new char[md_value.m_len]);
-    memcpy(m_info_hash.get(), md_value.m_ptr.get(), md_value.m_len);
+    m_info_hash = boost::shared_array<char>(new char[md_value.get_len()]);
+    memcpy(m_info_hash.get(), md_value.get_head(), md_value.get_len());
 
     in.seekg(pos);
 }
