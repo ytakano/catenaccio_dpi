@@ -47,7 +47,6 @@ cdpi_conf::read_conf(string conf)
 
             section = line;
 
-            cout << "section: " << line << endl;
             state = KEY_VALUE;
 
             break;
@@ -81,7 +80,6 @@ cdpi_conf::read_conf(string conf)
                 key   = trim(key);
                 value = trim(value);
 
-                cout << "key: " << key << ", value: " << value << endl;
 
                 m_conf[section][key] = value;
             }

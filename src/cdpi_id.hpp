@@ -43,8 +43,8 @@ struct cdpi_peer {
 };
 
 enum cdpi_direction {
-    FROM_ADDR1,
-    FROM_ADDR2,
+    FROM_ADDR1 = 0,
+    FROM_ADDR2 = 1,
     FROM_NONE,
 };
 

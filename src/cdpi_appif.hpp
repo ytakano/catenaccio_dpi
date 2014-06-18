@@ -19,15 +19,37 @@
 
 enum cdpi_stream_event {
     // abstraction events
-    STREAM_DESTROYED,
-    STREAM_DATA,
-    STREAM_CREATED,
+    STREAM_CREATED   = 0,
+    STREAM_DESTROYED = 1,
+    STREAM_DATA      = 2,
 
     // primitive event
     STREAM_SYN,
     STREAM_FIN,
     STREAM_TIMEOUT,
     STREAM_RST,
+};
+
+struct appif_header {
+    union {
+        uint32_t b32; // big endian
+        uint8_t  b128[16];
+    } l3_addr1;
+
+    union {
+        uint32_t b32; // big endian
+        uint8_t  b128[16];
+    } l3_addr2;
+
+    uint16_t l4_port1; // big endian
+    uint16_t l4_port2; // big endian
+
+    uint8_t  event; // 0: created, 1: destroyed, 2: data
+    uint8_t  from;  // 0: from addr1, 1: from addr2
+    uint16_t len;
+    uint8_t  hop;
+    uint8_t  l3_proto;
+    uint16_t reserved;
 };
 
 class cdpi_appif {

@@ -66,8 +66,6 @@ ux_accept(int fd, short events, void *arg)
 
     appif->m_fd2uxpeer[sock] = peer;
     appif->m_name2uxpeer[it->second->m_name].insert(sock);
-
-    cout << "accept: fd = " << sock << endl;
 }
 
 void
@@ -79,11 +77,7 @@ ux_read(int fd, short events, void *arg)
     char buf[4096];
     int  recv_size = read(fd, buf, sizeof(buf) - 1);
 
-    cout << "read: fd = " << fd << ", read_size = " << recv_size << endl;
-
     if (recv_size > 0) {
-        cout.write(buf, recv_size);
-        cout << endl;
         return;
     } else if (recv_size <= 0) {
         auto it1 = appif->m_fd2uxpeer.find(fd);
@@ -105,16 +99,12 @@ ux_read(int fd, short events, void *arg)
 
         shutdown(fd, SHUT_RDWR);
         close(fd);
-
-        cout << "close: fd = " << fd << endl;
     }
 }
 
 void
 cdpi_appif::makedir(fs::path path)
 {
-    cout << "path = " << path.string() << endl;
-
     if (fs::exists(path)) {
         if (! fs::is_directory(path)) {
             cerr << path.string() << " is not directory" << endl;
@@ -146,8 +136,6 @@ cdpi_appif::ux_listen()
     {
         boost::mutex::scoped_lock lock(m_mutex);
 
-        cout << "m_home = " << m_home->string() << endl;
-
         makedir(*m_home);
         makedir(*m_home / fs::path("tcp"));
         makedir(*m_home / fs::path("udp"));
@@ -173,7 +161,6 @@ cdpi_appif::ux_listen()
                 path = *m_home / *(*it)->m_ux;
             }
 
-            cout << "ux: " << path.string() << endl;
             strncpy(sa.sun_path, path.string().c_str(), sizeof(sa.sun_path));
  
             remove(sa.sun_path);
@@ -207,8 +194,6 @@ cdpi_appif::read_conf(string conf)
 
     if (! c.read_conf(conf))
         exit(-1);
-
-    cout << "here" << endl;
 
     for (auto it1 = c.m_conf.begin(); it1 != c.m_conf.end(); ++it1) {
         if (it1->first == "global") {
@@ -292,9 +277,6 @@ cdpi_appif::read_conf(string conf)
                         range.second = range.first;
                     }
 
-                    cout << "port range: " << range.first << " - "
-                         << range.second << endl;
-
                     rule->m_port.push_back(range);
                 }
             }
@@ -308,17 +290,6 @@ void
 cdpi_appif::in_stream_event(cdpi_stream_event st_event,
                             const cdpi_id_dir &id_dir, cdpi_bytes bytes)
 {
-    uint16_t sport, dport;
-    char src[64], dst[64];
-    cdpi_id_dir id_dir2 = id_dir;
-
-    id_dir2.m_dir = FROM_NONE;
-
-    id_dir2.get_addr_src(src, sizeof(src));
-    id_dir2.get_addr_dst(dst, sizeof(dst));
-    sport = ntohs(id_dir2.get_port_src());
-    dport = ntohs(id_dir2.get_port_dst());
-
     switch (st_event) {
     case STREAM_SYN:
     {
@@ -380,9 +351,6 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
             boost::mutex::scoped_lock lock(m_mutex);
 
             auto it2 = m_name2uxpeer.find(it->second->m_ifrule->m_name);
-
-            cout << "destroyed(" << it->second->m_ifrule->m_name << "): ";
-            id_dir.m_id.print_id();
 
             if (it2 != m_name2uxpeer.end()) {
                 for (auto it3 = it2->second.begin(); it3 != it2->second.end();
@@ -468,9 +436,6 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
 
                     auto it4 = m_name2uxpeer.find((*it2)->m_name);
 
-                    cout << "created(" << (*it2)->m_name << "): ";
-                    id_dir.m_id.print_id();
-
                     if (it4 != m_name2uxpeer.end()) {
                         for (auto it5 = it4->second.begin();
                              it5 != it4->second.end(); ++it5) {
@@ -502,17 +467,13 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
             auto front = bufs->front();
             auto it2 = m_name2uxpeer.find(p_info->m_ifrule->m_name);
 
-            cout << "data(" << p_info->m_ifrule->m_name << "): ";
-            id_dir.m_id.print_id();
-
-
             if (it2 != m_name2uxpeer.end()) {
                 for (auto it3 = it2->second.begin(); it3 != it2->second.end();
                      ++it3) {
                     write_head(*it3, id_dir, p_info->m_ifrule->m_format,
                                STREAM_DATA, front.get_len());
 
-                    // TODO: write data
+                    // write data
                     write(*it3, front.get_head(), front.get_len());
                 }
             }
@@ -582,5 +543,23 @@ cdpi_appif::write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
 
         write(fd, s.c_str(), s.size());
     } else {
+        appif_header head;
+
+        memset(&head, 0, sizeof(head));
+
+        memcpy(&head.l3_addr1, &id_dir.m_id.m_addr1->l3_addr,
+               sizeof(head.l3_addr1));
+        memcpy(&head.l3_addr2, &id_dir.m_id.m_addr2->l3_addr,
+               sizeof(head.l3_addr2));
+
+        head.l4_port1 = id_dir.m_id.m_addr1->l4_port;
+        head.l4_port2 = id_dir.m_id.m_addr2->l4_port;
+        head.event    = event;
+        head.from     = id_dir.m_dir;
+        head.hop      = id_dir.m_id.m_hop;
+        head.l3_proto = id_dir.m_id.get_l3_proto();
+        head.len      = bodylen;
+
+        write(fd, &head, sizeof(head));
     }
 }
