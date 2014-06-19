@@ -223,3 +223,25 @@ cdpi_pcap::get_ip_hdr(const uint8_t *bytes, uint32_t len, uint8_t &proto)
 
     return ip_hdr;
 }
+
+void
+run_pcap(std::string dev, std::string conf)
+{
+    for (;;) {
+        if (pcap_is_running) {
+            stop_pcap();
+            sleep(1);
+        } else {
+            break;
+        }
+    }
+
+    pcap_is_running = true;
+
+    pcap_inst = boost::shared_ptr<cdpi_pcap>(new cdpi_pcap(conf));
+
+    pcap_inst->set_dev(dev);
+    pcap_inst->run();
+
+    pcap_is_running = false;
+}

@@ -368,7 +368,18 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
         it->second->m_is_buf1 = true;
         it->second->m_is_buf2 = true;
 
-        send_data(it->second, id_dir);
+        if (! it->second->m_buf1.empty()) {
+            cdpi_id_dir id_dir2 = id_dir;
+            id_dir2.m_dir = FROM_ADDR1;
+            send_data(it->second, id_dir2);
+        }
+
+        if (! it->second->m_buf2.empty()) {
+            cdpi_id_dir id_dir2 = id_dir;
+            id_dir2.m_dir = FROM_ADDR2;
+            send_data(it->second, id_dir2);
+        }
+
 
         if (it->second->m_ifrule) {
             // invoke DESTROYED event
@@ -380,7 +391,8 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
                 for (auto it3 = it2->second.begin(); it3 != it2->second.end();
                      ++it3) {
                     write_head(*it3, id_dir, it->second->m_ifrule->m_format,
-                               it->second, STREAM_DESTROYED);
+                               STREAM_DESTROYED, MATCH_NONE, 0,
+                               &it->second->m_header);
                 }
             }
         }
@@ -451,7 +463,7 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
                     }
                 }
 
-                // matched rule
+                // matched a rule
                 p_info->m_ifrule = *it2;
 
                 // invoke CREATED event
@@ -464,7 +476,8 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
                         for (auto it5 = it4->second.begin();
                              it5 != it4->second.end(); ++it5) {
                             write_head(*it5, id_dir, p_info->m_ifrule->m_format,
-                                       p_info, STREAM_CREATED);
+                                       STREAM_CREATED, MATCH_NONE, 0,
+                                       &p_info->m_header);
                         }
                     }
                 }
@@ -481,8 +494,10 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
 
         if (id_dir.m_dir == FROM_ADDR1) {
             bufs = &p_info->m_buf1;
-        } else {
+        } else if (id_dir.m_dir == FROM_ADDR2) {
             bufs = &p_info->m_buf2;
+        } else {
+            assert(false);
         }
 
         while (! bufs->empty()) {
@@ -494,8 +509,15 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
             if (it2 != m_name2uxpeer.end()) {
                 for (auto it3 = it2->second.begin(); it3 != it2->second.end();
                      ++it3) {
+                    match_dir mdir;
+
+                    assert(id_dir.m_dir != FROM_NONE);
+
+                    mdir = p_info->m_match_dir[id_dir.m_dir];
+
                     write_head(*it3, id_dir, p_info->m_ifrule->m_format,
-                               p_info, STREAM_DATA, front.get_len());
+                               STREAM_DATA, mdir, front.get_len(),
+                               &p_info->m_header);
 
                     // write data
                     write(*it3, front.get_head(), front.get_len());
@@ -518,7 +540,8 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
 
 void
 cdpi_appif::write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
-                       ptr_info info, cdpi_stream_event event, int bodylen)
+                       cdpi_stream_event event, match_dir match, int bodylen,
+                       cdpi_appif_header *header)
 {
     if (format == IF_TEXT) {
         string s;
@@ -552,23 +575,20 @@ cdpi_appif::write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
             s += ",event=DATA,from=";
 
             if (id_dir.m_dir == FROM_ADDR1) {
-                s += "1";
+                s += "1,";
             } else if (id_dir.m_dir == FROM_ADDR2) {
-                s += "2";
+                s += "2,";
             } else {
-                s += "none";
+                s += "none,";
             }
 
-            if (id_dir.m_dir != FROM_NONE) {
-                s += ",match=";
-                match_dir dir = info->m_match_dir[id_dir.m_dir];
-                if (dir == MATCH_UP) {
-                    s += "up";
-                } else if (dir == MATCH_DOWN) {
-                    s += "down";
-                } else {
-                    s += "none";
-                }
+            s += "match=";
+            if (match == MATCH_UP) {
+                s += "up";
+            } else if (match == MATCH_DOWN) {
+                s += "down";
+            } else {
+                s += "none";
             }
 
             s += ",len=";
@@ -581,25 +601,14 @@ cdpi_appif::write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
 
         write(fd, s.c_str(), s.size());
     } else {
-        info->m_header.event    = event;
-        info->m_header.from     = id_dir.m_dir;
-        info->m_header.hop      = id_dir.m_id.m_hop;
-        info->m_header.l3_proto = id_dir.m_id.get_l3_proto();
-        info->m_header.len      = bodylen;
+        header->event    = event;
+        header->from     = id_dir.m_dir;
+        header->hop      = id_dir.m_id.m_hop;
+        header->l3_proto = id_dir.m_id.get_l3_proto();
+        header->len      = bodylen;
+        header->match    = match;
 
-        if (event == STREAM_DATA) {
-            if (id_dir.m_dir == FROM_ADDR1) {
-                info->m_header.match = info->m_match_dir[0];
-            } else if (id_dir.m_dir == FROM_ADDR2) {
-                info->m_header.match = info->m_match_dir[1];
-            } else {
-                info->m_header.match = MATCH_NONE;
-            }
-        } else {
-            info->m_header.match = MATCH_NONE;
-        }
-
-        write(fd, &info->m_header, sizeof(info->m_header));
+        write(fd, header, sizeof(*header));
     }
 }
 
@@ -620,4 +629,74 @@ cdpi_appif::stream_info::stream_info(const cdpi_id &id) :
 
     m_header.l4_port1 = id.m_addr1->l4_port;
     m_header.l4_port2 = id.m_addr2->l4_port;
+}
+
+void
+cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
+{
+    for (auto it = m_ifrule.begin(); it != m_ifrule.end(); ++it) {
+        if ((*it)->m_proto != IF_UDP)
+            continue;
+
+        bool is_port = false;
+        for (auto it2 = (*it)->m_port.begin();
+             it2 != (*it)->m_port.end(); ++it2) {
+
+            if ((it2->first <= ntohs(id_dir.get_port_src()) &&
+                 ntohs(id_dir.get_port_src()) <= it2->second) ||
+                (it2->first <= ntohs(id_dir.get_port_dst()) &&
+                 ntohs(id_dir.get_port_dst()) <= it2->second)) {
+                is_port = true;
+            }
+        }
+
+        if (! is_port)
+            continue;
+
+        match_dir match = MATCH_NONE;
+        if ((*it)->m_up) {
+            string s(bytes.get_head(), bytes.get_len());
+
+            if (! boost::regex_match(s, *(*it)->m_up)) {
+                continue;
+            }
+
+            match = MATCH_UP;
+        }
+
+        {
+            boost::mutex::scoped_lock lock(m_mutex);
+
+            auto it3 = m_name2uxpeer.find((*it)->m_name);
+
+            if (it3 != m_name2uxpeer.end()) {
+                for (auto it4 = it3->second.begin();
+                     it4 != it3->second.end(); ++it4) {
+
+                    cdpi_appif_header header;
+
+                    memset(&header, 0, sizeof(header));
+
+                    memcpy(&header.l3_addr1, &id_dir.m_id.m_addr1->l3_addr,
+                           sizeof(header.l3_addr1));
+                    memcpy(&header.l3_addr2, &id_dir.m_id.m_addr2->l3_addr,
+                           sizeof(header.l3_addr2));
+
+                    header.l4_port1 = id_dir.m_id.m_addr1->l4_port;
+                    header.l4_port2 = id_dir.m_id.m_addr2->l4_port;
+                    header.event    = STREAM_DATA;
+                    header.from     = id_dir.m_dir;
+                    header.hop      = id_dir.m_id.m_hop;
+                    header.l3_proto = id_dir.m_id.get_l3_proto();
+                    header.len      = bytes.get_len();
+                    header.match    = match;
+
+                    write_head(*it4, id_dir, (*it)->m_format, STREAM_DATA,
+                               match, bytes.get_len(), &header);
+
+                    write(*it4, bytes.get_head(), bytes.get_len());
+                }
+            }
+        }
+    }
 }

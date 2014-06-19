@@ -14,17 +14,6 @@
 
 using namespace std;
 
-
-class my_event_listener : public cdpi_event_listener {
-public:
-    virtual void in_stream(cdpi_event cev, const cdpi_id_dir &id_dir,
-                           cdpi_stream &stream) {}
-
-    virtual void in_datagram(cdpi_event cev, const cdpi_id_dir &id_dir,
-                             ptr_cdpi_proto data) { }
-
-};
-
 extern char *optarg;
 extern int optind, opterr, optopt;
 
@@ -88,12 +77,12 @@ main(int argc, char *argv[])
 
 #ifdef USE_DIVERT
     if (is_pcap) {
-        run_pcap<my_event_listener>(dev, conf);
+        run_pcap(dev, conf);
     } else {
-        run_divert<my_event_listener>(dvt_port, conf);
+        run_divert(dvt_port, conf);
     }
 #else
-    run_pcap<my_event_listener>(dev, conf);
+    run_pcap(dev, conf);
 #endif // USE_DIVERT
 
     return 0;

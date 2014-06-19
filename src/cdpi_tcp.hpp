@@ -66,11 +66,6 @@ public:
                    char *l4hdr);
     void run();
     void garbage_collector();
-/*
-    void set_event_listener(ptr_cdpi_event_listener listener) {
-        //m_stream.set_event_listener(listener);
-    }
-*/
 
 private:
     std::map<cdpi_id, ptr_cdpi_tcp_flow> m_flow;

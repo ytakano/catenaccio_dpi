@@ -64,6 +64,7 @@ public:
 
     void in_stream_event(cdpi_stream_event st_event,
                          const cdpi_id_dir &id_dir, cdpi_bytes bytes);
+    void in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes);
 
 private:
     typedef boost::shared_ptr<boost::regex> ptr_regex;
@@ -144,7 +145,8 @@ private:
     void makedir(boost::filesystem::path path);
     void send_data(ptr_info p_info, cdpi_id_dir id_dir);
     void write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
-                    ptr_info info, cdpi_stream_event event, int bodylen = 0);
+                    cdpi_stream_event event, match_dir match, int bodylen,
+                    cdpi_appif_header *header = NULL);
 
     friend void ux_accept(int fd, short events, void *arg);
     friend void ux_read(int fd, short events, void *arg);

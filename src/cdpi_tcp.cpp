@@ -163,8 +163,9 @@ cdpi_tcp::run()
                 lock.unlock();
                 rm_flow(tcp_event.m_id, tcp_event.m_dir);
 
-                tcp_event.m_dir = FROM_NONE;
-                m_appif->in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
+                cdpi_id_dir id_dir = tcp_event;
+                id_dir.m_dir = FROM_NONE;
+                m_appif->in_stream_event(STREAM_DESTROYED, id_dir, bytes);
 
                 continue;
             }
@@ -204,9 +205,9 @@ cdpi_tcp::run()
 #endif // DEBUG
 
                 if (recv_fin(tcp_event.m_id, tcp_event.m_dir)) {
-                    tcp_event.m_dir = FROM_NONE;
-                    m_appif->in_stream_event(STREAM_DESTROYED,
-                                             tcp_event, bytes);
+                    cdpi_id_dir id_dir = tcp_event;
+                    id_dir.m_dir = FROM_NONE;
+                    m_appif->in_stream_event(STREAM_DESTROYED, id_dir, bytes);
                 }
             } else if (packet.m_flags & TH_RST) {
 #ifdef DEBUG
@@ -225,8 +226,9 @@ cdpi_tcp::run()
 
                 rm_flow(tcp_event.m_id, tcp_event.m_dir);
 
-                tcp_event.m_dir = FROM_NONE;
-                m_appif->in_stream_event(STREAM_DESTROYED, tcp_event, bytes);
+                cdpi_id_dir id_dir = tcp_event;
+                id_dir.m_dir = FROM_NONE;
+                m_appif->in_stream_event(STREAM_DESTROYED, id_dir, bytes);
             } else {
                 packet.m_bytes.skip(packet.m_data_pos);
 

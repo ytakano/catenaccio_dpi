@@ -13,9 +13,9 @@
 
 using namespace std;
 
-cdpi_udp::cdpi_udp() : m_is_dns_53(true),
-                       m_is_del(false),
-                       m_thread(boost::bind(&cdpi_udp::run, this))
+cdpi_udp::cdpi_udp(ptr_cdpi_appif appif) :
+    m_is_dns_53(true), m_is_del(false), m_appif(appif),
+    m_thread(boost::bind(&cdpi_udp::run, this))
 {
 
 }
@@ -39,8 +39,6 @@ cdpi_udp::run()
             boost::mutex::scoped_lock lock(m_mutex);
 
             cdpi_udp_packet packet;
-            int   len;
-            char *data;
 
             while (m_queue.size() == 0) {
                 m_condition.wait(lock);
@@ -52,10 +50,9 @@ cdpi_udp::run()
             packet = m_queue.front();
             m_queue.pop();
 
-            data = packet.m_bytes.get_head() + sizeof(udphdr);
-            len  = packet.m_bytes.get_len() - sizeof(udphdr);
+            packet.m_bytes.skip(sizeof(udphdr));
 
-            // TODO: write to pipe
+            m_appif->in_datagram(packet.m_id_dir, packet.m_bytes);
         }
     }
 }

@@ -20,9 +20,12 @@ public:
     }
 
     void set_dev(std::string dev);
+
+/*
     void set_event_listener(ptr_cdpi_event_listener listener) {
         m_callback.set_event_listener(listener);
     }
+*/
 
     void callback(const struct pcap_pkthdr *h, const uint8_t *bytes);
 
@@ -46,28 +49,6 @@ extern bool pcap_is_running;
 
 void stop_pcap();
 
-template <class LISTENER>
-void
-run_pcap(std::string dev, std::string conf)
-{
-    for (;;) {
-        if (pcap_is_running) {
-            stop_pcap();
-            sleep(1);
-        } else {
-            break;
-        }
-    }
-
-    pcap_is_running = true;
-
-    pcap_inst = boost::shared_ptr<cdpi_pcap>(new cdpi_pcap(conf));
-
-    pcap_inst->set_event_listener(ptr_cdpi_event_listener(new LISTENER));
-    pcap_inst->set_dev(dev);
-    pcap_inst->run();
-
-    pcap_is_running = false;
-}
+void run_pcap(std::string dev, std::string conf);
 
 #endif // CDPI_PCAP_HPP

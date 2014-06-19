@@ -4,6 +4,7 @@
 #include "cdpi_bytes.hpp"
 #include "cdpi_event.hpp"
 #include "cdpi_id.hpp"
+#include "cdpi_appif.hpp"
 
 #include <boost/thread.hpp>
 #include <boost/thread/condition.hpp>
@@ -20,27 +21,24 @@ struct cdpi_udp_packet {
 
 class cdpi_udp {
 public:
-    cdpi_udp();
+    cdpi_udp(ptr_cdpi_appif appif);
     virtual ~cdpi_udp();
 
     void input_udp(cdpi_id &id, cdpi_direction dir, char *buf, int len,
                    char *l4hdr);
     void run();
-    void set_event_listener(ptr_cdpi_event_listener listener) {
-        m_listener = listener;
-    }
 
     bool             m_is_dns_53; // parse DNS only if src or dst port is 56
 
 private:
     std::queue<cdpi_udp_packet> m_queue;
-    ptr_cdpi_event_listener     m_listener;
 
     bool             m_is_del;
+    ptr_cdpi_appif   m_appif;
+
     boost::mutex     m_mutex;
     boost::condition m_condition;
     boost::thread    m_thread;
-
 
     void input_udp4(cdpi_id &id, cdpi_direction dir, char *buf, int len);
 

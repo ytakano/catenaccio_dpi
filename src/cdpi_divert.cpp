@@ -147,4 +147,23 @@ cdpi_divert::run(uint16_t ipv4_port, uint16_t ipv6_port)
         event_add(m_ev_ipv6, NULL);
     }
 }
+
+void
+run_divert(int port, std::string conf)
+{
+    event_base *ev_base = event_base_new();
+    cdpi_divert dvt(conf);
+
+    if (!ev_base) {
+        std::cerr << "couldn't new event_base" << std::endl;
+        exit(-1);
+    }
+
+    dvt.set_ev_base(ev_base);
+    dvt.run(port, 0);
+
+    event_base_dispatch(ev_base);
+}
+
+
 #endif // USE_DIVERT
