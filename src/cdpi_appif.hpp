@@ -113,12 +113,9 @@ private:
         std::deque<cdpi_bytes> m_buf1, m_buf2;
         match_dir  m_buf1_dir, m_buf2_dir;
         bool       m_is_giveup;
+        appif_header m_header;
 
-        stream_info() : m_dsize1(0), m_dsize2(0), m_is_created(false),
-                        m_buf1_dir(MATCH_NONE), m_buf2_dir(MATCH_NONE),
-                        m_is_giveup(false) {
-            gettimeofday(&m_create_time, NULL);
-        }
+        stream_info(const cdpi_id &id);
     };
 
     typedef boost::shared_ptr<uxpeer>        ptr_uxpeer;
@@ -131,6 +128,8 @@ private:
     std::map<int, ptr_ifrule> m_fd2ifrule; // listen socket
     std::map<int, ptr_uxpeer> m_fd2uxpeer; // accepted socket
     std::map<std::string, std::set<int> > m_name2uxpeer;
+    int m_fd7;
+    int m_fd3;
 
     boost::mutex     m_mutex;
     boost::condition m_condition;
@@ -144,7 +143,7 @@ private:
     void makedir(boost::filesystem::path path);
     void send_data(ptr_info p_info, cdpi_id_dir id_dir);
     void write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
-                    cdpi_stream_event event, int bodylen = 0);
+                    ptr_info info, cdpi_stream_event event, int bodylen = 0);
 
     friend void ux_accept(int fd, short events, void *arg);
     friend void ux_read(int fd, short events, void *arg);

@@ -17,12 +17,15 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/regex.hpp>
 
+// #include <event2/thread.h>
+
 using namespace std;
 namespace fs = boost::filesystem;
 
 void ux_read(int fd, short events, void *arg);
 
-cdpi_appif::cdpi_appif() : m_home(new fs::path(fs::current_path()))
+cdpi_appif::cdpi_appif() : m_fd7(-1), m_fd3(-1),
+                           m_home(new fs::path(fs::current_path()))
 {
 
 }
@@ -78,6 +81,13 @@ ux_read(int fd, short events, void *arg)
     int  recv_size = read(fd, buf, sizeof(buf) - 1);
 
     if (recv_size > 0) {
+        auto it1 = appif->m_fd2uxpeer.find(fd);
+        if (it1 != appif->m_fd2uxpeer.end()) {
+            // TODO: loopback
+            if (it1->second->m_name == "loopback7") {
+            } else if (it1->second->m_name == "loopback3") {
+            }
+        }
         return;
     } else if (recv_size <= 0) {
         auto it1 = appif->m_fd2uxpeer.find(fd);
@@ -129,9 +139,17 @@ cdpi_appif::ux_listen()
 
     m_ev_base = event_base_new();
     if (m_ev_base == NULL) {
-        cerr << "cannot new ev_base" << endl;
+        cerr << "couldn't new ev_base" << endl;
         exit(-1);
     }
+
+/*
+    evthread_use_pthreads();
+    if (evthread_make_base_notifiable(m_ev_base) < 0) {
+        cerr << "couldn't make base notifiable " << endl;
+        exit(-1);
+    }
+*/
 
     {
         boost::mutex::scoped_lock lock(m_mutex);
@@ -181,6 +199,12 @@ cdpi_appif::ux_listen()
              event_add(ev, NULL);
 
              m_fd2ifrule[sock] = *it;
+
+             if ((*it)->m_name == "loopback7") {
+                 m_fd7 = sock;
+             } else if ((*it)->m_name == "loopback3") {
+                 m_fd3 = sock;
+             }
         }
     }
 
@@ -296,7 +320,7 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
         auto it = m_info.find(id_dir.m_id);
 
         if (it == m_info.end()) {
-            ptr_info info = ptr_info(new stream_info);
+            ptr_info info = ptr_info(new stream_info(id_dir.m_id));
 
             m_info[id_dir.m_id] = info;
 
@@ -356,7 +380,7 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
                 for (auto it3 = it2->second.begin(); it3 != it2->second.end();
                      ++it3) {
                     write_head(*it3, id_dir, it->second->m_ifrule->m_format,
-                               STREAM_DESTROYED);
+                               it->second, STREAM_DESTROYED);
                 }
             }
         }
@@ -440,7 +464,7 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
                         for (auto it5 = it4->second.begin();
                              it5 != it4->second.end(); ++it5) {
                             write_head(*it5, id_dir, p_info->m_ifrule->m_format,
-                                       STREAM_CREATED);
+                                       p_info, STREAM_CREATED);
                         }
                     }
                 }
@@ -471,7 +495,7 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
                 for (auto it3 = it2->second.begin(); it3 != it2->second.end();
                      ++it3) {
                     write_head(*it3, id_dir, p_info->m_ifrule->m_format,
-                               STREAM_DATA, front.get_len());
+                               p_info, STREAM_DATA, front.get_len());
 
                     // write data
                     write(*it3, front.get_head(), front.get_len());
@@ -494,7 +518,7 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
 
 void
 cdpi_appif::write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
-                       cdpi_stream_event event, int bodylen)
+                       ptr_info info, cdpi_stream_event event, int bodylen)
 {
     if (format == IF_TEXT) {
         string s;
@@ -543,23 +567,29 @@ cdpi_appif::write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
 
         write(fd, s.c_str(), s.size());
     } else {
-        appif_header head;
+        info->m_header.event    = event;
+        info->m_header.from     = id_dir.m_dir;
+        info->m_header.hop      = id_dir.m_id.m_hop;
+        info->m_header.l3_proto = id_dir.m_id.get_l3_proto();
+        info->m_header.len      = bodylen;
 
-        memset(&head, 0, sizeof(head));
-
-        memcpy(&head.l3_addr1, &id_dir.m_id.m_addr1->l3_addr,
-               sizeof(head.l3_addr1));
-        memcpy(&head.l3_addr2, &id_dir.m_id.m_addr2->l3_addr,
-               sizeof(head.l3_addr2));
-
-        head.l4_port1 = id_dir.m_id.m_addr1->l4_port;
-        head.l4_port2 = id_dir.m_id.m_addr2->l4_port;
-        head.event    = event;
-        head.from     = id_dir.m_dir;
-        head.hop      = id_dir.m_id.m_hop;
-        head.l3_proto = id_dir.m_id.get_l3_proto();
-        head.len      = bodylen;
-
-        write(fd, &head, sizeof(head));
+        write(fd, &info->m_header, sizeof(info->m_header));
     }
+}
+
+cdpi_appif::stream_info::stream_info(const cdpi_id &id) :
+    m_dsize1(0), m_dsize2(0), m_is_created(false), m_buf1_dir(MATCH_NONE),
+    m_buf2_dir(MATCH_NONE), m_is_giveup(false)
+{
+    gettimeofday(&m_create_time, NULL);
+
+    memset(&m_header, 0, sizeof(m_header));
+
+    memcpy(&m_header.l3_addr1, &id.m_addr1->l3_addr,
+           sizeof(m_header.l3_addr1));
+    memcpy(&m_header.l3_addr2, &id.m_addr2->l3_addr,
+           sizeof(m_header.l3_addr2));
+
+    m_header.l4_port1 = id.m_addr1->l4_port;
+    m_header.l4_port2 = id.m_addr2->l4_port;
 }

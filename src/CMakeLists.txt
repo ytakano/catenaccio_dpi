@@ -20,7 +20,7 @@ ENDIF(USE_DIVERT)
 add_library(cdpi SHARED ${CPPSources})
 add_executable(cattenacio_dpi ${CPPMain})
 
-set(LIBS cdpi event ${Boost_THREAD_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_IOSTREAMS_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} pcap crypto pthread ssl)
+set(LIBS cdpi event event_pthreads ${Boost_THREAD_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_IOSTREAMS_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} pcap crypto pthread ssl)
 
 target_link_libraries(cattenacio_dpi ${LIBS})
 target_link_libraries(cdpi ${LIBS})
