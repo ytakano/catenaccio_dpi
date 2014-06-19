@@ -5,4 +5,4 @@ set (CDPI_VERSION_MAJOR 0)
 set (CDPI_VERSION_MINOR 1)
 
 add_subdirectory(src)
-add_subdirectory(examples/mindyourprivacy)
+add_subdirectory(examples/http_in_c)

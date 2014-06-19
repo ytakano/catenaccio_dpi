@@ -440,12 +440,12 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
 
                     if (boost::regex_match(s1, *(*it2)->m_up) &&
                         boost::regex_match(s2, *(*it2)->m_down)) {
-                        p_info->m_buf1_dir = MATCH_UP;
-                        p_info->m_buf2_dir = MATCH_DOWN;
+                        p_info->m_match_dir[0] = MATCH_UP;
+                        p_info->m_match_dir[1] = MATCH_DOWN;
                     } else if (boost::regex_match(s2, *(*it2)->m_up) &&
                                boost::regex_match(s1, *(*it2)->m_down)) {
-                        p_info->m_buf1_dir = MATCH_DOWN;
-                        p_info->m_buf2_dir = MATCH_UP;
+                        p_info->m_match_dir[1] = MATCH_UP;
+                        p_info->m_match_dir[0] = MATCH_DOWN;
                     } else {
                         continue;
                     }
@@ -533,10 +533,10 @@ cdpi_appif::write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
         s += buf;
 
         s += ",port1=";
-        s += boost::lexical_cast<string>(id_dir.get_port1());
+        s += boost::lexical_cast<string>(htons(id_dir.get_port1()));
 
         s += ",port2=";
-        s += boost::lexical_cast<string>(id_dir.get_port2());
+        s += boost::lexical_cast<string>(htons(id_dir.get_port2()));
 
         s += ",hop=";
         s += boost::lexical_cast<string>((int)id_dir.m_id.m_hop);
@@ -553,8 +553,22 @@ cdpi_appif::write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
 
             if (id_dir.m_dir == FROM_ADDR1) {
                 s += "1";
-            } else {
+            } else if (id_dir.m_dir == FROM_ADDR2) {
                 s += "2";
+            } else {
+                s += "none";
+            }
+
+            if (id_dir.m_dir != FROM_NONE) {
+                s += ",match=";
+                match_dir dir = info->m_match_dir[id_dir.m_dir];
+                if (dir == MATCH_UP) {
+                    s += "up";
+                } else if (dir == MATCH_DOWN) {
+                    s += "down";
+                } else {
+                    s += "none";
+                }
             }
 
             s += ",len=";
@@ -573,14 +587,28 @@ cdpi_appif::write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
         info->m_header.l3_proto = id_dir.m_id.get_l3_proto();
         info->m_header.len      = bodylen;
 
+        if (event == STREAM_DATA) {
+            if (id_dir.m_dir == FROM_ADDR1) {
+                info->m_header.match = info->m_match_dir[0];
+            } else if (id_dir.m_dir == FROM_ADDR2) {
+                info->m_header.match = info->m_match_dir[1];
+            } else {
+                info->m_header.match = MATCH_NONE;
+            }
+        } else {
+            info->m_header.match = MATCH_NONE;
+        }
+
         write(fd, &info->m_header, sizeof(info->m_header));
     }
 }
 
 cdpi_appif::stream_info::stream_info(const cdpi_id &id) :
-    m_dsize1(0), m_dsize2(0), m_is_created(false), m_buf1_dir(MATCH_NONE),
-    m_buf2_dir(MATCH_NONE), m_is_giveup(false)
+    m_dsize1(0), m_dsize2(0), m_is_created(false), m_is_giveup(false)
 {
+    m_match_dir[0] = MATCH_NONE;
+    m_match_dir[1] = MATCH_NONE;
+
     gettimeofday(&m_create_time, NULL);
 
     memset(&m_header, 0, sizeof(m_header));

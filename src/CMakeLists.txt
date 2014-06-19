@@ -1,5 +1,6 @@
 cmake_policy(SET CMP0022 OLD)
 
+set(CMAKE_CXX_FLAGS "-g -O0 -Wall -fPIC -std=c++11")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall -fPIC -std=c++11")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -fPIC -std=c++11")
 

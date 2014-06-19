@@ -30,7 +30,7 @@ enum cdpi_stream_event {
     STREAM_RST,
 };
 
-struct appif_header {
+struct cdpi_appif_header {
     union {
         uint32_t b32; // big endian
         uint8_t  b128[16];
@@ -49,7 +49,8 @@ struct appif_header {
     uint16_t len;
     uint8_t  hop;
     uint8_t  l3_proto;
-    uint16_t reserved;
+    uint8_t  match; // 0: matched up's regex, 1: matched down's regex
+    uint8_t  reserved;
 };
 
 class cdpi_appif {
@@ -99,9 +100,9 @@ private:
     typedef boost::shared_ptr<ifrule>        ptr_ifrule;
 
     enum match_dir {
-        MATCH_UP,
-        MATCH_DOWN,
-        MATCH_NONE,
+        MATCH_UP   = 0,
+        MATCH_DOWN = 1,
+        MATCH_NONE = 3,
     };
 
     struct stream_info {
@@ -111,9 +112,9 @@ private:
         bool       m_is_created;         // sent created event?
         bool       m_is_buf1, m_is_buf2; // recv data?
         std::deque<cdpi_bytes> m_buf1, m_buf2;
-        match_dir  m_buf1_dir, m_buf2_dir;
+        match_dir  m_match_dir[2];
         bool       m_is_giveup;
-        appif_header m_header;
+        cdpi_appif_header m_header;
 
         stream_info(const cdpi_id &id);
     };
