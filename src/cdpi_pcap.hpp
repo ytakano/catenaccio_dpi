@@ -21,12 +21,6 @@ public:
 
     void set_dev(std::string dev);
 
-/*
-    void set_event_listener(ptr_cdpi_event_listener listener) {
-        m_callback.set_event_listener(listener);
-    }
-*/
-
     void callback(const struct pcap_pkthdr *h, const uint8_t *bytes);
 
     void run();

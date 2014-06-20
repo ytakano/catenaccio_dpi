@@ -194,6 +194,8 @@ cdpi_appif::ux_listen()
                 exit(-1);
             }
 
+             cout << "listening on " << path << " (" << (*it)->m_name << ")" << endl;
+
              event *ev = event_new(m_ev_base, sock, EV_READ | EV_PERSIST,
                                    ux_accept, this);
              event_add(ev, NULL);
@@ -229,9 +231,14 @@ cdpi_appif::read_conf(string conf)
             ptr_ifrule rule = ptr_ifrule(new ifrule);
 
             rule->m_name = it1->first;
-            rule->m_ux   = ptr_path(new fs::path(it1->first));
+            auto it3 = it1->second.find("if");
+            if (it3 == it1->second.end()) {
+                rule->m_ux = ptr_path(new fs::path(it1->first));
+            } else {
+                rule->m_ux = ptr_path(new fs::path(it3->second));
+            }
 
-            auto it3 = it1->second.find("up");
+            it3 = it1->second.find("up");
             if (it3 != it1->second.end()) {
                 rule->m_up = ptr_regex(new boost::regex(it3->second));
             }
@@ -423,15 +430,21 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
                 if ((*it2)->m_proto != IF_TCP)
                     continue;
 
-                bool is_port = false;
-                for (auto it3 = (*it2)->m_port.begin();
-                     it3 != (*it2)->m_port.end(); ++it3) {
+                bool is_port;
 
-                    if ((it3->first <= ntohs(id_dir.get_port_src()) &&
-                         ntohs(id_dir.get_port_src()) <= it3->second) ||
-                        (it3->first <= ntohs(id_dir.get_port_dst()) &&
-                         ntohs(id_dir.get_port_dst()) <= it3->second)) {
-                        is_port = true;
+                if ((*it2)->m_port.empty()) {
+                    is_port = true;
+                } else {
+                    is_port = false;
+                    for (auto it3 = (*it2)->m_port.begin();
+                         it3 != (*it2)->m_port.end(); ++it3) {
+
+                        if ((it3->first <= ntohs(id_dir.get_port_src()) &&
+                             ntohs(id_dir.get_port_src()) <= it3->second) ||
+                            (it3->first <= ntohs(id_dir.get_port_dst()) &&
+                             ntohs(id_dir.get_port_dst()) <= it3->second)) {
+                            is_port = true;
+                        }
                     }
                 }
 
@@ -664,6 +677,24 @@ cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
             match = MATCH_UP;
         }
 
+        cdpi_appif_header header;
+
+        memset(&header, 0, sizeof(header));
+
+        memcpy(&header.l3_addr1, &id_dir.m_id.m_addr1->l3_addr,
+               sizeof(header.l3_addr1));
+        memcpy(&header.l3_addr2, &id_dir.m_id.m_addr2->l3_addr,
+               sizeof(header.l3_addr2));
+
+        header.l4_port1 = id_dir.m_id.m_addr1->l4_port;
+        header.l4_port2 = id_dir.m_id.m_addr2->l4_port;
+        header.event    = STREAM_DATA;
+        header.from     = id_dir.m_dir;
+        header.hop      = id_dir.m_id.m_hop;
+        header.l3_proto = id_dir.m_id.get_l3_proto();
+        header.len      = bytes.get_len();
+        header.match    = match;
+
         {
             boost::mutex::scoped_lock lock(m_mutex);
 
@@ -672,25 +703,6 @@ cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
             if (it3 != m_name2uxpeer.end()) {
                 for (auto it4 = it3->second.begin();
                      it4 != it3->second.end(); ++it4) {
-
-                    cdpi_appif_header header;
-
-                    memset(&header, 0, sizeof(header));
-
-                    memcpy(&header.l3_addr1, &id_dir.m_id.m_addr1->l3_addr,
-                           sizeof(header.l3_addr1));
-                    memcpy(&header.l3_addr2, &id_dir.m_id.m_addr2->l3_addr,
-                           sizeof(header.l3_addr2));
-
-                    header.l4_port1 = id_dir.m_id.m_addr1->l4_port;
-                    header.l4_port2 = id_dir.m_id.m_addr2->l4_port;
-                    header.event    = STREAM_DATA;
-                    header.from     = id_dir.m_dir;
-                    header.hop      = id_dir.m_id.m_hop;
-                    header.l3_proto = id_dir.m_id.get_l3_proto();
-                    header.len      = bytes.get_len();
-                    header.match    = match;
-
                     write_head(*it4, id_dir, (*it)->m_format, STREAM_DATA,
                                match, bytes.get_len(), &header);
 
