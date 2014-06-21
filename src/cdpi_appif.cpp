@@ -38,7 +38,8 @@ cdpi_appif::~cdpi_appif()
 void
 cdpi_appif::run()
 {
-    boost::mutex::scoped_lock lock(m_mutex);
+    boost::upgrade_lock<boost::shared_mutex> up_lock(m_rw_mutex);
+    boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
 
     assert(! m_thread_listen);
 
@@ -51,7 +52,8 @@ ux_accept(int fd, short events, void *arg)
     int sock = accept(fd, NULL, NULL);
     cdpi_appif *appif = static_cast<cdpi_appif*>(arg);
 
-    boost::mutex::scoped_lock lock(appif->m_mutex);
+    boost::upgrade_lock<boost::shared_mutex> up_lock(appif->m_rw_mutex);
+    boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
 
     auto it = appif->m_fd2ifrule.find(fd);
     if (it == appif->m_fd2ifrule.end()) {
@@ -75,7 +77,7 @@ void
 ux_read(int fd, short events, void *arg)
 {
     cdpi_appif *appif = static_cast<cdpi_appif*>(arg);
-    boost::mutex::scoped_lock lock(appif->m_mutex);
+    boost::upgrade_lock<boost::shared_mutex> up_lock(appif->m_rw_mutex);
 
     char buf[4096];
     int  recv_size = read(fd, buf, sizeof(buf) - 1);
@@ -90,6 +92,8 @@ ux_read(int fd, short events, void *arg)
         }
         return;
     } else if (recv_size <= 0) {
+        boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+
         auto it1 = appif->m_fd2uxpeer.find(fd);
         if (it1 != appif->m_fd2uxpeer.end()) {
             auto it2 = appif->m_name2uxpeer.find(it1->second->m_name);
@@ -152,7 +156,8 @@ cdpi_appif::ux_listen()
 */
 
     {
-        boost::mutex::scoped_lock lock(m_mutex);
+        boost::upgrade_lock<boost::shared_mutex> up_lock(m_rw_mutex);
+        boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
 
         makedir(*m_home);
         makedir(*m_home / fs::path("tcp"));
@@ -254,7 +259,11 @@ cdpi_appif::read_conf(string conf)
                     rule->m_proto = IF_TCP;
                 } else if (it3->second == "UDP") {
                     rule->m_proto = IF_UDP;
+                } else {
+                    // error
                 }
+            } else {
+                // error
             }
 
             it3 = it1->second.find("format");
@@ -263,6 +272,8 @@ cdpi_appif::read_conf(string conf)
                     rule->m_format = IF_BINARY;
                 } else if (it3->second == "text") {
                     rule->m_format = IF_TEXT;
+                } else {
+                    // error
                 }
             }
 
@@ -390,7 +401,7 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
 
         if (it->second->m_ifrule) {
             // invoke DESTROYED event
-            boost::mutex::scoped_lock lock(m_mutex);
+            boost::shared_lock<boost::shared_mutex> rlock(m_rw_mutex);
 
             auto it2 = m_name2uxpeer.find(it->second->m_ifrule->m_name);
 
@@ -424,6 +435,8 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
     if (! p_info->m_ifrule) {
         // classify
         if (p_info->m_is_buf1 && p_info->m_is_buf2) {
+            boost::upgrade_lock<boost::shared_mutex> up_lock(m_rw_mutex);
+
             for (auto it2 = m_ifrule.begin(); it2 != m_ifrule.end();
                  ++it2) {
 
@@ -455,12 +468,10 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
                     char buf1[4096], buf2[4096];
                     int  len1, len2;
 
-                    len1 = read_bytes(p_info->m_buf1, buf1,
-                                      sizeof(buf1));
+                    len1 = read_bytes(p_info->m_buf1, buf1, sizeof(buf1));
                     string s1(buf1, len1);
 
-                    len2 = read_bytes(p_info->m_buf2,
-                                      buf2, sizeof(buf2));
+                    len2 = read_bytes(p_info->m_buf2, buf2, sizeof(buf2));
                     string s2(buf2, len2);
 
                     if (boost::regex_match(s1, *(*it2)->m_up) &&
@@ -480,20 +491,25 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
                 p_info->m_ifrule = *it2;
 
                 // invoke CREATED event
-                {
-                    boost::mutex::scoped_lock lock(m_mutex);
+                auto it4 = m_name2uxpeer.find((*it2)->m_name);
 
-                    auto it4 = m_name2uxpeer.find((*it2)->m_name);
-
-                    if (it4 != m_name2uxpeer.end()) {
-                        for (auto it5 = it4->second.begin();
-                             it5 != it4->second.end(); ++it5) {
-                            write_head(*it5, id_dir, p_info->m_ifrule->m_format,
-                                       STREAM_CREATED, MATCH_NONE, 0,
-                                       &p_info->m_header);
-                        }
+                if (it4 != m_name2uxpeer.end()) {
+                    for (auto it5 = it4->second.begin();
+                         it5 != it4->second.end(); ++it5) {
+                        write_head(*it5, id_dir,
+                                   p_info->m_ifrule->m_format,
+                                   STREAM_CREATED, MATCH_NONE, 0,
+                                   &p_info->m_header);
                     }
                 }
+
+                // update list
+                boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+
+                ptr_ifrule rule = *it2;
+                m_ifrule.erase(it2);
+                m_ifrule.push_front(rule);
+
                 break;
             }
         } else {
@@ -514,7 +530,7 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
         }
 
         while (! bufs->empty()) {
-            boost::mutex::scoped_lock lock(m_mutex);
+            boost::shared_lock<boost::shared_mutex> rlock(m_rw_mutex);
 
             auto front = bufs->front();
             auto it2 = m_name2uxpeer.find(p_info->m_ifrule->m_name);
@@ -647,6 +663,8 @@ cdpi_appif::stream_info::stream_info(const cdpi_id &id) :
 void
 cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
 {
+    boost::upgrade_lock<boost::shared_mutex> up_lock(m_rw_mutex);
+
     for (auto it = m_ifrule.begin(); it != m_ifrule.end(); ++it) {
         if ((*it)->m_proto != IF_UDP)
             continue;
@@ -695,20 +713,24 @@ cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
         header.len      = bytes.get_len();
         header.match    = match;
 
-        {
-            boost::mutex::scoped_lock lock(m_mutex);
+        auto it3 = m_name2uxpeer.find((*it)->m_name);
 
-            auto it3 = m_name2uxpeer.find((*it)->m_name);
+        if (it3 != m_name2uxpeer.end()) {
+            for (auto it4 = it3->second.begin();
+                 it4 != it3->second.end(); ++it4) {
+                write_head(*it4, id_dir, (*it)->m_format, STREAM_DATA,
+                           match, bytes.get_len(), &header);
 
-            if (it3 != m_name2uxpeer.end()) {
-                for (auto it4 = it3->second.begin();
-                     it4 != it3->second.end(); ++it4) {
-                    write_head(*it4, id_dir, (*it)->m_format, STREAM_DATA,
-                               match, bytes.get_len(), &header);
-
-                    write(*it4, bytes.get_head(), bytes.get_len());
-                }
+                write(*it4, bytes.get_head(), bytes.get_len());
             }
         }
+
+        boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+
+        ptr_ifrule rule = *it;
+        m_ifrule.erase(it);
+        m_ifrule.push_front(rule);
+
+        return;
     }
 }

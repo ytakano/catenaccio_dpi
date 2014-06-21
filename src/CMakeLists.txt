@@ -5,7 +5,6 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall -fPIC -std=c++11")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -fPIC -std=c++11")
 
 option(USE_DIVERT "Use Divert" 0)
-option(USE_PROF "Use Google Profiler" 0)
 option(COMPILE_STATIC_LIB "Compile Static Library" 0)
 
 FILE(GLOB CPPSources *.cpp)
@@ -22,10 +21,6 @@ add_library(cdpi SHARED ${CPPSources})
 add_executable(cattenacio_dpi ${CPPMain})
 
 set(LIBS cdpi event event_pthreads ${Boost_THREAD_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_REGEX_LIBRARY} ${Boost_IOSTREAMS_LIBRARY} ${Boost_FILESYSTEM_LIBRARY} pcap crypto pthread ssl)
-
-IF(USE_PROF)
-  set(LIBS ${LIBS} profiler)
-ENDIF(USE_PROF)
 
 target_link_libraries(cattenacio_dpi ${LIBS})
 target_link_libraries(cdpi ${LIBS})

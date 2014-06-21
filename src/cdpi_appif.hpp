@@ -133,14 +133,14 @@ private:
     int m_fd7;
     int m_fd3;
 
-    boost::mutex     m_mutex;
-    boost::condition m_condition;
-    ptr_thread       m_thread_listen;
-    ptr_thread       m_thread_send;
+    boost::shared_mutex m_rw_mutex;
+    //boost::mutex        m_mutex;
+    boost::condition    m_condition;
+    ptr_thread          m_thread_listen;
+    ptr_thread          m_thread_send;
 
-    event_base      *m_ev_base;
-
-    ptr_path m_home;
+    event_base *m_ev_base;
+    ptr_path    m_home;
 
     void makedir(boost::filesystem::path path);
     void send_data(ptr_info p_info, cdpi_id_dir id_dir);

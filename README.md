@@ -29,11 +29,6 @@ If you want to enable divert socket for packet capture, set a option of USE_DIVE
     $ cmake -DUSE_DIVERT=1 -DCMAKE_BUILD_TYPE=Release CMakeLists.txt
     $ make
 
-If you want to build with mongoDB, set a option of USE_MONGO=1.
-
-    $ cmake -DUSE_MONGO=1 -DCMAKE_BUILD_TYPE=Release CMakeLists.txt
-    $ make
-
 If you want to build static library, set a option of COMPILE_STATIC_LIB=1.
 
     $ cmake -DCOMPILE_STATIC_LIB=1 CMakeLists.txt
