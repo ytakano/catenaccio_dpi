@@ -68,9 +68,10 @@ private:
         ifproto     m_proto;
         ifformat    m_format;
         ptr_path    m_ux;
+        bool        m_is_body;
         std::list<std::pair<uint16_t, uint16_t> > m_port;
 
-        ifrule() : m_proto(IF_OTHER), m_format(IF_BINARY) { }
+        ifrule() : m_proto(IF_OTHER), m_format(IF_BINARY), m_is_body(true) { }
     };
 
     struct uxpeer {
@@ -84,7 +85,7 @@ private:
     enum match_dir {
         MATCH_UP   = 0,
         MATCH_DOWN = 1,
-        MATCH_NONE = 3,
+        MATCH_NONE = 2,
     };
 
     struct loopback_state {

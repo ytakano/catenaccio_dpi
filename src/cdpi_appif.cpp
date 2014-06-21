@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+
+#include <arpa/inet.h>
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -162,6 +165,7 @@ read_loopback7(int fd, cdpi_appif *appif)
 
     if (it->second->is_header) {
         if (appif->m_lb7_format == cdpi_appif::IF_BINARY) {
+            // read binary header
             ssize_t len = read(fd, header, sizeof(*header));
 
             if (len <= 0) {
@@ -174,21 +178,117 @@ read_loopback7(int fd, cdpi_appif *appif)
             }
 
             header->hop++;
+        } else {
+            // read text header
+            map<string, string> h;
+            string s;
 
-            id_dir.m_id.set_appif_header(*header);
+            for (;;) {
+                char c;
+                ssize_t len = read(fd, &c, 1);
 
-            if (header->from == 0) {
-                id_dir.m_dir = FROM_ADDR1;
-            } else if (header->from == 1) {
-                id_dir.m_dir = FROM_ADDR2;
-            } else {
-                id_dir.m_dir = FROM_NONE;
+                if (len <= 0) {
+                    // must close fd
+                    return true;
+                }
+
+                if (c == '\n')
+                    break;
+
+                s += c;
             }
 
-            it->second->id_dir = id_dir;
-        } else {
-            // TODO: read text format header
+            stringstream ss1(s);
+            while (ss1) {
+                string elm;
+                std::getline(ss1, elm, ',');
+
+                stringstream ss2(elm);
+                string key, val;
+                std::getline(ss2, key, '=');
+                std::getline(ss2, val);
+
+                h[key] = val;
+            }
+
+            uint8_t l3_proto, l4_proto;
+
+            if (h["l3"] == "ipv4") {
+                l3_proto = IPPROTO_IP;
+            } else if (h["l3"] == "ipv6") {
+                l3_proto = IPPROTO_IPV6;
+            } else {
+                return false;
+            }
+
+            if (h["l4"] == "tcp") {
+                l4_proto = IPPROTO_TCP;
+            } else if (h["l4"] == "udp") {
+                l4_proto = IPPROTO_UDP;
+            } else {
+                return false;
+            }
+
+            if (inet_pton(l3_proto, h["ip1"].c_str(), &header->l3_addr1) <= 0) {
+                cerr << "CAUTION! LOOPBACK 7 RECEIVED INVALID HEADER!: header = "
+                     << s << endl;
+                return false;
+            }
+
+            if (inet_pton(l3_proto, h["ip2"].c_str(), &header->l3_addr2) <= 0) {
+                cerr << "CAUTION! LOOPBACK 7 RECEIVED INVALID HEADER!: header = "
+                     << s << endl;
+                return false;
+            }
+
+            try {
+                header->l4_port1 = boost::lexical_cast<int>(h["port1"]);
+                header->l4_port2 = boost::lexical_cast<int>(h["port2"]);
+                header->hop      = boost::lexical_cast<int>(h["hop"]);
+
+                auto it_len = h.find("len");
+                if (it_len != h.end()) {
+                    header->len = boost::lexical_cast<int>(it->second);
+                }
+            } catch (boost::bad_lexical_cast e) {
+                cerr << "CAUTION! LOOPBACK 7 RECEIVED INVALID HEADER!: header = "
+                     << s << endl;
+                return false;
+            }
+
+            header->hop++;
+
+            if (h["event"] == "CREATED") {
+                header->event = STREAM_CREATED;
+            } else if (h["event"] == "DESTROYED") {
+                header->event = STREAM_DESTROYED;
+            } else if (h["event"] == "DATA") {
+                header->event = STREAM_DATA;
+            }
+
+            if (h["from"] == "0") {
+                header->from = FROM_ADDR1;
+            } else if (h["from"] == "1") {
+                header->from = FROM_ADDR2;
+            } else {
+                header->from = FROM_NONE;
+            }
         }
+
+        header->match = cdpi_appif::MATCH_NONE;
+
+        id_dir.m_id.set_appif_header(*header);
+
+        if (header->from == 0) {
+            id_dir.m_dir = FROM_ADDR1;
+        } else if (header->from == 1) {
+            id_dir.m_dir = FROM_ADDR2;
+        } else {
+            id_dir.m_dir = FROM_NONE;
+        }
+
+        it->second->id_dir = id_dir;
+
 
         if (header->event == STREAM_DATA) {
             it->second->is_header = true;
@@ -395,6 +495,17 @@ cdpi_appif::read_conf(string conf)
                     rule->m_format = IF_BINARY;
                 } else if (it3->second == "text") {
                     rule->m_format = IF_TEXT;
+                } else {
+                    // error
+                }
+            }
+
+            it3 = it1->second.find("body");
+            if (it3 != it1->second.end()) {
+                if (it3->second == "yes") {
+                    rule->m_is_body = true;
+                } else if (it3->second == "no") {
+                    rule->m_is_body = false;
                 } else {
                     // error
                 }
@@ -720,7 +831,8 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
                                &p_info->m_header);
 
                     // write data
-                    write(*it3, front.get_head(), front.get_len());
+                    if (p_info->m_ifrule->m_is_body)
+                        write(*it3, front.get_head(), front.get_len());
                 }
             }
 
@@ -906,7 +1018,8 @@ cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
                 write_head(*it4, id_dir, (*it)->m_format, STREAM_DATA,
                            match, bytes.get_len(), &header);
 
-                write(*it4, bytes.get_head(), bytes.get_len());
+                if ((*it)->m_is_body)
+                    write(*it4, bytes.get_head(), bytes.get_len());
             }
         }
 

@@ -12,6 +12,8 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 
+#include <boost/lexical_cast.hpp>
+
 using namespace boost;
 using namespace std;
 
@@ -177,6 +179,9 @@ cdpi_id::set_appif_header(cdpi_appif_header &header)
     m_l3_proto = header.l3_proto;
 
     m_hop = header.hop;
+
+    m_addr1 = addr1;
+    m_addr2 = addr2;
 }
 
 

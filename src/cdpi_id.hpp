@@ -33,7 +33,7 @@ struct cdpi_appif_header {
     uint8_t  hop;
     uint8_t  l3_proto; // IPPROTO_IP or IPPROTO_IPV6
     uint8_t  l4_proto; // IPPROTO_TCP or IPPROTO_UDP
-    uint8_t  match; // 0: matched up's regex, 1: matched down's regex
+    uint8_t  match; // 0: matched up's regex, 1: matched down's regex, 2: none
 };
 
 typedef boost::shared_ptr<cdpi_appif_header> ptr_appif_header;
