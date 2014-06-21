@@ -162,6 +162,25 @@ cdpi_id::set_iph(char *iph, int protocol, char **l4hdr)
 }
 
 void
+cdpi_id::set_appif_header(cdpi_appif_header &header)
+{
+    boost::shared_ptr<cdpi_peer> addr1(new cdpi_peer);
+    boost::shared_ptr<cdpi_peer> addr2(new cdpi_peer);
+
+    memcpy(&addr1->l3_addr, &header.l3_addr1, sizeof(addr1->l3_addr));
+    memcpy(&addr2->l3_addr, &header.l3_addr2, sizeof(addr2->l3_addr));
+
+    addr1->l4_port = header.l4_port1;
+    addr2->l4_port = header.l4_port2;
+
+    m_l4_proto = header.l4_proto;
+    m_l3_proto = header.l3_proto;
+
+    m_hop = header.hop;
+}
+
+
+void
 cdpi_id::print_id() const
 {
     char addr1[INET6_ADDRSTRLEN], addr2[INET6_ADDRSTRLEN];

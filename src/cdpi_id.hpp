@@ -12,6 +12,32 @@
 
 #include <boost/shared_ptr.hpp>
 
+
+struct cdpi_appif_header {
+    union {
+        uint32_t b32; // big endian
+        uint8_t  b128[16];
+    } l3_addr1;
+
+    union {
+        uint32_t b32; // big endian
+        uint8_t  b128[16];
+    } l3_addr2;
+
+    uint16_t l4_port1; // big endian
+    uint16_t l4_port2; // big endian
+
+    uint8_t  event; // 0: created, 1: destroyed, 2: data
+    uint8_t  from;  // 0: from addr1, 1: from addr2
+    uint16_t len;
+    uint8_t  hop;
+    uint8_t  l3_proto; // IPPROTO_IP or IPPROTO_IPV6
+    uint8_t  l4_proto; // IPPROTO_TCP or IPPROTO_UDP
+    uint8_t  match; // 0: matched up's regex, 1: matched down's regex
+};
+
+typedef boost::shared_ptr<cdpi_appif_header> ptr_appif_header;
+
 struct cdpi_peer {
     union {
         uint32_t b32; // big endian
@@ -54,24 +80,29 @@ public:
     virtual ~cdpi_id(){ };
 
     cdpi_direction set_iph(char *iph, int protocol, char **l4hdr);
+    void set_appif_header(cdpi_appif_header &header);
     void print_id() const;
 
     bool operator< (const cdpi_id &rhs) const {
-        if (m_l3_proto == rhs.m_l3_proto) {
-            if (m_l4_proto == rhs.m_l4_proto) {
-                int n = memcmp(m_addr1.get(), rhs.m_addr1.get(),
-                               sizeof(cdpi_peer));
+        if (m_hop == rhs.m_hop) {
+            if (m_l3_proto == rhs.m_l3_proto) {
+                if (m_l4_proto == rhs.m_l4_proto) {
+                    int n = memcmp(m_addr1.get(), rhs.m_addr1.get(),
+                                   sizeof(cdpi_peer));
 
-                if (n == 0)
-                    return *m_addr2 < *rhs.m_addr2;
+                    if (n == 0)
+                        return *m_addr2 < *rhs.m_addr2;
 
-                return n < 0 ? true : false;
+                    return n < 0 ? true : false;
+                }
+
+                return m_l4_proto < rhs.m_l4_proto;
             }
 
-            return m_l4_proto < rhs.m_l4_proto;
+            return m_l3_proto < rhs.m_l3_proto;
         }
 
-        return m_l3_proto < rhs.m_l3_proto;
+        return m_hop < rhs.m_hop;
     }
 
     bool operator> (const cdpi_id &rhs) const {
@@ -79,10 +110,11 @@ public:
     }
 
     bool operator== (const cdpi_id &rhs) const {
-        return (m_l3_proto == rhs.m_l3_proto &&
+        return (m_hop      == rhs.m_hop &&
+                m_l3_proto == rhs.m_l3_proto &&
                 m_l4_proto == rhs.m_l4_proto &&
-                *m_addr1 == *rhs.m_addr1 &&
-                *m_addr2 == *rhs.m_addr2);
+                *m_addr1   == *rhs.m_addr1 &&
+                *m_addr2   == *rhs.m_addr2);
     }
 
     std::string to_str() const {

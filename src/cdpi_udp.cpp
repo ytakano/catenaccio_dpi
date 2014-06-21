@@ -52,7 +52,7 @@ cdpi_udp::run()
 
             packet.m_bytes.skip(sizeof(udphdr));
 
-            m_appif->in_datagram(packet.m_id_dir, packet.m_bytes);
+            m_appif->in_event(STREAM_DATA, packet.m_id_dir, packet.m_bytes);
         }
     }
 }

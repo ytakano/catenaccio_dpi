@@ -8,6 +8,7 @@
 #include <sys/time.h>
 
 #include <map>
+#include <set>
 #include <string>
 #include <deque>
 
@@ -30,28 +31,7 @@ enum cdpi_stream_event {
     STREAM_RST,
 };
 
-struct cdpi_appif_header {
-    union {
-        uint32_t b32; // big endian
-        uint8_t  b128[16];
-    } l3_addr1;
-
-    union {
-        uint32_t b32; // big endian
-        uint8_t  b128[16];
-    } l3_addr2;
-
-    uint16_t l4_port1; // big endian
-    uint16_t l4_port2; // big endian
-
-    uint8_t  event; // 0: created, 1: destroyed, 2: data
-    uint8_t  from;  // 0: from addr1, 1: from addr2
-    uint16_t len;
-    uint8_t  hop;
-    uint8_t  l3_proto;
-    uint8_t  match; // 0: matched up's regex, 1: matched down's regex
-    uint8_t  reserved;
-};
+static const int DATAGRAM_DATA = STREAM_DATA; // SYNONYM
 
 class cdpi_appif {
 public:
@@ -59,11 +39,12 @@ public:
     virtual ~cdpi_appif();
 
     void read_conf(std::string conf);
-    void ux_listen();
     void run();
+    void ux_listen();
+    void consume_event();
 
-    void in_stream_event(cdpi_stream_event st_event,
-                         const cdpi_id_dir &id_dir, cdpi_bytes bytes);
+    void in_event(cdpi_stream_event st_event,
+                  const cdpi_id_dir &id_dir, cdpi_bytes bytes);
     void in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes);
 
 private:
@@ -106,6 +87,16 @@ private:
         MATCH_NONE = 3,
     };
 
+    struct loopback_state {
+        bool is_header;
+        cdpi_appif_header header;
+        cdpi_id_dir id_dir;
+        std::set<cdpi_id> streams;
+
+        loopback_state() : is_header(true) {
+        }
+    };
+
     struct stream_info {
         ptr_ifrule m_ifrule;
         timeval    m_create_time;
@@ -120,9 +111,22 @@ private:
         stream_info(const cdpi_id &id);
     };
 
-    typedef boost::shared_ptr<uxpeer>        ptr_uxpeer;
-    typedef boost::shared_ptr<boost::thread> ptr_thread;
-    typedef boost::shared_ptr<stream_info>   ptr_info;
+    typedef boost::shared_ptr<uxpeer>         ptr_uxpeer;
+    typedef boost::shared_ptr<boost::thread>  ptr_thread;
+    typedef boost::shared_ptr<loopback_state> ptr_loopback_state;
+    typedef boost::shared_ptr<stream_info>    ptr_info;
+
+    struct appif_event {
+        cdpi_stream_event st_event;
+        cdpi_id_dir       id_dir;
+        cdpi_bytes        bytes;
+    };
+
+    int m_fd7;
+    int m_fd3;
+
+    std::map<int, ptr_loopback_state> m_lb7_state;
+    ifformat m_lb7_format;
 
     std::map<cdpi_id, ptr_info> m_info;
 
@@ -130,26 +134,31 @@ private:
     std::map<int, ptr_ifrule> m_fd2ifrule; // listen socket
     std::map<int, ptr_uxpeer> m_fd2uxpeer; // accepted socket
     std::map<std::string, std::set<int> > m_name2uxpeer;
-    int m_fd7;
-    int m_fd3;
+
+    std::deque<appif_event> m_ev_queue;
 
     boost::shared_mutex m_rw_mutex;
-    //boost::mutex        m_mutex;
+    boost::mutex        m_mutex;
     boost::condition    m_condition;
+
+    ptr_thread          m_thread_stream;
     ptr_thread          m_thread_listen;
-    ptr_thread          m_thread_send;
 
     event_base *m_ev_base;
     ptr_path    m_home;
 
+    void in_stream_event(cdpi_stream_event st_event,
+                         const cdpi_id_dir &id_dir, cdpi_bytes bytes);
     void makedir(boost::filesystem::path path);
-    void send_data(ptr_info p_info, cdpi_id_dir id_dir);
+    bool send_data(ptr_info p_info, cdpi_id_dir id_dir);
     void write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
                     cdpi_stream_event event, match_dir match, int bodylen,
                     cdpi_appif_header *header = NULL);
 
     friend void ux_accept(int fd, short events, void *arg);
     friend void ux_read(int fd, short events, void *arg);
+    friend void ux_close(int fd, cdpi_appif *appif);
+    friend bool read_loopback7(int fd, cdpi_appif *appif);
 };
 
 typedef boost::shared_ptr<cdpi_appif> ptr_cdpi_appif;

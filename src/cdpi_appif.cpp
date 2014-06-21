@@ -23,8 +23,10 @@ using namespace std;
 namespace fs = boost::filesystem;
 
 void ux_read(int fd, short events, void *arg);
+bool read_loopback7(int fd, cdpi_appif *appif);
 
 cdpi_appif::cdpi_appif() : m_fd7(-1), m_fd3(-1),
+                           m_lb7_format(IF_BINARY),
                            m_home(new fs::path(fs::current_path()))
 {
 
@@ -44,6 +46,7 @@ cdpi_appif::run()
     assert(! m_thread_listen);
 
     m_thread_listen = ptr_thread(new boost::thread(boost::bind(&cdpi_appif::ux_listen, this)));
+    m_thread_stream = ptr_thread(new boost::thread(boost::bind(&cdpi_appif::consume_event, this)));
 }
 
 void
@@ -71,6 +74,50 @@ ux_accept(int fd, short events, void *arg)
 
     appif->m_fd2uxpeer[sock] = peer;
     appif->m_name2uxpeer[it->second->m_name].insert(sock);
+
+    if (fd == appif->m_fd7) {
+        appif->m_lb7_state[sock] = cdpi_appif::ptr_loopback_state(new cdpi_appif::loopback_state);
+    }
+}
+
+void
+ux_close(int fd, cdpi_appif *appif)
+{
+    auto it1 = appif->m_fd2uxpeer.find(fd);
+    if (it1 != appif->m_fd2uxpeer.end()) {
+        auto it2 = appif->m_name2uxpeer.find(it1->second->m_name);
+        if (it2 != appif->m_name2uxpeer.end()) {
+            it2->second.erase(fd);
+
+            if (it2->second.size() == 0) {
+                appif->m_name2uxpeer.erase(it2);
+            }
+        }
+
+        event_del(it1->second->m_ev);
+        event_free(it1->second->m_ev);
+
+        appif->m_fd2uxpeer.erase(it1);
+    }
+
+    shutdown(fd, SHUT_RDWR);
+    close(fd);
+
+    auto it3 = appif->m_lb7_state.find(fd);
+    if (it3 != appif->m_lb7_state.end()) {
+        cdpi_id_dir id_dir;
+        cdpi_bytes  bytes;
+
+        for (auto it4 = it3->second->streams.begin();
+             it4 != it3->second->streams.end(); ++it4) {
+            id_dir.m_id  = *it4;
+            id_dir.m_dir = FROM_NONE;
+
+            appif->in_event(STREAM_DESTROYED, id_dir, bytes);
+        }
+
+        appif->m_lb7_state.erase(it3);
+    }
 }
 
 void
@@ -79,40 +126,116 @@ ux_read(int fd, short events, void *arg)
     cdpi_appif *appif = static_cast<cdpi_appif*>(arg);
     boost::upgrade_lock<boost::shared_mutex> up_lock(appif->m_rw_mutex);
 
-    char buf[4096];
-    int  recv_size = read(fd, buf, sizeof(buf) - 1);
-
-    if (recv_size > 0) {
-        auto it1 = appif->m_fd2uxpeer.find(fd);
-        if (it1 != appif->m_fd2uxpeer.end()) {
-            // TODO: loopback
-            if (it1->second->m_name == "loopback7") {
-            } else if (it1->second->m_name == "loopback3") {
+    auto it1 = appif->m_fd2uxpeer.find(fd);
+    if (it1 != appif->m_fd2uxpeer.end()) {
+        // read from loopback interface
+        if (it1->second->m_name == "loopback7") {
+            if (read_loopback7(fd, appif)) {
+                boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+                ux_close(fd, appif);
             }
+            return;
+        } else if (it1->second->m_name == "loopback3") {
+            // TODO: for layer 3 loopback
         }
-        return;
-    } else if (recv_size <= 0) {
-        boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+    } else {
+        char buf[4096];
+        int  recv_size = read(fd, buf, sizeof(buf) - 1);
 
-        auto it1 = appif->m_fd2uxpeer.find(fd);
-        if (it1 != appif->m_fd2uxpeer.end()) {
-            auto it2 = appif->m_name2uxpeer.find(it1->second->m_name);
-            if (it2 != appif->m_name2uxpeer.end()) {
-                it2->second.erase(fd);
+        if (recv_size <= 0) {
+            boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+            ux_close(fd, appif);
+        }
+    }
+}
 
-                if (it2->second.size() == 0) {
-                    appif->m_name2uxpeer.erase(it2);
-                }
+bool
+read_loopback7(int fd, cdpi_appif *appif)
+{
+    cdpi_appif_header *header;
+    cdpi_id_dir        id_dir;
+
+    auto it = appif->m_lb7_state.find(fd);
+    assert(it != appif->m_lb7_state.end());
+
+    header = &it->second->header;
+
+    if (it->second->is_header) {
+        if (appif->m_lb7_format == cdpi_appif::IF_BINARY) {
+            ssize_t len = read(fd, header, sizeof(*header));
+
+            if (len <= 0) {
+                // must close fd
+                return true;
+            } else if (len != sizeof(*header)) {
+                cerr << "CAUTION! LOOPBACK 7 RECEIVED INVALID HEADER!: socket = "
+                     << fd << endl;
+                return false;
             }
 
-            event_del(it1->second->m_ev);
-            event_free(it1->second->m_ev);
+            header->hop++;
 
-            appif->m_fd2uxpeer.erase(it1);
+            id_dir.m_id.set_appif_header(*header);
+
+            if (header->from == 0) {
+                id_dir.m_dir = FROM_ADDR1;
+            } else if (header->from == 1) {
+                id_dir.m_dir = FROM_ADDR2;
+            } else {
+                id_dir.m_dir = FROM_NONE;
+            }
+
+            it->second->id_dir = id_dir;
+        } else {
+            // TODO: read text format header
         }
 
-        shutdown(fd, SHUT_RDWR);
-        close(fd);
+        if (header->event == STREAM_DATA) {
+            it->second->is_header = true;
+            return false;
+        } else if (header->event == STREAM_CREATED) {
+            cdpi_bytes bytes;
+
+            // invoke CREATED event
+            appif->in_event(STREAM_CREATED, id_dir, bytes);
+
+            it->second->streams.insert(id_dir.m_id);
+
+            return false;
+        } else if (header->event == STREAM_DESTROYED) {
+            cdpi_bytes bytes;
+
+            // invoke DESTROYED event
+            appif->in_event(STREAM_DESTROYED, id_dir, bytes);
+
+            it->second->streams.erase(id_dir.m_id);
+
+            return false;
+        } else {
+            cerr << "CAUTION! LOOPBACK 7 RECEIVED INVALID EVENT!: event = "
+                 << header->event << endl;
+            return false;
+        }
+    } else {
+        cdpi_bytes bytes;
+
+        bytes.alloc(header->len);
+
+        ssize_t len = read(fd, bytes.get_head(), header->len);
+
+        if (len <= 0) {
+            // must close fd
+            return true;
+        } else if (len != header->len) {
+            cerr << "CAUTION! LOOPBACK 7 RECEIVED INVALID BODY LENGTH!: len = "
+                 << header->len << endl;
+            return false;
+        }
+
+        // invoke DATA event
+        appif->in_event(STREAM_DATA, it->second->id_dir, bytes);
+
+        return false;
     }
 }
 
@@ -329,11 +452,52 @@ cdpi_appif::read_conf(string conf)
 }
 
 void
+cdpi_appif::in_event(cdpi_stream_event st_event,
+                     const cdpi_id_dir &id_dir, cdpi_bytes bytes)
+{
+    appif_event ev;
+
+    ev.st_event = st_event;
+    ev.id_dir   = id_dir;
+    ev.bytes    = bytes;
+
+    // produce event
+    boost::mutex::scoped_lock lock(m_mutex);
+    m_ev_queue.push_back(ev);
+    m_condition.notify_one();
+}
+
+void
+cdpi_appif::consume_event()
+{
+    for (;;) {
+        appif_event ev;
+        {
+            // consume event
+            boost::mutex::scoped_lock lock(m_mutex);
+            while (m_ev_queue.size() == 0) {
+                m_condition.wait(lock);
+            }
+
+            ev = m_ev_queue.front();
+            m_ev_queue.pop_front();
+        }
+
+        if (ev.id_dir.m_id.get_l4_proto() == IPPROTO_TCP) {
+            in_stream_event(ev.st_event, ev.id_dir, ev.bytes);
+        } else if (ev.id_dir.m_id.get_l4_proto() == IPPROTO_UDP) {
+            in_datagram(ev.id_dir, ev.bytes);
+        }
+    }
+}
+
+void
 cdpi_appif::in_stream_event(cdpi_stream_event st_event,
                             const cdpi_id_dir &id_dir, cdpi_bytes bytes)
 {
     switch (st_event) {
     case STREAM_SYN:
+    case STREAM_CREATED:
     {
         auto it = m_info.find(id_dir.m_id);
 
@@ -372,7 +536,21 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
             return;
         }
 
-        send_data(it->second, id_dir);
+        if (send_data(it->second, id_dir)) {
+            if (id_dir.m_dir == FROM_ADDR1 &&
+                it->second->m_buf2.size() > 0) {
+                cdpi_id_dir id_dir2;
+                id_dir2.m_id  = id_dir.m_id;
+                id_dir2.m_dir = FROM_ADDR2;
+                send_data(it->second, id_dir2);
+            } else if (id_dir.m_dir == FROM_ADDR2 &&
+                       it->second->m_buf1.size() > 0) {
+                cdpi_id_dir id_dir2;
+                id_dir2.m_id  = id_dir.m_id;
+                id_dir2.m_dir = FROM_ADDR1;
+                send_data(it->second, id_dir2);
+            }
+        }
 
         break;
     }
@@ -401,8 +579,6 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
 
         if (it->second->m_ifrule) {
             // invoke DESTROYED event
-            boost::shared_lock<boost::shared_mutex> rlock(m_rw_mutex);
-
             auto it2 = m_name2uxpeer.find(it->second->m_ifrule->m_name);
 
             if (it2 != m_name2uxpeer.end()) {
@@ -429,14 +605,16 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
     }
 }
 
-void
+bool
 cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
 {
+    bool is_classified = false;
+
+    boost::shared_lock<boost::shared_mutex> rlock(m_rw_mutex);
+
     if (! p_info->m_ifrule) {
         // classify
         if (p_info->m_is_buf1 && p_info->m_is_buf2) {
-            boost::upgrade_lock<boost::shared_mutex> up_lock(m_rw_mutex);
-
             for (auto it2 = m_ifrule.begin(); it2 != m_ifrule.end();
                  ++it2) {
 
@@ -503,17 +681,12 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
                     }
                 }
 
-                // update list
-                boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
-
-                ptr_ifrule rule = *it2;
-                m_ifrule.erase(it2);
-                m_ifrule.push_front(rule);
+                is_classified = true;
 
                 break;
             }
         } else {
-            return;
+            return is_classified;
         }
     }
 
@@ -530,8 +703,6 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
         }
 
         while (! bufs->empty()) {
-            boost::shared_lock<boost::shared_mutex> rlock(m_rw_mutex);
-
             auto front = bufs->front();
             auto it2 = m_name2uxpeer.find(p_info->m_ifrule->m_name);
 
@@ -555,16 +726,17 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
 
             bufs->pop_front();
         }
-
     } else {
         // give up?
         if (p_info->m_dsize1 > 4096 && p_info->m_dsize2 > 4096) {
             p_info->m_is_giveup = true;
             p_info->m_buf1.clear();
             p_info->m_buf2.clear();
-            return;
+            return is_classified;
         }
     }
+
+    return is_classified;
 }
 
 void
@@ -592,6 +764,18 @@ cdpi_appif::write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
 
         s += ",hop=";
         s += boost::lexical_cast<string>((int)id_dir.m_id.m_hop);
+
+        if (id_dir.m_id.get_l3_proto() == IPPROTO_IP) {
+            s += ",l3=ipv4";
+        } else if (id_dir.m_id.get_l3_proto() == IPPROTO_IPV6) {
+            s += ",l3=ipv6";
+        }
+
+        if (id_dir.m_id.get_l4_proto() == IPPROTO_TCP) {
+            s += ",l4=tcp";
+        } else if (id_dir.m_id.get_l4_proto() == IPPROTO_UDP) {
+            s += ",l4=udp";
+        }
 
         switch (event) {
         case STREAM_CREATED:
@@ -634,6 +818,7 @@ cdpi_appif::write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
         header->from     = id_dir.m_dir;
         header->hop      = id_dir.m_id.m_hop;
         header->l3_proto = id_dir.m_id.get_l3_proto();
+        header->l4_proto = id_dir.m_id.get_l4_proto();
         header->len      = bodylen;
         header->match    = match;
 
@@ -663,7 +848,7 @@ cdpi_appif::stream_info::stream_info(const cdpi_id &id) :
 void
 cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
 {
-    boost::upgrade_lock<boost::shared_mutex> up_lock(m_rw_mutex);
+    boost::shared_lock<boost::shared_mutex> rlock(m_rw_mutex);
 
     for (auto it = m_ifrule.begin(); it != m_ifrule.end(); ++it) {
         if ((*it)->m_proto != IF_UDP)
@@ -706,7 +891,7 @@ cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
 
         header.l4_port1 = id_dir.m_id.m_addr1->l4_port;
         header.l4_port2 = id_dir.m_id.m_addr2->l4_port;
-        header.event    = STREAM_DATA;
+        header.event    = DATAGRAM_DATA;
         header.from     = id_dir.m_dir;
         header.hop      = id_dir.m_id.m_hop;
         header.l3_proto = id_dir.m_id.get_l3_proto();
@@ -724,12 +909,6 @@ cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
                 write(*it4, bytes.get_head(), bytes.get_len());
             }
         }
-
-        boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
-
-        ptr_ifrule rule = *it;
-        m_ifrule.erase(it);
-        m_ifrule.push_front(rule);
 
         return;
     }
