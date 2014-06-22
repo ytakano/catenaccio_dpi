@@ -66,11 +66,14 @@ public:
                    char *l4hdr);
     void run();
     void garbage_collector();
+    void set_timeout(time_t t) { m_timeout = t; }
 
 private:
     std::map<cdpi_id, ptr_cdpi_tcp_flow> m_flow;
     cdpi_id_dir_cont                     m_events;
     ptr_cdpi_appif                       m_appif;
+
+    time_t m_timeout;
 
     bool get_packet(const cdpi_id &id, cdpi_direction dir,
                     cdpi_tcp_packet &packet);

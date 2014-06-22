@@ -52,3 +52,9 @@ You can specify a port number of divert socket by -4 option.
 Example:
 
     $ ./src/cattenacio_dpi -d -4 100
+
+### To Do:
+* protect from SYN flooding
+* deal with IP fragmentation
+* calculate checksum
+* add parser exemples

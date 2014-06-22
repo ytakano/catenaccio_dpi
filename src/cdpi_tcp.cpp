@@ -23,6 +23,7 @@ using namespace std;
 
 cdpi_tcp::cdpi_tcp(ptr_cdpi_appif appif) :
     m_appif(appif),
+    m_timeout(600),
     m_is_del(false),
     m_thread_run(boost::bind(&cdpi_tcp::run, this)),
     m_thread_gc(boost::bind(&cdpi_tcp::garbage_collector, this))
@@ -97,7 +98,20 @@ cdpi_tcp::garbage_collector()
                 }
 
 
-                // TODO: close compromised connection
+                // close long-lived but do-nothing connections
+                time_t now = time(NULL);
+                if (now - it->second->m_flow1.m_time > m_timeout &&
+                    now - it->second->m_flow2.m_time > m_timeout) {
+
+                    it->second->m_flow1.m_is_rm = true;
+
+                    cdpi_id_dir id_dir;
+
+                    id_dir.m_id  = it->first;
+                    id_dir.m_dir = FROM_ADDR1;
+
+                    m_events.insert(id_dir);
+                }
             }
         }
     }

@@ -1,5 +1,6 @@
 #include "cdpi_appif.hpp"
 #include "cdpi_conf.hpp"
+#include "cdpi_callback.hpp"
 
 #include <stdio.h>
 #include <string.h>
@@ -27,10 +28,15 @@ namespace fs = boost::filesystem;
 
 void ux_read(int fd, short events, void *arg);
 bool read_loopback7(int fd, cdpi_appif *appif);
+bool read_loopback3(int fd, cdpi_appif *appif);
 
-cdpi_appif::cdpi_appif() : m_fd7(-1), m_fd3(-1),
-                           m_lb7_format(IF_BINARY),
-                           m_home(new fs::path(fs::current_path()))
+cdpi_appif::cdpi_appif(cdpi_callback &callback, cdpi_tcp &tcp) :
+    m_fd7(-1),
+    m_fd3(-1),
+    m_lb7_format(IF_BINARY),
+    m_callback(callback),
+    m_tcp(tcp),
+    m_home(new fs::path(fs::current_path()))
 {
 
 }
@@ -139,7 +145,10 @@ ux_read(int fd, short events, void *arg)
             }
             return;
         } else if (it1->second->m_name == "loopback3") {
-            // TODO: for layer 3 loopback
+            if (read_loopback3(fd, appif)) {
+                boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+                ux_close(fd, appif);
+            }
         }
     } else {
         char buf[4096];
@@ -150,6 +159,24 @@ ux_read(int fd, short events, void *arg)
             ux_close(fd, appif);
         }
     }
+}
+
+bool
+read_loopback3(int fd, cdpi_appif *appif)
+{
+    char    buf[8192];
+    ssize_t len = read(fd, buf, sizeof(buf));
+
+    if (len <= 0)
+        return true;
+
+    if ((buf[0] & 0xf0) == 0x40) {
+        appif->m_callback(buf, len, IPPROTO_IP);
+    } else if ((buf[0] & 0xf0) == 0x60) {
+        appif->m_callback(buf, len, IPPROTO_IPV6);
+    }
+
+    return false;
 }
 
 bool
@@ -264,6 +291,8 @@ read_loopback7(int fd, cdpi_appif *appif)
                 header->event = STREAM_DESTROYED;
             } else if (h["event"] == "DATA") {
                 header->event = STREAM_DATA;
+            } else {
+                return false;
             }
 
             if (h["from"] == "0") {
@@ -454,6 +483,17 @@ cdpi_appif::read_conf(string conf)
             auto it2 = it1->second.find("home");
             if (it2 != it1->second.end()) {
                 m_home = ptr_path(new fs::path(it2->second));
+            }
+
+            auto it2 = it1->second.find("timeout");
+            if (it2 != it1->second.end()) {
+                try {
+                    m_tcp.set_timeout(boost::lexical_cast<time_t>(it2->second));
+                } catch (boost::lexical_cast e) {
+                    cerr << "cannot convert \"" << it->second
+                         << "\" to time_t" << endl;
+                    continue;
+                }
             }
         } else {
             ptr_ifrule rule = ptr_ifrule(new ifrule);

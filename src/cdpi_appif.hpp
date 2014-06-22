@@ -33,9 +33,12 @@ enum cdpi_stream_event {
 
 static const int DATAGRAM_DATA = STREAM_DATA; // SYNONYM
 
+class cdpi_callback;
+class cdpi_tcp;
+
 class cdpi_appif {
 public:
-    cdpi_appif();
+    cdpi_appif(cdpi_callback &callback, cdpi_tcp &tcp);
     virtual ~cdpi_appif();
 
     void read_conf(std::string conf);
@@ -145,6 +148,9 @@ private:
     ptr_thread          m_thread_stream;
     ptr_thread          m_thread_listen;
 
+    cdpi_callback &m_callback;
+    cdpi_tcp      &m_tcp;
+
     event_base *m_ev_base;
     ptr_path    m_home;
 
@@ -160,6 +166,7 @@ private:
     friend void ux_read(int fd, short events, void *arg);
     friend void ux_close(int fd, cdpi_appif *appif);
     friend bool read_loopback7(int fd, cdpi_appif *appif);
+    friend bool read_loopback3(int fd, cdpi_appif *appif);
 };
 
 typedef boost::shared_ptr<cdpi_appif> ptr_cdpi_appif;
