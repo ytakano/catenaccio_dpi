@@ -84,6 +84,9 @@ ux_accept(int fd, short events, void *arg)
     appif->m_fd2uxpeer[sock] = peer;
     appif->m_name2uxpeer[it->second->m_name].insert(sock);
 
+    cout << "accepted on " << it->second->m_name
+         << " (fd = " << sock << ")" << endl;
+
     if (fd == appif->m_fd7) {
         appif->m_lb7_state[sock] = cdpi_appif::ptr_loopback_state(new cdpi_appif::loopback_state);
     }
@@ -105,6 +108,10 @@ ux_close(int fd, cdpi_appif *appif)
 
         event_del(it1->second->m_ev);
         event_free(it1->second->m_ev);
+
+        cout << "closed on " << it1->second->m_name
+             << " (fd = " << fd << ")" << endl;
+
 
         appif->m_fd2uxpeer.erase(it1);
     }
@@ -149,14 +156,14 @@ ux_read(int fd, short events, void *arg)
                 boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
                 ux_close(fd, appif);
             }
-        }
-    } else {
-        char buf[4096];
-        int  recv_size = read(fd, buf, sizeof(buf) - 1);
+        } else {
+            char buf[4096];
+            int  recv_size = read(fd, buf, sizeof(buf) - 1);
 
-        if (recv_size <= 0) {
-            boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
-            ux_close(fd, appif);
+            if (recv_size <= 0) {
+                boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+                ux_close(fd, appif);
+            }
         }
     }
 }
@@ -485,12 +492,12 @@ cdpi_appif::read_conf(string conf)
                 m_home = ptr_path(new fs::path(it2->second));
             }
 
-            auto it2 = it1->second.find("timeout");
+            it2 = it1->second.find("timeout");
             if (it2 != it1->second.end()) {
                 try {
                     m_tcp.set_timeout(boost::lexical_cast<time_t>(it2->second));
-                } catch (boost::lexical_cast e) {
-                    cerr << "cannot convert \"" << it->second
+                } catch (boost::bad_lexical_cast e) {
+                    cerr << "cannot convert \"" << it2->second
                          << "\" to time_t" << endl;
                     continue;
                 }
@@ -866,13 +873,16 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
 
                     mdir = p_info->m_match_dir[id_dir.m_dir];
 
-                    write_head(*it3, id_dir, p_info->m_ifrule->m_format,
-                               STREAM_DATA, mdir, front.get_len(),
-                               &p_info->m_header);
+                    if (! write_head(*it3, id_dir, p_info->m_ifrule->m_format,
+                                     STREAM_DATA, mdir, front.get_len(),
+                                     &p_info->m_header)) {
+                        continue;
+                    }
 
                     // write data
-                    if (p_info->m_ifrule->m_is_body)
+                    if (p_info->m_ifrule->m_is_body) {
                         write(*it3, front.get_head(), front.get_len());
+                    }
                 }
             }
 
@@ -891,7 +901,7 @@ cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
     return is_classified;
 }
 
-void
+bool
 cdpi_appif::write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
                        cdpi_stream_event event, match_dir match, int bodylen,
                        cdpi_appif_header *header)
@@ -964,7 +974,10 @@ cdpi_appif::write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
             assert(false);
         }
 
-        write(fd, s.c_str(), s.size());
+        if (write(fd, s.c_str(), s.size()) < 0) {
+            cout << "write error: fd = " << fd << endl;
+            return false;
+        }
     } else {
         header->event    = event;
         header->from     = id_dir.m_dir;
@@ -974,8 +987,11 @@ cdpi_appif::write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
         header->len      = bodylen;
         header->match    = match;
 
-        write(fd, header, sizeof(*header));
+        if (write(fd, header, sizeof(*header)) < 0)
+            return false;
     }
+
+    return true;
 }
 
 cdpi_appif::stream_info::stream_info(const cdpi_id &id) :
@@ -1055,11 +1071,16 @@ cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
         if (it3 != m_name2uxpeer.end()) {
             for (auto it4 = it3->second.begin();
                  it4 != it3->second.end(); ++it4) {
-                write_head(*it4, id_dir, (*it)->m_format, STREAM_DATA,
-                           match, bytes.get_len(), &header);
+                if (! write_head(*it4, id_dir, (*it)->m_format, STREAM_DATA,
+                                 match, bytes.get_len(), &header)) {
+                    continue;
+                }
 
-                if ((*it)->m_is_body)
-                    write(*it4, bytes.get_head(), bytes.get_len());
+                if ((*it)->m_is_body) {
+                    if (write(*it4, bytes.get_head(), bytes.get_len()) < 0) {
+                        continue;
+                    }
+                }
             }
         }
 

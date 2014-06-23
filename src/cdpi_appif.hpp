@@ -158,7 +158,7 @@ private:
                          const cdpi_id_dir &id_dir, cdpi_bytes bytes);
     void makedir(boost::filesystem::path path);
     bool send_data(ptr_info p_info, cdpi_id_dir id_dir);
-    void write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
+    bool write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
                     cdpi_stream_event event, match_dir match, int bodylen,
                     cdpi_appif_header *header = NULL);
 

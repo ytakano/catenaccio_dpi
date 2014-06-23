@@ -49,6 +49,8 @@ main(int argc, char *argv[])
     const char *optstr = "i:hc:";
 #endif // USE_DIVERT
 
+    signal( SIGPIPE , SIG_IGN ); 
+
     while ((opt = getopt(argc, argv, optstr)) != -1) {
         switch (opt) {
 #ifdef USE_DIVER

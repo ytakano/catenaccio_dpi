@@ -38,20 +38,20 @@ You can use a verbose mode when compiling.
 
     $ make VERBOSE=1
 
-### How to run Cattenacio DPI, which outputs to standard output
+### How to run Cattenacio DPI
 
-You can specify a network interface by -i option.
+You can specify a network interface by -i option, and a config file by -c option.
 
 Example:
 
-    $ ./src/cattenacio_dpi -i eth0
+    $ ./src/cattenacio_dpi -i eth0 -c ./examples/cdpi.conf
 
 If you want to use divert socket (FreeBSD/MacOS X only) instead of pcap, use -d option.
 You can specify a port number of divert socket by -4 option.
 
 Example:
 
-    $ ./src/cattenacio_dpi -d -4 100
+    $ ./src/cattenacio_dpi -d -4 100 ./examples/cdpi.conf
 
 ### To Do:
 * protect from SYN flooding
