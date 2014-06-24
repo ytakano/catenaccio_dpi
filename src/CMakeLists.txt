@@ -1,8 +1,14 @@
 cmake_policy(SET CMP0022 OLD)
 
-set(CMAKE_CXX_FLAGS "-g -O0 -Wall -fPIC -std=c++11")
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall -fPIC -std=c++11")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -fPIC -std=c++11")
+IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  set(CMAKE_CXX_FLAGS "-g -O0 -Wall -fPIC -std=c++11 -framework CoreFoundation")
+  set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall -fPIC -std=c++11 -framework CoreFoundation")
+  set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -fPIC -std=c++11 -framework CoreFoundation")
+ELSE(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  set(CMAKE_CXX_FLAGS "-g -O0 -Wall -fPIC -std=c++11")
+  set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall -fPIC -std=c++11")
+  set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -fPIC -std=c++11")
+ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 option(USE_DIVERT "Use Divert" 0)
 option(COMPILE_STATIC_LIB "Compile Static Library" 0)

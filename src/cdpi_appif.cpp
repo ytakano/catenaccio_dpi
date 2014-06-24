@@ -36,7 +36,8 @@ cdpi_appif::cdpi_appif(cdpi_callback &callback, cdpi_tcp &tcp) :
     m_lb7_format(IF_BINARY),
     m_callback(callback),
     m_tcp(tcp),
-    m_home(new fs::path(fs::current_path()))
+    m_home(new fs::path(fs::current_path())),
+    m_is_lru(true)
 {
 
 }
@@ -394,12 +395,64 @@ cdpi_appif::makedir(fs::path path)
     }
 }
 
+void
+cdpi_appif::ux_listen_ifrule(ptr_ifrule ifrule)
+{
+    int sock = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if (sock == -1) {
+        perror("socket");
+        exit(-1);
+    }
+ 
+    struct sockaddr_un sa = {0};
+    sa.sun_family = AF_UNIX;
+
+    fs::path path;
+
+    if (ifrule->m_proto == IF_UDP) {
+        path = *m_home / fs::path("udp") / *ifrule->m_ux;
+    } else if (ifrule->m_proto == IF_TCP) {
+        path = *m_home / fs::path("tcp") / *ifrule->m_ux;
+    } else {
+        path = *m_home / *ifrule->m_ux;
+    }
+
+    strncpy(sa.sun_path, path.string().c_str(), sizeof(sa.sun_path));
+ 
+    remove(sa.sun_path);
+ 
+    if (::bind(sock, (struct sockaddr*) &sa,
+               sizeof(struct sockaddr_un)) == -1) {
+        perror("bind");
+        exit(-1);
+    }
+
+    if (listen(sock, 128) == -1) {
+        perror("listen");
+        exit(-1);
+    }
+
+    cout << "listening on " << path << " (" << ifrule->m_name << ")" << endl;
+
+    event *ev = event_new(m_ev_base, sock, EV_READ | EV_PERSIST,
+                          ux_accept, this);
+    event_add(ev, NULL);
+
+    m_fd2ifrule[sock] = ifrule;
+
+
+    if (ifrule->m_name == "loopback7") {
+        m_fd7 = sock;
+    } else if (ifrule->m_name == "loopback3") {
+        m_fd3 = sock;
+    }
+}
+
 
 void
 cdpi_appif::ux_listen()
 {
-    int sock;
-
     m_ev_base = event_base_new();
     if (m_ev_base == NULL) {
         cerr << "couldn't new ev_base" << endl;
@@ -422,56 +475,22 @@ cdpi_appif::ux_listen()
         makedir(*m_home / fs::path("tcp"));
         makedir(*m_home / fs::path("udp"));
 
-        for (auto it = m_ifrule.begin(); it != m_ifrule.end(); ++it) {
-            sock = socket(AF_UNIX, SOCK_STREAM, 0);
-
-            if (sock == -1) {
-                perror("socket");
-                exit(-1);
+        for (auto it_tcp = m_ifrule_tcp.begin(); it_tcp != m_ifrule_tcp.end();
+             ++it_tcp) {
+            for (auto it = it_tcp->second.begin(); it != it_tcp->second.end(); ++it) {
+                ux_listen_ifrule(*it);
             }
- 
-            struct sockaddr_un sa = {0};
-            sa.sun_family = AF_UNIX;
-
-            fs::path path;
-
-            if ((*it)->m_proto == IF_UDP) {
-                path = *m_home / fs::path("udp") / *(*it)->m_ux;
-            } else if ((*it)->m_proto == IF_TCP) {
-                path = *m_home / fs::path("tcp") / *(*it)->m_ux;
-            } else {
-                path = *m_home / *(*it)->m_ux;
-            }
-
-            strncpy(sa.sun_path, path.string().c_str(), sizeof(sa.sun_path));
- 
-            remove(sa.sun_path);
- 
-            if (::bind(sock, (struct sockaddr*) &sa,
-                       sizeof(struct sockaddr_un)) == -1) {
-                perror("bind");
-                exit(-1);
-            }
-
-             if (listen(sock, 128) == -1) {
-                perror("listen");
-                exit(-1);
-            }
-
-             cout << "listening on " << path << " (" << (*it)->m_name << ")" << endl;
-
-             event *ev = event_new(m_ev_base, sock, EV_READ | EV_PERSIST,
-                                   ux_accept, this);
-             event_add(ev, NULL);
-
-             m_fd2ifrule[sock] = *it;
-
-             if ((*it)->m_name == "loopback7") {
-                 m_fd7 = sock;
-             } else if ((*it)->m_name == "loopback3") {
-                 m_fd3 = sock;
-             }
         }
+
+        for (auto it_udp = m_ifrule_udp.begin(); it_udp != m_ifrule_udp.end();
+             ++it_udp) {
+            for (auto it = it_udp->second.begin(); it != it_udp->second.end(); ++it) {
+                ux_listen_ifrule(*it);
+            }
+        }
+
+        ux_listen_ifrule(m_ifrule7);
+        ux_listen_ifrule(m_ifrule3);
     }
 
     event_base_dispatch(m_ev_base);
@@ -502,6 +521,18 @@ cdpi_appif::read_conf(string conf)
                     continue;
                 }
             }
+
+            it2 = it1->second.find("lru");
+            if (it2 != it1->second.end()) {
+                if (it2->second == "yes") {
+                    m_is_lru = true;
+                } else if (it2->second == "no") {
+                    m_is_lru = false;
+                } else {
+                    // error
+                }
+            }
+
         } else {
             ptr_ifrule rule = ptr_ifrule(new ifrule);
 
@@ -522,6 +553,18 @@ cdpi_appif::read_conf(string conf)
             if (it3 != it1->second.end()) {
                 rule->m_down = ptr_regex(new boost::regex(it3->second));
             }
+
+            it3 = it1->second.find("nice");
+            if (it3 != it1->second.end()) {
+                try {
+                    rule->m_nice = boost::lexical_cast<int>(it3->second);
+                } catch (boost::bad_lexical_cast e) {
+                    cerr << "cannot convert \"" << it3->second
+                         << "\" to int" << endl;
+                    continue;
+                }
+            }
+
 
             it3 = it1->second.find("proto");
             if (it3 != it1->second.end()) {
@@ -604,7 +647,15 @@ cdpi_appif::read_conf(string conf)
                 }
             }
 
-            m_ifrule.push_back(rule);
+            if (rule->m_proto == IF_UDP) {
+                m_ifrule_udp[rule->m_nice].push_back(rule);
+            } else if (rule->m_proto == IF_TCP) {
+                m_ifrule_tcp[rule->m_nice].push_back(rule);
+            } else if (rule->m_name == "loopback3") {
+                m_ifrule3 = rule;
+            } else if (rule->m_name == "loopback7") {
+                m_ifrule7 = rule;
+            }
         }
     }
 }
@@ -694,19 +745,19 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
             return;
         }
 
-        if (send_data(it->second, id_dir)) {
+        if (send_tcp_data(it->second, id_dir)) {
             if (id_dir.m_dir == FROM_ADDR1 &&
                 it->second->m_buf2.size() > 0) {
                 cdpi_id_dir id_dir2;
                 id_dir2.m_id  = id_dir.m_id;
                 id_dir2.m_dir = FROM_ADDR2;
-                send_data(it->second, id_dir2);
+                send_tcp_data(it->second, id_dir2);
             } else if (id_dir.m_dir == FROM_ADDR2 &&
                        it->second->m_buf1.size() > 0) {
                 cdpi_id_dir id_dir2;
                 id_dir2.m_id  = id_dir.m_id;
                 id_dir2.m_dir = FROM_ADDR1;
-                send_data(it->second, id_dir2);
+                send_tcp_data(it->second, id_dir2);
             }
         }
 
@@ -725,13 +776,13 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
         if (! it->second->m_buf1.empty()) {
             cdpi_id_dir id_dir2 = id_dir;
             id_dir2.m_dir = FROM_ADDR1;
-            send_data(it->second, id_dir2);
+            send_tcp_data(it->second, id_dir2);
         }
 
         if (! it->second->m_buf2.empty()) {
             cdpi_id_dir id_dir2 = id_dir;
             id_dir2.m_dir = FROM_ADDR2;
-            send_data(it->second, id_dir2);
+            send_tcp_data(it->second, id_dir2);
         }
 
 
@@ -764,89 +815,100 @@ cdpi_appif::in_stream_event(cdpi_stream_event st_event,
 }
 
 bool
-cdpi_appif::send_data(ptr_info p_info, cdpi_id_dir id_dir)
+cdpi_appif::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
 {
     bool is_classified = false;
 
-    boost::shared_lock<boost::shared_mutex> rlock(m_rw_mutex);
+    boost::upgrade_lock<boost::shared_mutex> up_lock(m_rw_mutex);
 
     if (! p_info->m_ifrule) {
         // classify
         if (p_info->m_is_buf1 && p_info->m_is_buf2) {
-            for (auto it2 = m_ifrule.begin(); it2 != m_ifrule.end();
-                 ++it2) {
+            for (auto it_tcp = m_ifrule_tcp.begin();
+                 it_tcp != m_ifrule_tcp.end(); ++it_tcp) {
+                for (auto it2 = it_tcp->second.begin();
+                     it2 != it_tcp->second.end(); ++it2) {
+                    bool is_port;
 
-                if ((*it2)->m_proto != IF_TCP)
-                    continue;
+                    if ((*it2)->m_port.empty()) {
+                        is_port = true;
+                    } else {
+                        is_port = false;
+                        for (auto it3 = (*it2)->m_port.begin();
+                             it3 != (*it2)->m_port.end(); ++it3) {
 
-                bool is_port;
-
-                if ((*it2)->m_port.empty()) {
-                    is_port = true;
-                } else {
-                    is_port = false;
-                    for (auto it3 = (*it2)->m_port.begin();
-                         it3 != (*it2)->m_port.end(); ++it3) {
-
-                        if ((it3->first <= ntohs(id_dir.get_port_src()) &&
-                             ntohs(id_dir.get_port_src()) <= it3->second) ||
-                            (it3->first <= ntohs(id_dir.get_port_dst()) &&
-                             ntohs(id_dir.get_port_dst()) <= it3->second)) {
-                            is_port = true;
+                            if ((it3->first <= ntohs(id_dir.get_port_src()) &&
+                                 ntohs(id_dir.get_port_src()) <= it3->second) ||
+                                (it3->first <= ntohs(id_dir.get_port_dst()) &&
+                                 ntohs(id_dir.get_port_dst()) <= it3->second)) {
+                                is_port = true;
+                            }
                         }
                     }
-                }
 
-                if (! is_port)
-                    continue;
-
-                if ((*it2)->m_up && (*it2)->m_down) {
-                    char buf1[4096], buf2[4096];
-                    int  len1, len2;
-
-                    len1 = read_bytes(p_info->m_buf1, buf1, sizeof(buf1));
-                    string s1(buf1, len1);
-
-                    len2 = read_bytes(p_info->m_buf2, buf2, sizeof(buf2));
-                    string s2(buf2, len2);
-
-                    if (boost::regex_match(s1, *(*it2)->m_up) &&
-                        boost::regex_match(s2, *(*it2)->m_down)) {
-                        p_info->m_match_dir[0] = MATCH_UP;
-                        p_info->m_match_dir[1] = MATCH_DOWN;
-                    } else if (boost::regex_match(s2, *(*it2)->m_up) &&
-                               boost::regex_match(s1, *(*it2)->m_down)) {
-                        p_info->m_match_dir[1] = MATCH_UP;
-                        p_info->m_match_dir[0] = MATCH_DOWN;
-                    } else {
+                    if (! is_port)
                         continue;
+
+                    if ((*it2)->m_up && (*it2)->m_down) {
+                        char buf1[4096], buf2[4096];
+                        int  len1, len2;
+
+                        len1 = read_bytes(p_info->m_buf1, buf1, sizeof(buf1));
+                        string s1(buf1, len1);
+
+                        len2 = read_bytes(p_info->m_buf2, buf2, sizeof(buf2));
+                        string s2(buf2, len2);
+
+                        if (boost::regex_match(s1, *(*it2)->m_up) &&
+                            boost::regex_match(s2, *(*it2)->m_down)) {
+                            p_info->m_match_dir[0] = MATCH_UP;
+                            p_info->m_match_dir[1] = MATCH_DOWN;
+                        } else if (boost::regex_match(s2, *(*it2)->m_up) &&
+                                   boost::regex_match(s1, *(*it2)->m_down)) {
+                            p_info->m_match_dir[1] = MATCH_UP;
+                            p_info->m_match_dir[0] = MATCH_DOWN;
+                        } else {
+                            continue;
+                        }
                     }
-                }
 
-                // matched a rule
-                p_info->m_ifrule = *it2;
+                    // matched a rule
+                    p_info->m_ifrule = *it2;
 
-                // invoke CREATED event
-                auto it4 = m_name2uxpeer.find((*it2)->m_name);
+                    // invoke CREATED event
+                    auto it4 = m_name2uxpeer.find((*it2)->m_name);
 
-                if (it4 != m_name2uxpeer.end()) {
-                    for (auto it5 = it4->second.begin();
-                         it5 != it4->second.end(); ++it5) {
-                        write_head(*it5, id_dir,
-                                   p_info->m_ifrule->m_format,
-                                   STREAM_CREATED, MATCH_NONE, 0,
-                                   &p_info->m_header);
+                    if (it4 != m_name2uxpeer.end()) {
+                        for (auto it5 = it4->second.begin();
+                             it5 != it4->second.end(); ++it5) {
+                            write_head(*it5, id_dir,
+                                       p_info->m_ifrule->m_format,
+                                       STREAM_CREATED, MATCH_NONE, 0,
+                                       &p_info->m_header);
+                        }
                     }
+
+                    is_classified = true;
+
+                    {
+                        boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+
+                        if (m_is_lru && it2 != it_tcp->second.begin()) {
+                            ptr_ifrule ifrule = *it2;
+                            it_tcp->second.erase(it2);
+                            it_tcp->second.push_front(ifrule);
+                        }
+                    }
+
+                    goto classified;
                 }
-
-                is_classified = true;
-
-                break;
             }
         } else {
             return is_classified;
         }
     }
+
+classified:
 
     if (p_info->m_ifrule) {
         // invoke DATA event and send data to I/F
@@ -1016,74 +1078,86 @@ cdpi_appif::stream_info::stream_info(const cdpi_id &id) :
 void
 cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
 {
-    boost::shared_lock<boost::shared_mutex> rlock(m_rw_mutex);
+    boost::upgrade_lock<boost::shared_mutex> up_lock(m_rw_mutex);
 
-    for (auto it = m_ifrule.begin(); it != m_ifrule.end(); ++it) {
-        if ((*it)->m_proto != IF_UDP)
-            continue;
+    for (auto it_udp = m_ifrule_udp.begin(); it_udp != m_ifrule_udp.end();
+         ++it_udp) {
+        for (auto it = it_udp->second.begin(); it != it_udp->second.end();
+             ++it) {
+            bool is_port = false;
 
-        bool is_port = false;
-        for (auto it2 = (*it)->m_port.begin();
-             it2 != (*it)->m_port.end(); ++it2) {
+            for (auto it2 = (*it)->m_port.begin();
+                 it2 != (*it)->m_port.end(); ++it2) {
 
-            if ((it2->first <= ntohs(id_dir.get_port_src()) &&
-                 ntohs(id_dir.get_port_src()) <= it2->second) ||
-                (it2->first <= ntohs(id_dir.get_port_dst()) &&
-                 ntohs(id_dir.get_port_dst()) <= it2->second)) {
-                is_port = true;
+                if ((it2->first <= ntohs(id_dir.get_port_src()) &&
+                     ntohs(id_dir.get_port_src()) <= it2->second) ||
+                    (it2->first <= ntohs(id_dir.get_port_dst()) &&
+                     ntohs(id_dir.get_port_dst()) <= it2->second)) {
+                    is_port = true;
+                }
             }
-        }
 
-        if (! is_port)
-            continue;
-
-        match_dir match = MATCH_NONE;
-        if ((*it)->m_up) {
-            string s(bytes.get_head(), bytes.get_len());
-
-            if (! boost::regex_match(s, *(*it)->m_up)) {
+            if (! is_port)
                 continue;
-            }
 
-            match = MATCH_UP;
-        }
+            match_dir match = MATCH_NONE;
+            if ((*it)->m_up) {
+                string s(bytes.get_head(), bytes.get_len());
 
-        cdpi_appif_header header;
-
-        memset(&header, 0, sizeof(header));
-
-        memcpy(&header.l3_addr1, &id_dir.m_id.m_addr1->l3_addr,
-               sizeof(header.l3_addr1));
-        memcpy(&header.l3_addr2, &id_dir.m_id.m_addr2->l3_addr,
-               sizeof(header.l3_addr2));
-
-        header.l4_port1 = id_dir.m_id.m_addr1->l4_port;
-        header.l4_port2 = id_dir.m_id.m_addr2->l4_port;
-        header.event    = DATAGRAM_DATA;
-        header.from     = id_dir.m_dir;
-        header.hop      = id_dir.m_id.m_hop;
-        header.l3_proto = id_dir.m_id.get_l3_proto();
-        header.len      = bytes.get_len();
-        header.match    = match;
-
-        auto it3 = m_name2uxpeer.find((*it)->m_name);
-
-        if (it3 != m_name2uxpeer.end()) {
-            for (auto it4 = it3->second.begin();
-                 it4 != it3->second.end(); ++it4) {
-                if (! write_head(*it4, id_dir, (*it)->m_format, STREAM_DATA,
-                                 match, bytes.get_len(), &header)) {
+                if (! boost::regex_match(s, *(*it)->m_up)) {
                     continue;
                 }
 
-                if ((*it)->m_is_body) {
-                    if (write(*it4, bytes.get_head(), bytes.get_len()) < 0) {
+                match = MATCH_UP;
+            }
+
+            cdpi_appif_header header;
+
+            memset(&header, 0, sizeof(header));
+
+            memcpy(&header.l3_addr1, &id_dir.m_id.m_addr1->l3_addr,
+                   sizeof(header.l3_addr1));
+            memcpy(&header.l3_addr2, &id_dir.m_id.m_addr2->l3_addr,
+                   sizeof(header.l3_addr2));
+
+            header.l4_port1 = id_dir.m_id.m_addr1->l4_port;
+            header.l4_port2 = id_dir.m_id.m_addr2->l4_port;
+            header.event    = DATAGRAM_DATA;
+            header.from     = id_dir.m_dir;
+            header.hop      = id_dir.m_id.m_hop;
+            header.l3_proto = id_dir.m_id.get_l3_proto();
+            header.len      = bytes.get_len();
+            header.match    = match;
+
+            auto it3 = m_name2uxpeer.find((*it)->m_name);
+
+            if (it3 != m_name2uxpeer.end()) {
+                for (auto it4 = it3->second.begin();
+                     it4 != it3->second.end(); ++it4) {
+                    if (! write_head(*it4, id_dir, (*it)->m_format, STREAM_DATA,
+                                     match, bytes.get_len(), &header)) {
                         continue;
+                    }
+
+                    if ((*it)->m_is_body) {
+                        if (write(*it4, bytes.get_head(), bytes.get_len()) < 0) {
+                            continue;
+                        }
                     }
                 }
             }
-        }
 
-        return;
+            {
+                boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+
+                if (m_is_lru && it != it_udp->second.begin()) {
+                    ptr_ifrule ifrule = *it;
+                    it_udp->second.erase(it);
+                    it_udp->second.push_front(ifrule);
+                }
+            }
+
+            return;
+        }
     }
 }

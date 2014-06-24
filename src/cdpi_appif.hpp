@@ -43,7 +43,6 @@ public:
 
     void read_conf(std::string conf);
     void run();
-    void ux_listen();
     void consume_event();
 
     void in_event(cdpi_stream_event st_event,
@@ -72,9 +71,11 @@ private:
         ifformat    m_format;
         ptr_path    m_ux;
         bool        m_is_body;
+        int         m_nice;
         std::list<std::pair<uint16_t, uint16_t> > m_port;
 
-        ifrule() : m_proto(IF_OTHER), m_format(IF_BINARY), m_is_body(true) { }
+        ifrule() : m_proto(IF_OTHER), m_format(IF_BINARY), m_is_body(true),
+                   m_nice(100) { }
     };
 
     struct uxpeer {
@@ -134,7 +135,11 @@ private:
 
     std::map<cdpi_id, ptr_info> m_info;
 
-    std::list<ptr_ifrule>     m_ifrule;
+    //std::list<ptr_ifrule>     m_ifrule;
+    std::map<int, std::list<ptr_ifrule> > m_ifrule_udp;
+    std::map<int, std::list<ptr_ifrule> > m_ifrule_tcp;
+    ptr_ifrule m_ifrule7;
+    ptr_ifrule m_ifrule3;
     std::map<int, ptr_ifrule> m_fd2ifrule; // listen socket
     std::map<int, ptr_uxpeer> m_fd2uxpeer; // accepted socket
     std::map<std::string, std::set<int> > m_name2uxpeer;
@@ -154,13 +159,17 @@ private:
     event_base *m_ev_base;
     ptr_path    m_home;
 
+    bool        m_is_lru;
+
     void in_stream_event(cdpi_stream_event st_event,
                          const cdpi_id_dir &id_dir, cdpi_bytes bytes);
     void makedir(boost::filesystem::path path);
-    bool send_data(ptr_info p_info, cdpi_id_dir id_dir);
+    bool send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir);
     bool write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
                     cdpi_stream_event event, match_dir match, int bodylen,
                     cdpi_appif_header *header = NULL);
+    void ux_listen();
+    void ux_listen_ifrule(ptr_ifrule ifrule);
 
     friend void ux_accept(int fd, short events, void *arg);
     friend void ux_read(int fd, short events, void *arg);
