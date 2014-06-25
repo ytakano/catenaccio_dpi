@@ -116,10 +116,18 @@ private:
         stream_info(const cdpi_id &id);
     };
 
+    struct ifrule_storage {
+        std::list<ptr_ifrule> ifrule;
+        std::list<ptr_ifrule> ifrule_no_regex;
+        ptr_ifrule            cache_up[256];
+        ptr_ifrule            cache_down[256];
+    };
+
     typedef boost::shared_ptr<uxpeer>         ptr_uxpeer;
     typedef boost::shared_ptr<boost::thread>  ptr_thread;
     typedef boost::shared_ptr<loopback_state> ptr_loopback_state;
     typedef boost::shared_ptr<stream_info>    ptr_info;
+    typedef boost::shared_ptr<ifrule_storage> ptr_ifrule_storage;
 
     struct appif_event {
         cdpi_stream_event st_event;
@@ -136,8 +144,8 @@ private:
     std::map<cdpi_id, ptr_info> m_info;
 
     //std::list<ptr_ifrule>     m_ifrule;
-    std::map<int, std::list<ptr_ifrule> > m_ifrule_udp;
-    std::map<int, std::list<ptr_ifrule> > m_ifrule_tcp;
+    std::map<int, ptr_ifrule_storage> m_ifrule_udp;
+    std::map<int, ptr_ifrule_storage> m_ifrule_tcp;
     ptr_ifrule m_ifrule7;
     ptr_ifrule m_ifrule3;
     std::map<int, ptr_ifrule> m_fd2ifrule; // listen socket
@@ -170,6 +178,8 @@ private:
                     cdpi_appif_header *header = NULL);
     void ux_listen();
     void ux_listen_ifrule(ptr_ifrule ifrule);
+    bool is_in_port(std::list<std::pair<uint16_t, uint16_t> > &range,
+                    uint16_t port1, uint16_t port2);
 
     friend void ux_accept(int fd, short events, void *arg);
     friend void ux_read(int fd, short events, void *arg);

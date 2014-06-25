@@ -31,8 +31,12 @@ cdpi_conf::read_conf(string conf)
 
     while (ifs) {
         int n = 1;
-        string line;
+        string line, line2;
         std::getline(ifs, line);
+
+        line2 = trim(line);
+        if (line2.size() > 0 && line2[0] == '#')
+            continue;
 
         stringstream s1(line);
         std::getline(s1, line, '#');

@@ -477,15 +477,27 @@ cdpi_appif::ux_listen()
 
         for (auto it_tcp = m_ifrule_tcp.begin(); it_tcp != m_ifrule_tcp.end();
              ++it_tcp) {
-            for (auto it = it_tcp->second.begin(); it != it_tcp->second.end(); ++it) {
-                ux_listen_ifrule(*it);
+            for (auto it1 = it_tcp->second->ifrule.begin();
+                 it1 != it_tcp->second->ifrule.end(); ++it1) {
+                ux_listen_ifrule(*it1);
+            }
+
+            for (auto it2 = it_tcp->second->ifrule_no_regex.begin();
+                 it2 != it_tcp->second->ifrule_no_regex.end(); ++it2) {
+                ux_listen_ifrule(*it2);
             }
         }
 
         for (auto it_udp = m_ifrule_udp.begin(); it_udp != m_ifrule_udp.end();
              ++it_udp) {
-            for (auto it = it_udp->second.begin(); it != it_udp->second.end(); ++it) {
-                ux_listen_ifrule(*it);
+            for (auto it1 = it_udp->second->ifrule.begin();
+                 it1 != it_udp->second->ifrule.end(); ++it1) {
+                ux_listen_ifrule(*it1);
+            }
+
+            for (auto it2 = it_udp->second->ifrule_no_regex.begin();
+                 it2 != it_udp->second->ifrule_no_regex.end(); ++it2) {
+                ux_listen_ifrule(*it2);
             }
         }
 
@@ -647,10 +659,30 @@ cdpi_appif::read_conf(string conf)
                 }
             }
 
+            // insert interface rule
             if (rule->m_proto == IF_UDP) {
-                m_ifrule_udp[rule->m_nice].push_back(rule);
+                auto it_udp = m_ifrule_udp.find(rule->m_nice);
+                if (it_udp == m_ifrule_udp.end()) {
+                    m_ifrule_udp[rule->m_nice] = ptr_ifrule_storage(new ifrule_storage);
+                    it_udp = m_ifrule_udp.find(rule->m_nice);
+                }
+
+                if (rule->m_up)
+                    it_udp->second->ifrule.push_back(rule);
+                else
+                    it_udp->second->ifrule_no_regex.push_back(rule);
             } else if (rule->m_proto == IF_TCP) {
-                m_ifrule_tcp[rule->m_nice].push_back(rule);
+                auto it_tcp = m_ifrule_tcp.find(rule->m_nice);
+                if (it_tcp == m_ifrule_tcp.end()) {
+                    m_ifrule_tcp[rule->m_nice] = ptr_ifrule_storage(new ifrule_storage);
+                    it_tcp = m_ifrule_tcp.find(rule->m_nice);
+                }
+
+                if (rule->m_up && rule->m_down) {
+                    it_tcp->second->ifrule.push_back(rule);
+                } else {
+                    it_tcp->second->ifrule_no_regex.push_back(rule);
+                }
             } else if (rule->m_name == "loopback3") {
                 m_ifrule3 = rule;
             } else if (rule->m_name == "loopback7") {
@@ -821,94 +853,168 @@ cdpi_appif::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
 
     boost::upgrade_lock<boost::shared_mutex> up_lock(m_rw_mutex);
 
-    if (! p_info->m_ifrule) {
-        // classify
-        if (p_info->m_is_buf1 && p_info->m_is_buf2) {
-            for (auto it_tcp = m_ifrule_tcp.begin();
-                 it_tcp != m_ifrule_tcp.end(); ++it_tcp) {
-                for (auto it2 = it_tcp->second.begin();
-                     it2 != it_tcp->second.end(); ++it2) {
-                    bool is_port;
+    if (! p_info->m_ifrule && p_info->m_is_buf1 && p_info->m_is_buf2) {
+        ptr_ifrule ifrule;
+        char buf1[4096], buf2[4096];
+        int  len1, len2;
 
-                    if ((*it2)->m_port.empty()) {
-                        is_port = true;
-                    } else {
-                        is_port = false;
-                        for (auto it3 = (*it2)->m_port.begin();
-                             it3 != (*it2)->m_port.end(); ++it3) {
+        len1 = read_bytes(p_info->m_buf1, buf1, sizeof(buf1));
+        string s1(buf1, len1);
 
-                            if ((it3->first <= ntohs(id_dir.get_port_src()) &&
-                                 ntohs(id_dir.get_port_src()) <= it3->second) ||
-                                (it3->first <= ntohs(id_dir.get_port_dst()) &&
-                                 ntohs(id_dir.get_port_dst()) <= it3->second)) {
-                                is_port = true;
-                            }
-                        }
-                    }
+        len2 = read_bytes(p_info->m_buf2, buf2, sizeof(buf2));
+        string s2(buf2, len2);
 
-                    if (! is_port)
-                        continue;
+        for (auto it_tcp = m_ifrule_tcp.begin();
+             it_tcp != m_ifrule_tcp.end(); ++it_tcp) {
+            // check cache
+            uint8_t idx;
+            auto &cache_up   = it_tcp->second->cache_up;
+            auto &cache_down = it_tcp->second->cache_down;
 
-                    if ((*it2)->m_up && (*it2)->m_down) {
-                        char buf1[4096], buf2[4096];
-                        int  len1, len2;
-
-                        len1 = read_bytes(p_info->m_buf1, buf1, sizeof(buf1));
-                        string s1(buf1, len1);
-
-                        len2 = read_bytes(p_info->m_buf2, buf2, sizeof(buf2));
-                        string s2(buf2, len2);
-
-                        if (boost::regex_match(s1, *(*it2)->m_up) &&
-                            boost::regex_match(s2, *(*it2)->m_down)) {
-                            p_info->m_match_dir[0] = MATCH_UP;
-                            p_info->m_match_dir[1] = MATCH_DOWN;
-                        } else if (boost::regex_match(s2, *(*it2)->m_up) &&
-                                   boost::regex_match(s1, *(*it2)->m_down)) {
-                            p_info->m_match_dir[1] = MATCH_UP;
-                            p_info->m_match_dir[0] = MATCH_DOWN;
-                        } else {
-                            continue;
-                        }
-                    }
-
-                    // matched a rule
-                    p_info->m_ifrule = *it2;
-
-                    // invoke CREATED event
-                    auto it4 = m_name2uxpeer.find((*it2)->m_name);
-
-                    if (it4 != m_name2uxpeer.end()) {
-                        for (auto it5 = it4->second.begin();
-                             it5 != it4->second.end(); ++it5) {
-                            write_head(*it5, id_dir,
-                                       p_info->m_ifrule->m_format,
-                                       STREAM_CREATED, MATCH_NONE, 0,
-                                       &p_info->m_header);
-                        }
-                    }
-
+            if (len1 > 0) {
+                idx = (uint8_t)buf1[0];
+                if (cache_up[idx] &&
+                    boost::regex_match(s1, *cache_up[idx]->m_up) &&
+                    boost::regex_match(s2, *cache_up[idx]->m_down)) {
+                    ifrule = cache_up[idx];
                     is_classified = true;
+                    p_info->m_match_dir[0] = MATCH_UP;
+                    p_info->m_match_dir[1] = MATCH_DOWN;
+                    p_info->m_ifrule = ifrule;
+
+                    cout << "hit cache: " << ifrule->m_name << endl;
+
+                    break;
+                } else if (cache_down[idx] &&
+                           boost::regex_match(s1, *cache_down[idx]->m_down) &&
+                           boost::regex_match(s2, *cache_down[idx]->m_up)){
+                    ifrule = cache_down[idx];
+                    is_classified = true;
+                    p_info->m_match_dir[0] = MATCH_DOWN;
+                    p_info->m_match_dir[1] = MATCH_UP;
+                    p_info->m_ifrule = ifrule;
+
+                    cout << "hit cache: " << ifrule->m_name << endl;
+
+                    break;
+                }
+            }
+
+            if (len2 > 0) {
+                idx = (uint8_t)buf2[0];
+                if (cache_up[idx] &&
+                    boost::regex_match(s2, *cache_up[idx]->m_up) &&
+                    boost::regex_match(s1, *cache_up[idx]->m_down)) {
+                    ifrule = cache_up[idx];
+                    is_classified = true;
+                    p_info->m_match_dir[0] = MATCH_DOWN;
+                    p_info->m_match_dir[1] = MATCH_UP;
+                    p_info->m_ifrule = ifrule;
+
+                    cout << "hit cache: " << ifrule->m_name << endl;
+
+                    break;
+                } else if (cache_down[idx] &&
+                           boost::regex_match(s2, *cache_down[idx]->m_down) &&
+                           boost::regex_match(s1, *cache_down[idx]->m_up)){
+                    ifrule = cache_down[idx];
+                    is_classified = true;
+                    p_info->m_match_dir[0] = MATCH_UP;
+                    p_info->m_match_dir[1] = MATCH_DOWN;
+                    p_info->m_ifrule = ifrule;
+
+                    cout << "hit cache: " << ifrule->m_name << endl;
+
+                    break;
+                }
+            }
+
+            // check list
+            for (auto it1 = it_tcp->second->ifrule.begin();
+                 it1 != it_tcp->second->ifrule.end(); ++it1) {
+                if (is_in_port((*it1)->m_port, id_dir.get_port_src(),
+                               id_dir.get_port_dst())) {
+                    if (boost::regex_match(s1, *(*it1)->m_up) &&
+                        boost::regex_match(s2, *(*it1)->m_down)) {
+                        ifrule = *it1;
+                        is_classified = true;
+                        p_info->m_match_dir[0] = MATCH_UP;
+                        p_info->m_match_dir[1] = MATCH_DOWN;
+                        p_info->m_ifrule = ifrule;
+
+                        {
+                            boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+                            if (len1 > 0)
+                                cache_up[(uint8_t)buf1[0]] = ifrule;
+
+                            if (len2 > 0)
+                                cache_down[(uint8_t)buf2[0]] = ifrule;
+
+                            it_tcp->second->ifrule.erase(it1);
+                            it_tcp->second->ifrule.push_front(ifrule);
+                        }
+
+                        goto brk;
+                    } else if (boost::regex_match(s1, *(*it1)->m_down) &&
+                               boost::regex_match(s2, *(*it1)->m_up)) {
+                        ifrule = *it1;
+                        is_classified = true;
+                        p_info->m_match_dir[0] = MATCH_DOWN;
+                        p_info->m_match_dir[1] = MATCH_UP;
+                        p_info->m_ifrule = ifrule;
+
+                        {
+                            boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+                            if (len1 > 0)
+                                cache_down[(uint8_t)buf1[0]] = ifrule;
+
+                            if (len2 > 0)
+                                cache_up[(uint8_t)buf2[0]] = ifrule;
+
+                            it_tcp->second->ifrule.erase(it1);
+                            it_tcp->second->ifrule.push_front(ifrule);
+                        }
+
+                        goto brk;
+                    }
+                }
+            }
+
+            // check no regex list
+            for (auto it2 = it_tcp->second->ifrule_no_regex.begin();
+                 it2 != it_tcp->second->ifrule_no_regex.end(); ++it2) {
+                if (is_in_port((*it2)->m_port, id_dir.get_port_src(),
+                               id_dir.get_port_dst())) {
+                    ifrule = *it2;
+                    is_classified = true;
+                    p_info->m_ifrule = ifrule;
 
                     {
                         boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
-
-                        if (m_is_lru && it2 != it_tcp->second.begin()) {
-                            ptr_ifrule ifrule = *it2;
-                            it_tcp->second.erase(it2);
-                            it_tcp->second.push_front(ifrule);
-                        }
+                        it_tcp->second->ifrule_no_regex.erase(it2);
+                        it_tcp->second->ifrule_no_regex.push_front(ifrule);
                     }
 
-                    goto classified;
+                    goto brk;
                 }
             }
-        } else {
-            return is_classified;
         }
     }
 
-classified:
+    brk:
+
+    if (is_classified) {
+        // invoke CREATED event
+        auto it = m_name2uxpeer.find(p_info->m_ifrule->m_name);
+
+        if (it != m_name2uxpeer.end()) {
+            for (auto it2 = it->second.begin(); it2 != it->second.end();
+                 ++it2) {
+                write_head(*it2, id_dir, p_info->m_ifrule->m_format,
+                           STREAM_CREATED, MATCH_NONE, 0, &p_info->m_header);
+            }
+        }
+    }
 
     if (p_info->m_ifrule) {
         // invoke DATA event and send data to I/F
@@ -952,10 +1058,14 @@ classified:
         }
     } else {
         // give up?
-        if (p_info->m_dsize1 > 4096 && p_info->m_dsize2 > 4096) {
+        if (p_info->m_dsize1 > 65536 || p_info->m_dsize2 > 65536) {
             p_info->m_is_giveup = true;
             p_info->m_buf1.clear();
             p_info->m_buf2.clear();
+            return is_classified;
+        } else if (p_info->m_dsize1 > 4096 || p_info->m_dsize2 > 4096) {
+            p_info->m_is_buf1 = true;
+            p_info->m_is_buf1 = true;
             return is_classified;
         }
     }
@@ -1075,89 +1185,140 @@ cdpi_appif::stream_info::stream_info(const cdpi_id &id) :
     m_header.l4_port2 = id.m_addr2->l4_port;
 }
 
+bool
+cdpi_appif::is_in_port(std::list<std::pair<uint16_t, uint16_t> > &range,
+                       uint16_t port1, uint16_t port2)
+{
+    if (range.empty())
+        return true;
+
+    for (auto it = range.begin(); it != range.end(); ++it) {
+        if ((it->first <= ntohs(port1) && ntohs(port1) <= it->second) ||
+            (it->first <= ntohs(port2) && ntohs(port2) <= it->second)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
 void
 cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
 {
     boost::upgrade_lock<boost::shared_mutex> up_lock(m_rw_mutex);
 
+    uint8_t    idx = bytes.get_head()[0];
+    ptr_ifrule ifrule;
+    match_dir  match = MATCH_NONE;
+
     for (auto it_udp = m_ifrule_udp.begin(); it_udp != m_ifrule_udp.end();
          ++it_udp) {
-        for (auto it = it_udp->second.begin(); it != it_udp->second.end();
-             ++it) {
-            bool is_port = false;
+        // check cache
+        if (it_udp->second->cache_up[idx] &&
+            is_in_port(it_udp->second->cache_up[idx]->m_port,
+                       id_dir.get_port_src(), id_dir.get_port_dst())) {
 
-            for (auto it2 = (*it)->m_port.begin();
-                 it2 != (*it)->m_port.end(); ++it2) {
+            ifrule = it_udp->second->cache_up[idx];
 
-                if ((it2->first <= ntohs(id_dir.get_port_src()) &&
-                     ntohs(id_dir.get_port_src()) <= it2->second) ||
-                    (it2->first <= ntohs(id_dir.get_port_dst()) &&
-                     ntohs(id_dir.get_port_dst()) <= it2->second)) {
-                    is_port = true;
+            assert(ifrule && ifrule->m_up);
+
+            string s(bytes.get_head(), bytes.get_len());
+            if (boost::regex_match(s, *ifrule->m_up)) {
+                // hit cache
+                match = MATCH_UP;
+
+                cout << "hit cache: " << ifrule->m_name << endl;
+
+                goto brk;
+            }
+        }
+
+        // check list
+        if (! it_udp->second->ifrule.empty()) {
+            string s(bytes.get_head(), bytes.get_len());
+
+            for (auto it1 = it_udp->second->ifrule.begin();
+                 it1 != it_udp->second->ifrule.end(); ++it1) {
+                if (is_in_port((*it1)->m_port, id_dir.get_port_src(),
+                               id_dir.get_port_dst()) &&
+                    boost::regex_match(s, *(*it1)->m_up)) {
+                    // found in list
+                    ifrule = *it1;
+                    match  = MATCH_UP;
+
+                    // update cache and list
+                    {
+                        boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+                        it_udp->second->cache_up[idx] = ifrule;
+                        it_udp->second->ifrule.erase(it1);
+                        it_udp->second->ifrule.push_front(ifrule);
+                    }
+
+                    goto brk;
                 }
             }
+        }
 
-            if (! is_port)
+        // check list of no regex
+        for (auto it2 = it_udp->second->ifrule_no_regex.begin();
+             it2 != it_udp->second->ifrule_no_regex.end(); ++it2) {
+            if (is_in_port((*it2)->m_port, id_dir.get_port_src(),
+                           id_dir.get_port_dst())) {
+                // found in list
+                ifrule = *it2;
+
+                // update cache and list
+                {
+                    boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+                    it_udp->second->ifrule_no_regex.erase(it2);
+                    it_udp->second->ifrule_no_regex.push_front(ifrule);
+                }
+
+                goto brk;
+            }
+        }
+    }
+
+brk:
+
+    if (! ifrule)
+        return;
+
+
+    cdpi_appif_header header;
+
+    memset(&header, 0, sizeof(header));
+
+    memcpy(&header.l3_addr1, &id_dir.m_id.m_addr1->l3_addr,
+           sizeof(header.l3_addr1));
+    memcpy(&header.l3_addr2, &id_dir.m_id.m_addr2->l3_addr,
+           sizeof(header.l3_addr2));
+
+    header.l4_port1 = id_dir.m_id.m_addr1->l4_port;
+    header.l4_port2 = id_dir.m_id.m_addr2->l4_port;
+    header.event    = DATAGRAM_DATA;
+    header.from     = id_dir.m_dir;
+    header.hop      = id_dir.m_id.m_hop;
+    header.l3_proto = id_dir.m_id.get_l3_proto();
+    header.len      = bytes.get_len();
+    header.match    = match;
+
+    auto it3 = m_name2uxpeer.find(ifrule->m_name);
+
+    if (it3 != m_name2uxpeer.end()) {
+        for (auto it4 = it3->second.begin();
+             it4 != it3->second.end(); ++it4) {
+            if (! write_head(*it4, id_dir, ifrule->m_format, STREAM_DATA,
+                             match, bytes.get_len(), &header)) {
                 continue;
+            }
 
-            match_dir match = MATCH_NONE;
-            if ((*it)->m_up) {
-                string s(bytes.get_head(), bytes.get_len());
-
-                if (! boost::regex_match(s, *(*it)->m_up)) {
+            if (ifrule->m_is_body) {
+                if (write(*it4, bytes.get_head(), bytes.get_len()) < 0) {
                     continue;
                 }
-
-                match = MATCH_UP;
             }
-
-            cdpi_appif_header header;
-
-            memset(&header, 0, sizeof(header));
-
-            memcpy(&header.l3_addr1, &id_dir.m_id.m_addr1->l3_addr,
-                   sizeof(header.l3_addr1));
-            memcpy(&header.l3_addr2, &id_dir.m_id.m_addr2->l3_addr,
-                   sizeof(header.l3_addr2));
-
-            header.l4_port1 = id_dir.m_id.m_addr1->l4_port;
-            header.l4_port2 = id_dir.m_id.m_addr2->l4_port;
-            header.event    = DATAGRAM_DATA;
-            header.from     = id_dir.m_dir;
-            header.hop      = id_dir.m_id.m_hop;
-            header.l3_proto = id_dir.m_id.get_l3_proto();
-            header.len      = bytes.get_len();
-            header.match    = match;
-
-            auto it3 = m_name2uxpeer.find((*it)->m_name);
-
-            if (it3 != m_name2uxpeer.end()) {
-                for (auto it4 = it3->second.begin();
-                     it4 != it3->second.end(); ++it4) {
-                    if (! write_head(*it4, id_dir, (*it)->m_format, STREAM_DATA,
-                                     match, bytes.get_len(), &header)) {
-                        continue;
-                    }
-
-                    if ((*it)->m_is_body) {
-                        if (write(*it4, bytes.get_head(), bytes.get_len()) < 0) {
-                            continue;
-                        }
-                    }
-                }
-            }
-
-            {
-                boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
-
-                if (m_is_lru && it != it_udp->second.begin()) {
-                    ptr_ifrule ifrule = *it;
-                    it_udp->second.erase(it);
-                    it_udp->second.push_front(ifrule);
-                }
-            }
-
-            return;
         }
     }
 }
