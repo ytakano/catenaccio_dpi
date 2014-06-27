@@ -43,7 +43,6 @@ public:
 
     void read_conf(std::string conf);
     void run();
-    void consume_event();
 
     void in_event(cdpi_stream_event st_event,
                   const cdpi_id_dir &id_dir, cdpi_bytes bytes);
@@ -135,13 +134,36 @@ private:
         cdpi_bytes        bytes;
     };
 
+public:
+    class appif_consumer {
+    public:
+        appif_consumer(int id, cdpi_appif &appif);
+
+        void produce(appif_event &ev);
+        void consume();
+        void run();
+
+    private:
+        int              m_id;
+        cdpi_appif      &m_appif;
+        boost::mutex     m_mutex;
+        boost::condition m_condition;
+        boost::thread    m_thread;
+        std::deque<appif_event> m_ev_queue;
+        std::map<cdpi_id, ptr_info> m_info;
+
+        void in_stream_event(cdpi_stream_event st_event,
+                             const cdpi_id_dir &id_dir, cdpi_bytes bytes);
+    };
+private:
+
+    typedef boost::shared_ptr<appif_consumer> ptr_consumer;
+
     int m_fd7;
     int m_fd3;
 
     std::map<int, ptr_loopback_state> m_lb7_state;
     ifformat m_lb7_format;
-
-    std::map<cdpi_id, ptr_info> m_info;
 
     //std::list<ptr_ifrule>     m_ifrule;
     std::map<int, ptr_ifrule_storage> m_ifrule_udp;
@@ -152,13 +174,18 @@ private:
     std::map<int, ptr_uxpeer> m_fd2uxpeer; // accepted socket
     std::map<std::string, std::set<int> > m_name2uxpeer;
 
-    std::deque<appif_event> m_ev_queue;
-
     boost::shared_mutex m_rw_mutex;
-    boost::mutex        m_mutex;
-    boost::condition    m_condition;
 
-    ptr_thread          m_thread_stream;
+    int m_num_consumer;
+    boost::shared_array<ptr_consumer> m_consumer;
+
+/*
+    std::deque<appif_event> m_ev_queue;
+    boost::shared_array<boost::mutex>     m_mutex;
+    boost::shared_array<boost::condition> m_condition;
+    boost::shared_array<ptr_thread>       m_thread_stream;
+*/
+
     ptr_thread          m_thread_listen;
 
     cdpi_callback &m_callback;
@@ -168,14 +195,14 @@ private:
     ptr_path    m_home;
 
     bool        m_is_lru;
+    bool        m_is_cache;
 
-    void in_stream_event(cdpi_stream_event st_event,
-                         const cdpi_id_dir &id_dir, cdpi_bytes bytes);
     void makedir(boost::filesystem::path path);
     bool send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir);
-    bool write_head(int fd, const cdpi_id_dir &id_dir, ifformat format,
-                    cdpi_stream_event event, match_dir match, int bodylen,
-                    cdpi_appif_header *header = NULL);
+    bool write_event(int fd, const cdpi_id_dir &id_dir, ptr_ifrule ifrule,
+                     cdpi_stream_event event, match_dir match,
+                     cdpi_appif_header *header, char *body, int bodylen,
+                     boost::upgrade_lock<boost::shared_mutex> &up_lock);
     void ux_listen();
     void ux_listen_ifrule(ptr_ifrule ifrule);
     bool is_in_port(std::list<std::pair<uint16_t, uint16_t> > &range,

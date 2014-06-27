@@ -1,8 +1,6 @@
 #include "cdpi.hpp"
 #include "cdpi_appif.hpp"
 
-#include <CoreServices/CoreServices.h>
-
 #include <unistd.h>
 
 #include <arpa/inet.h>
