@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/uio.h>
 
 #include <list>
 #include <iostream>
@@ -61,8 +62,11 @@ cdpi_appif::run()
 
     m_num_consumer = boost::thread::hardware_concurrency();
 
-    if (m_num_consumer == 0)
+    if (m_num_consumer <= 1) {
         m_num_consumer = 1;
+    } else {
+        m_num_consumer--;
+    }
 
     m_consumer = boost::shared_array<ptr_consumer>(new ptr_consumer[m_num_consumer]);
 
@@ -796,19 +800,19 @@ cdpi_appif::appif_consumer::in_stream_event(cdpi_stream_event st_event,
             return;
         }
 
-        if (m_appif.send_tcp_data(it->second, id_dir)) {
+        if (send_tcp_data(it->second, id_dir)) {
             if (id_dir.m_dir == FROM_ADDR1 &&
                 it->second->m_buf2.size() > 0) {
                 cdpi_id_dir id_dir2;
                 id_dir2.m_id  = id_dir.m_id;
                 id_dir2.m_dir = FROM_ADDR2;
-                m_appif.send_tcp_data(it->second, id_dir2);
+                send_tcp_data(it->second, id_dir2);
             } else if (id_dir.m_dir == FROM_ADDR2 &&
                        it->second->m_buf1.size() > 0) {
                 cdpi_id_dir id_dir2;
                 id_dir2.m_id  = id_dir.m_id;
                 id_dir2.m_dir = FROM_ADDR1;
-                m_appif.send_tcp_data(it->second, id_dir2);
+                send_tcp_data(it->second, id_dir2);
             }
         }
 
@@ -827,13 +831,13 @@ cdpi_appif::appif_consumer::in_stream_event(cdpi_stream_event st_event,
         if (! it->second->m_buf1.empty()) {
             cdpi_id_dir id_dir2 = id_dir;
             id_dir2.m_dir = FROM_ADDR1;
-            m_appif.send_tcp_data(it->second, id_dir2);
+            send_tcp_data(it->second, id_dir2);
         }
 
         if (! it->second->m_buf2.empty()) {
             cdpi_id_dir id_dir2 = id_dir;
             id_dir2.m_dir = FROM_ADDR2;
-            m_appif.send_tcp_data(it->second, id_dir2);
+            send_tcp_data(it->second, id_dir2);
         }
 
 
@@ -848,7 +852,7 @@ cdpi_appif::appif_consumer::in_stream_event(cdpi_stream_event st_event,
                      ++it3) {
                     m_appif.write_event(*it3, id_dir, it->second->m_ifrule,
                                         STREAM_DESTROYED, MATCH_NONE,
-                                        &it->second->m_header, NULL, 0, up_lock);
+                                        &it->second->m_header, NULL, 0);
                 }
             }
         }
@@ -868,10 +872,8 @@ cdpi_appif::appif_consumer::in_stream_event(cdpi_stream_event st_event,
 }
 
 bool
-cdpi_appif::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
+cdpi_appif::appif_consumer::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
 {
-    boost::upgrade_lock<boost::shared_mutex> up_lock(m_rw_mutex);
-
     bool is_classified = false;
 
     if (! p_info->m_ifrule && p_info->m_is_buf1 && p_info->m_is_buf2) {
@@ -885,11 +887,8 @@ cdpi_appif::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
 
         for (auto it_tcp = m_ifrule_tcp.begin();
              it_tcp != m_ifrule_tcp.end(); ++it_tcp) {
-            auto &cache_up   = it_tcp->second->cache_up;
-            auto &cache_down = it_tcp->second->cache_down;
-
             // check cache
-            if (m_is_cache) {
+            if (m_appif.m_is_cache) {
                 uint8_t idx;
 
                 if (len1 > 0) {
@@ -954,7 +953,7 @@ cdpi_appif::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
             // check list
             for (auto it1 = it_tcp->second->ifrule.begin();
                  it1 != it_tcp->second->ifrule.end(); ++it1) {
-                if (is_in_port((*it1)->m_port, id_dir.get_port_src(),
+                if (m_appif.is_in_port((*it1)->m_port, id_dir.get_port_src(),
                                id_dir.get_port_dst())) {
                     if (boost::regex_match(buf1, buf1 + len1, *(*it1)->m_up) &&
                         boost::regex_match(buf2, buf2 + len2, *(*it1)->m_down)) {
@@ -964,22 +963,17 @@ cdpi_appif::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
                         p_info->m_match_dir[1] = MATCH_DOWN;
                         p_info->m_ifrule = ifrule;
 
-                        {
-                            boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+                        if (m_appif.m_is_cache) {
+                            if (len1 > 0)
+                                cache_up[(uint8_t)buf1[0]] = ifrule;
 
-                            if (m_is_cache) {
-                                if (len1 > 0)
-                                    cache_up[(uint8_t)buf1[0]] = ifrule;
+                            if (len2 > 0)
+                                cache_down[(uint8_t)buf2[0]] = ifrule;
+                        }
 
-                                if (len2 > 0)
-                                    cache_down[(uint8_t)buf2[0]] = ifrule;
-                            }
-
-                            if (m_is_lru &&
-                                it1 != it_tcp->second->ifrule.begin()) {
-                                it_tcp->second->ifrule.erase(it1);
-                                it_tcp->second->ifrule.push_front(ifrule);
-                            }
+                        if (m_appif.m_is_lru) {
+                            it_tcp->second->ifrule.erase(it1);
+                            it_tcp->second->ifrule.push_front(ifrule);
                         }
 
                         goto brk;
@@ -993,22 +987,17 @@ cdpi_appif::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
                         p_info->m_match_dir[1] = MATCH_UP;
                         p_info->m_ifrule = ifrule;
 
-                        {
-                            boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+                        if (m_appif.m_is_cache) {
+                            if (len1 > 0)
+                                cache_down[(uint8_t)buf1[0]] = ifrule;
 
-                            if (m_is_cache) {
-                                if (len1 > 0)
-                                    cache_down[(uint8_t)buf1[0]] = ifrule;
+                            if (len2 > 0)
+                                cache_up[(uint8_t)buf2[0]] = ifrule;
+                        }
 
-                                if (len2 > 0)
-                                    cache_up[(uint8_t)buf2[0]] = ifrule;
-                            }
-
-                            if (m_is_lru &&
-                                it1 != it_tcp->second->ifrule.begin()) {
-                                it_tcp->second->ifrule.erase(it1);
-                                it_tcp->second->ifrule.push_front(ifrule);
-                            }
+                        if (m_appif.m_is_lru) {
+                            it_tcp->second->ifrule.erase(it1);
+                            it_tcp->second->ifrule.push_front(ifrule);
                         }
 
                         goto brk;
@@ -1019,19 +1008,15 @@ cdpi_appif::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
             // check no regex list
             for (auto it2 = it_tcp->second->ifrule_no_regex.begin();
                  it2 != it_tcp->second->ifrule_no_regex.end(); ++it2) {
-                if (is_in_port((*it2)->m_port, id_dir.get_port_src(),
+                if (m_appif.is_in_port((*it2)->m_port, id_dir.get_port_src(),
                                id_dir.get_port_dst())) {
                     ifrule = *it2;
                     is_classified = true;
                     p_info->m_ifrule = ifrule;
 
-                    {
-                        if (m_is_lru &&
-                            it2 != it_tcp->second->ifrule_no_regex.begin()) {
-                            boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
-                            it_tcp->second->ifrule_no_regex.erase(it2);
-                            it_tcp->second->ifrule_no_regex.push_front(ifrule);
-                        }
+                    if (m_appif.m_is_lru) {
+                        it_tcp->second->ifrule.erase(it2);
+                        it_tcp->second->ifrule.push_front(ifrule);
                     }
 
                     goto brk;
@@ -1042,16 +1027,18 @@ cdpi_appif::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
 
     brk:
 
+    boost::upgrade_lock<boost::shared_mutex> up_lock(m_appif.m_rw_mutex);
+
     if (is_classified) {
         // invoke CREATED event
-        auto it = m_name2uxpeer.find(p_info->m_ifrule->m_name);
+        auto it = m_appif.m_name2uxpeer.find(p_info->m_ifrule->m_name);
 
-        if (it != m_name2uxpeer.end()) {
+        if (it != m_appif.m_name2uxpeer.end()) {
             for (auto it2 = it->second.begin(); it2 != it->second.end();
                  ++it2) {
-                write_event(*it2, id_dir, p_info->m_ifrule,
-                            STREAM_CREATED, MATCH_NONE, &p_info->m_header,
-                            NULL, 0, up_lock);
+                m_appif.write_event(*it2, id_dir, p_info->m_ifrule,
+                                    STREAM_CREATED, MATCH_NONE,
+                                    &p_info->m_header, NULL, 0);
             }
         }
     }
@@ -1070,9 +1057,9 @@ cdpi_appif::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
 
         while (! bufs->empty()) {
             auto front = bufs->front();
-            auto it2 = m_name2uxpeer.find(p_info->m_ifrule->m_name);
+            auto it2 = m_appif.m_name2uxpeer.find(p_info->m_ifrule->m_name);
 
-            if (it2 != m_name2uxpeer.end()) {
+            if (it2 != m_appif.m_name2uxpeer.end()) {
                 for (auto it3 = it2->second.begin(); it3 != it2->second.end();
                      ++it3) {
                     match_dir mdir;
@@ -1081,10 +1068,11 @@ cdpi_appif::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
 
                     mdir = p_info->m_match_dir[id_dir.m_dir];
 
-                    if (! write_event(*it3, id_dir, p_info->m_ifrule,
-                                      STREAM_DATA, mdir, &p_info->m_header,
-                                      front.get_head(), front.get_len(),
-                                      up_lock)) {
+                    if (! m_appif.write_event(*it3, id_dir, p_info->m_ifrule,
+                                              STREAM_DATA, mdir,
+                                              &p_info->m_header,
+                                              front.get_head(),
+                                              front.get_len())) {
                         continue;
                     }
                 }
@@ -1112,8 +1100,7 @@ cdpi_appif::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
 bool
 cdpi_appif::write_event(int fd, const cdpi_id_dir &id_dir, ptr_ifrule ifrule,
                         cdpi_stream_event event, match_dir match,
-                        cdpi_appif_header *header, char *body, int bodylen,
-                        boost::upgrade_lock<boost::shared_mutex> &up_lock)
+                        cdpi_appif_header *header, char *body, int bodylen)
 {
     if (ifrule->m_format == IF_TEXT) {
         string s;
@@ -1183,16 +1170,19 @@ cdpi_appif::write_event(int fd, const cdpi_id_dir &id_dir, ptr_ifrule ifrule,
             assert(false);
         }
 
-        {
-            boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+        if (bodylen > 0 && ifrule->m_is_body) {
+            iovec iov[2];
 
+            iov[0].iov_base = const_cast<char*>(s.c_str());
+            iov[0].iov_len  = s.size();
+
+            iov[1].iov_base = body;
+            iov[1].iov_len  = bodylen;
+
+            writev(fd, iov, sizeof(iov));
+        } else {
             if (write(fd, s.c_str(), s.size()) < 0)
                 return false;
-
-            if (bodylen > 0 && ifrule->m_is_body) {
-                if (write(fd, body, bodylen) < 0)
-                    return false;
-            }
         }
     } else {
         header->event    = event;
@@ -1203,16 +1193,19 @@ cdpi_appif::write_event(int fd, const cdpi_id_dir &id_dir, ptr_ifrule ifrule,
         header->len      = bodylen;
         header->match    = match;
 
-        {
-            boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
+        if (bodylen > 0 && ifrule->m_is_body) {
+            iovec iov[2];
 
+            iov[0].iov_base = header;
+            iov[0].iov_len  = sizeof(*header);
+
+            iov[1].iov_base = body;
+            iov[1].iov_len  = bodylen;
+
+            writev(fd, iov, sizeof(iov));
+        } else {
             if (write(fd, header, sizeof(*header)) < 0)
                 return false;
-
-            if (bodylen > 0 && ifrule->m_is_body) {
-                if (write(fd, body, bodylen) < 0)
-                    return false;
-            }
         }
     }
 
@@ -1257,10 +1250,9 @@ cdpi_appif::is_in_port(std::list<std::pair<uint16_t, uint16_t> > &range,
 
 
 void
-cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
+cdpi_appif::appif_consumer::in_datagram(const cdpi_id_dir &id_dir,
+                                        cdpi_bytes bytes)
 {
-    boost::upgrade_lock<boost::shared_mutex> up_lock(m_rw_mutex);
-
     uint8_t    idx = bytes.get_head()[0];
     ptr_ifrule ifrule;
     match_dir  match = MATCH_NONE;
@@ -1268,11 +1260,11 @@ cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
     for (auto it_udp = m_ifrule_udp.begin(); it_udp != m_ifrule_udp.end();
          ++it_udp) {
         // check cache
-        if (m_is_cache && it_udp->second->cache_up[idx] &&
-            is_in_port(it_udp->second->cache_up[idx]->m_port,
-                       id_dir.get_port_src(), id_dir.get_port_dst())) {
+        if (m_appif.m_is_cache && cache_udp[idx] &&
+            m_appif.is_in_port(cache_udp[idx]->m_port,
+                               id_dir.get_port_src(), id_dir.get_port_dst())) {
 
-            ifrule = it_udp->second->cache_up[idx];
+            ifrule = cache_udp[idx];
 
             assert(ifrule && ifrule->m_up);
 
@@ -1282,8 +1274,6 @@ cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
                 // hit cache
                 match = MATCH_UP;
 
-                cout << "hit cache: " << ifrule->m_name << endl;
-
                 goto brk;
             }
         }
@@ -1292,8 +1282,8 @@ cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
         if (! it_udp->second->ifrule.empty()) {
             for (auto it1 = it_udp->second->ifrule.begin();
                  it1 != it_udp->second->ifrule.end(); ++it1) {
-                if (is_in_port((*it1)->m_port, id_dir.get_port_src(),
-                               id_dir.get_port_dst()) &&
+                if (m_appif.is_in_port((*it1)->m_port, id_dir.get_port_src(),
+                                       id_dir.get_port_dst()) &&
                     boost::regex_match(bytes.get_head(),
                                        bytes.get_head() + bytes.get_len(),
                                        *(*it1)->m_up)) {
@@ -1302,15 +1292,12 @@ cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
                     match  = MATCH_UP;
 
                     // update cache and list
-                    {
-                        boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
-                        if (m_is_cache)
-                            it_udp->second->cache_up[idx] = ifrule;
+                    if (m_appif.m_is_cache)
+                        cache_udp[idx] = ifrule;
 
-                        if (m_is_lru) {
-                            it_udp->second->ifrule.erase(it1);
-                            it_udp->second->ifrule.push_front(ifrule);
-                        }
+                    if (m_appif.m_is_lru) {
+                        it_udp->second->ifrule.erase(it1);
+                        it_udp->second->ifrule.push_front(ifrule);
                     }
 
                     goto brk;
@@ -1321,18 +1308,14 @@ cdpi_appif::in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes)
         // check list of no regex
         for (auto it2 = it_udp->second->ifrule_no_regex.begin();
              it2 != it_udp->second->ifrule_no_regex.end(); ++it2) {
-            if (is_in_port((*it2)->m_port, id_dir.get_port_src(),
-                           id_dir.get_port_dst())) {
+            if (m_appif.is_in_port((*it2)->m_port, id_dir.get_port_src(),
+                                   id_dir.get_port_dst())) {
                 // found in list
                 ifrule = *it2;
 
-                // update cache and list
-                {
-                    if (m_is_lru) {
-                        boost::upgrade_to_unique_lock<boost::shared_mutex> wlock(up_lock);
-                        it_udp->second->ifrule_no_regex.erase(it2);
-                        it_udp->second->ifrule_no_regex.push_front(ifrule);
-                    }
+                if (m_appif.m_is_lru) {
+                    it_udp->second->ifrule.erase(it2);
+                    it_udp->second->ifrule.push_front(ifrule);
                 }
 
                 goto brk;
@@ -1364,14 +1347,16 @@ brk:
     header.len      = bytes.get_len();
     header.match    = match;
 
-    auto it3 = m_name2uxpeer.find(ifrule->m_name);
+    boost::upgrade_lock<boost::shared_mutex> up_lock(m_appif.m_rw_mutex);
 
-    if (it3 != m_name2uxpeer.end()) {
+    auto it3 = m_appif.m_name2uxpeer.find(ifrule->m_name);
+
+    if (it3 != m_appif.m_name2uxpeer.end()) {
         for (auto it4 = it3->second.begin();
              it4 != it3->second.end(); ++it4) {
-            if (! write_event(*it4, id_dir, ifrule, STREAM_DATA,
-                              match, &header, bytes.get_head(),
-                              bytes.get_len(), up_lock)) {
+            if (! m_appif.write_event(*it4, id_dir, ifrule, STREAM_DATA,
+                                      match, &header, bytes.get_head(),
+                                      bytes.get_len())) {
                 continue;
             }
         }
@@ -1397,7 +1382,7 @@ cdpi_appif::appif_consumer::consume()
         if (ev.id_dir.m_id.get_l4_proto() == IPPROTO_TCP) {
             in_stream_event(ev.st_event, ev.id_dir, ev.bytes);
         } else if (ev.id_dir.m_id.get_l4_proto() == IPPROTO_UDP) {
-            m_appif.in_datagram(ev.id_dir, ev.bytes);
+            in_datagram(ev.id_dir, ev.bytes);
         }
     }
 }
@@ -1416,5 +1401,21 @@ cdpi_appif::appif_consumer::appif_consumer(int id, cdpi_appif &appif) :
     m_appif(appif),
     m_thread(boost::bind(&cdpi_appif::appif_consumer::consume, this))
 {
+    for (auto it_tcp = appif.m_ifrule_tcp.begin();
+         it_tcp != appif.m_ifrule_tcp.end(); ++it_tcp) {
+        ptr_ifrule_storage p = ptr_ifrule_storage(new ifrule_storage);
 
+        *p = *it_tcp->second;
+
+        m_ifrule_tcp[it_tcp->first] = p;
+    }
+
+    for (auto it_udp = appif.m_ifrule_udp.begin();
+         it_udp != appif.m_ifrule_udp.end(); ++it_udp) {
+        ptr_ifrule_storage p = ptr_ifrule_storage(new ifrule_storage);
+
+        *p = *it_udp->second;
+
+        m_ifrule_udp[it_udp->first] = p;
+    }
 }

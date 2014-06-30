@@ -46,7 +46,6 @@ public:
 
     void in_event(cdpi_stream_event st_event,
                   const cdpi_id_dir &id_dir, cdpi_bytes bytes);
-    void in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes);
 
 private:
     typedef boost::shared_ptr<boost::regex> ptr_regex;
@@ -118,8 +117,6 @@ private:
     struct ifrule_storage {
         std::list<ptr_ifrule> ifrule;
         std::list<ptr_ifrule> ifrule_no_regex;
-        ptr_ifrule            cache_up[256];
-        ptr_ifrule            cache_down[256];
     };
 
     typedef boost::shared_ptr<uxpeer>         ptr_uxpeer;
@@ -151,9 +148,17 @@ public:
         boost::thread    m_thread;
         std::deque<appif_event> m_ev_queue;
         std::map<cdpi_id, ptr_info> m_info;
+        std::map<int, ptr_ifrule_storage> m_ifrule_tcp;
+        std::map<int, ptr_ifrule_storage> m_ifrule_udp;
+        ptr_ifrule            cache_udp[256];
+        ptr_ifrule            cache_up[256];
+        ptr_ifrule            cache_down[256];
+
 
         void in_stream_event(cdpi_stream_event st_event,
                              const cdpi_id_dir &id_dir, cdpi_bytes bytes);
+        bool send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir);
+        void in_datagram(const cdpi_id_dir &id_dir, cdpi_bytes bytes);
     };
 private:
 
@@ -166,8 +171,8 @@ private:
     ifformat m_lb7_format;
 
     //std::list<ptr_ifrule>     m_ifrule;
-    std::map<int, ptr_ifrule_storage> m_ifrule_udp;
     std::map<int, ptr_ifrule_storage> m_ifrule_tcp;
+    std::map<int, ptr_ifrule_storage> m_ifrule_udp;
     ptr_ifrule m_ifrule7;
     ptr_ifrule m_ifrule3;
     std::map<int, ptr_ifrule> m_fd2ifrule; // listen socket
@@ -178,13 +183,6 @@ private:
 
     int m_num_consumer;
     boost::shared_array<ptr_consumer> m_consumer;
-
-/*
-    std::deque<appif_event> m_ev_queue;
-    boost::shared_array<boost::mutex>     m_mutex;
-    boost::shared_array<boost::condition> m_condition;
-    boost::shared_array<ptr_thread>       m_thread_stream;
-*/
 
     ptr_thread          m_thread_listen;
 
@@ -198,11 +196,9 @@ private:
     bool        m_is_cache;
 
     void makedir(boost::filesystem::path path);
-    bool send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir);
     bool write_event(int fd, const cdpi_id_dir &id_dir, ptr_ifrule ifrule,
                      cdpi_stream_event event, match_dir match,
-                     cdpi_appif_header *header, char *body, int bodylen,
-                     boost::upgrade_lock<boost::shared_mutex> &up_lock);
+                     cdpi_appif_header *header, char *body, int bodylen);
     void ux_listen();
     void ux_listen_ifrule(ptr_ifrule ifrule);
     bool is_in_port(std::list<std::pair<uint16_t, uint16_t> > &range,
