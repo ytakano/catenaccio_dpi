@@ -131,6 +131,15 @@ private:
         cdpi_bytes        bytes;
     };
 
+    struct ifrule_storage2 {
+        std::list<ptr_ifrule> ifrule;
+        std::list<ptr_ifrule> ifrule_no_regex;
+        ptr_ifrule cache_up[256];
+        ptr_ifrule cache_down[256];
+    };
+
+    typedef boost::shared_ptr<ifrule_storage2> ptr_ifrule_storage2;
+
 public:
     class appif_consumer {
     public:
@@ -148,12 +157,8 @@ public:
         boost::thread    m_thread;
         std::deque<appif_event> m_ev_queue;
         std::map<cdpi_id, ptr_info> m_info;
-        std::map<int, ptr_ifrule_storage> m_ifrule_tcp;
-        std::map<int, ptr_ifrule_storage> m_ifrule_udp;
-        ptr_ifrule            cache_udp[256];
-        ptr_ifrule            cache_up[256];
-        ptr_ifrule            cache_down[256];
-
+        std::map<int, ptr_ifrule_storage2> m_ifrule_tcp;
+        std::map<int, ptr_ifrule_storage2> m_ifrule_udp;
 
         void in_stream_event(cdpi_stream_event st_event,
                              const cdpi_id_dir &id_dir, cdpi_bytes bytes);

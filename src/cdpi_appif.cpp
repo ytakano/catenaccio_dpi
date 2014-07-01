@@ -517,8 +517,11 @@ cdpi_appif::ux_listen()
             }
         }
 
-        ux_listen_ifrule(m_ifrule7);
-        ux_listen_ifrule(m_ifrule3);
+        if (m_ifrule7)
+            ux_listen_ifrule(m_ifrule7);
+
+        if (m_ifrule3)
+            ux_listen_ifrule(m_ifrule3);
     }
 
     event_base_dispatch(m_ev_base);
@@ -887,6 +890,9 @@ cdpi_appif::appif_consumer::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
 
         for (auto it_tcp = m_ifrule_tcp.begin();
              it_tcp != m_ifrule_tcp.end(); ++it_tcp) {
+            auto cache_up   = it_tcp->second->cache_up;
+            auto cache_down = it_tcp->second->cache_down;
+
             // check cache
             if (m_appif.m_is_cache) {
                 uint8_t idx;
@@ -1179,7 +1185,7 @@ cdpi_appif::write_event(int fd, const cdpi_id_dir &id_dir, ptr_ifrule ifrule,
             iov[1].iov_base = body;
             iov[1].iov_len  = bodylen;
 
-            writev(fd, iov, sizeof(iov));
+            writev(fd, iov, 2);
         } else {
             if (write(fd, s.c_str(), s.size()) < 0)
                 return false;
@@ -1202,7 +1208,7 @@ cdpi_appif::write_event(int fd, const cdpi_id_dir &id_dir, ptr_ifrule ifrule,
             iov[1].iov_base = body;
             iov[1].iov_len  = bodylen;
 
-            writev(fd, iov, sizeof(iov));
+            writev(fd, iov, 2);
         } else {
             if (write(fd, header, sizeof(*header)) < 0)
                 return false;
@@ -1260,6 +1266,7 @@ cdpi_appif::appif_consumer::in_datagram(const cdpi_id_dir &id_dir,
     for (auto it_udp = m_ifrule_udp.begin(); it_udp != m_ifrule_udp.end();
          ++it_udp) {
         // check cache
+        auto cache_udp = it_udp->second->cache_up;
         if (m_appif.m_is_cache && cache_udp[idx] &&
             m_appif.is_in_port(cache_udp[idx]->m_port,
                                id_dir.get_port_src(), id_dir.get_port_dst())) {
@@ -1403,18 +1410,20 @@ cdpi_appif::appif_consumer::appif_consumer(int id, cdpi_appif &appif) :
 {
     for (auto it_tcp = appif.m_ifrule_tcp.begin();
          it_tcp != appif.m_ifrule_tcp.end(); ++it_tcp) {
-        ptr_ifrule_storage p = ptr_ifrule_storage(new ifrule_storage);
+        ptr_ifrule_storage2 p = ptr_ifrule_storage2(new ifrule_storage2);
 
-        *p = *it_tcp->second;
+        p->ifrule = it_tcp->second->ifrule;
+        p->ifrule_no_regex = it_tcp->second->ifrule_no_regex;
 
         m_ifrule_tcp[it_tcp->first] = p;
     }
 
     for (auto it_udp = appif.m_ifrule_udp.begin();
          it_udp != appif.m_ifrule_udp.end(); ++it_udp) {
-        ptr_ifrule_storage p = ptr_ifrule_storage(new ifrule_storage);
+        ptr_ifrule_storage2 p = ptr_ifrule_storage2(new ifrule_storage2);
 
-        *p = *it_udp->second;
+        p->ifrule = it_udp->second->ifrule;
+        p->ifrule_no_regex = it_udp->second->ifrule_no_regex;
 
         m_ifrule_udp[it_udp->first] = p;
     }

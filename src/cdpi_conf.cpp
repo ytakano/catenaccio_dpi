@@ -41,6 +41,10 @@ cdpi_conf::read_conf(string conf)
         stringstream s1(line);
         std::getline(s1, line, '#');
 
+        if (line.size() == 0)
+            continue;
+
+    sec:
         switch (state) {
         case SECTION:
         {
@@ -64,6 +68,7 @@ cdpi_conf::read_conf(string conf)
 
             if (c != ' ') {
                 state = SECTION;
+                goto sec;
             } else {
                 for (int i = 0; i < 4; i++) {
                     s3.get(c);
