@@ -21,6 +21,8 @@ using namespace std;
 
 #define TCP_GC_TIMER 120
 
+// #define DEBUG
+
 cdpi_tcp::cdpi_tcp(ptr_cdpi_appif appif) :
     m_appif(appif),
     m_timeout(600),
@@ -203,6 +205,12 @@ cdpi_tcp::run()
                 cdpi_bytes bytes;
                 m_appif->in_event(STREAM_SYN, tcp_event, bytes);
             } else if (packet.m_flags & TH_FIN) {
+                if (packet.m_data_len > 0) {
+                    packet.m_bytes.skip(packet.m_data_pos);
+                    m_appif->in_event(STREAM_DATA, tcp_event,
+                                      packet.m_bytes);
+                }
+
                 cdpi_bytes bytes;
 
                 m_appif->in_event(STREAM_FIN, tcp_event, bytes);
@@ -245,6 +253,17 @@ cdpi_tcp::run()
                 m_appif->in_event(STREAM_DESTROYED, id_dir, bytes);
             } else {
                 packet.m_bytes.skip(packet.m_data_pos);
+
+#ifdef DEBUG
+                cout << "data in: addr1 = "
+                     << addr1 << ":"
+                     << ntohs(tcp_event.m_id.m_addr1->l4_port)
+                     << ", addr2 = "
+                     << addr2 << ":"
+                     << ntohs(tcp_event.m_id.m_addr2->l4_port)
+                     << ", from = " << tcp_event.m_dir
+                     << endl;
+#endif // DEBUG
 
                 m_appif->in_event(STREAM_DATA, tcp_event,
                                   packet.m_bytes);

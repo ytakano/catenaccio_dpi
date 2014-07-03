@@ -838,8 +838,8 @@ cdpi_appif::appif_consumer::in_stream_event(cdpi_stream_event st_event,
         if (it == m_info.end())
             return;
 
-        it->second->m_is_buf1    = true;
-        it->second->m_is_buf2    = true;
+        it->second->m_is_buf1 = true;
+        it->second->m_is_buf2 = true;
 
         if (! it->second->m_buf1.empty()) {
             cdpi_id_dir id_dir2 = id_dir;
@@ -1104,12 +1104,12 @@ cdpi_appif::appif_consumer::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
         }
     } else {
         // give up?
-        if (p_info->m_dsize1 > 65536 || p_info->m_dsize2 > 65536) {
+        if (p_info->m_dsize1 > 65536 * 2 || p_info->m_dsize2 > 65536 * 2) {
             p_info->m_is_giveup = true;
             p_info->m_buf1.clear();
             p_info->m_buf2.clear();
             return is_classified;
-        } else if (p_info->m_dsize1 > 4096 || p_info->m_dsize2 > 4096) {
+        } else if (p_info->m_dsize1 > 65536 || p_info->m_dsize2 > 65536) {
             p_info->m_is_buf1 = true;
             p_info->m_is_buf1 = true;
             return is_classified;

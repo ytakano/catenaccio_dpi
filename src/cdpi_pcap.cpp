@@ -22,6 +22,8 @@ using namespace std;
 boost::shared_ptr<cdpi_pcap> pcap_inst;
 bool pcap_is_running = false;
 
+time_t t0 = time(NULL);
+
 struct vlanhdr {
     uint16_t m_tci;
     uint16_t m_type;
@@ -56,6 +58,18 @@ cdpi_pcap::callback(const struct pcap_pkthdr *h, const uint8_t *bytes)
 
     if (ip_hdr == NULL)
         return;
+
+    time_t t1 = time(NULL);
+
+    if (t1 - t0 > 30) {
+        pcap_stat stat;
+        t0 = t1;
+        pcap_stats(m_handle, &stat);
+
+        cout << "ps_recv = " << stat.ps_recv
+             << "\nps_drop = " << stat.ps_drop
+             << "\nps_ifdrop = " << stat.ps_ifdrop << endl;
+    }
 
     switch (proto) {
     case IPPROTO_IP:{
