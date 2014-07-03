@@ -522,6 +522,12 @@ cdpi_appif::ux_listen()
 
         if (m_ifrule3)
             ux_listen_ifrule(m_ifrule3);
+
+        if (m_tcp_default)
+            ux_listen_ifrule(m_tcp_default);
+
+        if (m_udp_default)
+            ux_listen_ifrule(m_udp_default);
     }
 
     event_base_dispatch(m_ev_base);
@@ -689,7 +695,15 @@ cdpi_appif::read_conf(string conf)
             }
 
             // insert interface rule
-            if (rule->m_proto == IF_UDP) {
+            if (rule->m_name == "loopback3") {
+                m_ifrule3 = rule;
+            } else if (rule->m_name == "loopback7") {
+                m_ifrule7 = rule;
+            } else if (rule->m_name == "tcp_default") {
+                m_tcp_default = rule;
+            } else if (rule->m_name == "udp_default") {
+                m_udp_default = rule;
+            } else if (rule->m_proto == IF_UDP) {
                 auto it_udp = m_ifrule_udp.find(rule->m_nice);
                 if (it_udp == m_ifrule_udp.end()) {
                     m_ifrule_udp[rule->m_nice] = ptr_ifrule_storage(new ifrule_storage);
@@ -712,10 +726,6 @@ cdpi_appif::read_conf(string conf)
                 } else {
                     it_tcp->second->ifrule_no_regex.push_back(rule);
                 }
-            } else if (rule->m_name == "loopback3") {
-                m_ifrule3 = rule;
-            } else if (rule->m_name == "loopback7") {
-                m_ifrule7 = rule;
             }
         }
     }
@@ -828,8 +838,8 @@ cdpi_appif::appif_consumer::in_stream_event(cdpi_stream_event st_event,
         if (it == m_info.end())
             return;
 
-        it->second->m_is_buf1 = true;
-        it->second->m_is_buf2 = true;
+        it->second->m_is_buf1    = true;
+        it->second->m_is_buf2    = true;
 
         if (! it->second->m_buf1.empty()) {
             cdpi_id_dir id_dir2 = id_dir;
@@ -1029,6 +1039,12 @@ cdpi_appif::appif_consumer::send_tcp_data(ptr_info p_info, cdpi_id_dir id_dir)
                 }
             }
         }
+
+        if (! p_info->m_ifrule && m_appif.m_tcp_default) {
+            // default I/F
+            is_classified = true;
+            p_info->m_ifrule = m_appif.m_tcp_default;
+        }
     }
 
     brk:
@@ -1219,7 +1235,8 @@ cdpi_appif::write_event(int fd, const cdpi_id_dir &id_dir, ptr_ifrule ifrule,
 }
 
 cdpi_appif::stream_info::stream_info(const cdpi_id &id) :
-    m_dsize1(0), m_dsize2(0), m_is_created(false), m_is_giveup(false)
+    m_dsize1(0), m_dsize2(0), m_is_created(false), m_is_giveup(false),
+    m_is_buf1(false), m_is_buf2(false)
 {
     m_match_dir[0] = MATCH_NONE;
     m_match_dir[1] = MATCH_NONE;
@@ -1329,6 +1346,9 @@ cdpi_appif::appif_consumer::in_datagram(const cdpi_id_dir &id_dir,
             }
         }
     }
+
+    if (m_appif.m_udp_default)
+        ifrule = m_appif.m_udp_default;
 
 brk:
 

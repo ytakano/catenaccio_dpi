@@ -105,10 +105,10 @@ private:
         timeval    m_create_time;
         uint64_t   m_dsize1, m_dsize2;
         bool       m_is_created;         // sent created event?
+        bool       m_is_giveup;
         bool       m_is_buf1, m_is_buf2; // recv data?
         std::deque<cdpi_bytes> m_buf1, m_buf2;
         match_dir  m_match_dir[2];
-        bool       m_is_giveup;
         cdpi_appif_header m_header;
 
         stream_info(const cdpi_id &id);
@@ -175,11 +175,12 @@ private:
     std::map<int, ptr_loopback_state> m_lb7_state;
     ifformat m_lb7_format;
 
-    //std::list<ptr_ifrule>     m_ifrule;
     std::map<int, ptr_ifrule_storage> m_ifrule_tcp;
     std::map<int, ptr_ifrule_storage> m_ifrule_udp;
     ptr_ifrule m_ifrule7;
     ptr_ifrule m_ifrule3;
+    ptr_ifrule m_tcp_default;
+    ptr_ifrule m_udp_default;
     std::map<int, ptr_ifrule> m_fd2ifrule; // listen socket
     std::map<int, ptr_uxpeer> m_fd2uxpeer; // accepted socket
     std::map<std::string, std::set<int> > m_name2uxpeer;
