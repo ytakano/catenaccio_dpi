@@ -61,14 +61,15 @@ cdpi_pcap::callback(const struct pcap_pkthdr *h, const uint8_t *bytes)
 
     time_t t1 = time(NULL);
 
-    if (t1 - t0 > 30) {
+    if (t1 - t0 > 60) {
         pcap_stat stat;
         t0 = t1;
         pcap_stats(m_handle, &stat);
 
-        cout << "ps_recv = " << stat.ps_recv
-             << "\nps_drop = " << stat.ps_drop
-             << "\nps_ifdrop = " << stat.ps_ifdrop << endl;
+        cout << "received: " << stat.ps_recv
+             << "\ndropped: " << stat.ps_drop
+             << "\ndropped by IF: " << stat.ps_ifdrop << "\n"
+             << endl;
     }
 
     switch (proto) {

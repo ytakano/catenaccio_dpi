@@ -450,7 +450,11 @@ cdpi_tcp::input_tcp(cdpi_id &id, cdpi_direction dir, char *buf, int len,
             packet.m_data_len > 0) {
             p_uniflow->m_packets[packet.m_seq] = packet;
         } else if (packet.m_flags & TH_RST) {
-            p_uniflow->m_packets[p_uniflow->m_min_seq] = packet;
+            if (p_uniflow->m_is_syn) {
+                p_uniflow->m_packets[packet.m_seq] = packet;
+            } else {
+                p_uniflow->m_packets[p_uniflow->m_min_seq] = packet;
+            }
         }
 
         p_uniflow->m_time = time(NULL);

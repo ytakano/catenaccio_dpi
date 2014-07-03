@@ -16,6 +16,7 @@ using namespace std;
 
 extern char *optarg;
 extern int optind, opterr, optopt;
+bool is_stats = false;
 
 void
 print_usage(char *cmd)
@@ -25,11 +26,13 @@ print_usage(char *cmd)
          << cmd << " -d -4 [divert port for IPv4]\n\n"
          << "if you want to use pcap, use -p option\n\t"
          << "-c option tells configuration file"
-         << cmd << " -p -i [NIF]"
+         << "if -s option is specified, stats are printed out periodically"
+         << cmd << " -p -i [NIF] -s"
          << endl;
 #else
     cout << "-i option tells a network interface to capture\n\t"
          << "-c option tells configuration file\n"
+         << "if -s option is specified, stats are printed out periodically"
          << cmd << " -i [NIF]" << endl;
 #endif
 }
@@ -44,9 +47,9 @@ main(int argc, char *argv[])
 #ifdef USE_DIVERT
     int  dvt_port = 100;
     bool is_pcap  = true;
-    const char *optstr = "d4:pi:hc:";
+    const char *optstr = "d4:pi:hc:s";
 #else
-    const char *optstr = "i:hc:";
+    const char *optstr = "i:hc:s";
 #endif // USE_DIVERT
 
     signal( SIGPIPE , SIG_IGN ); 
@@ -69,6 +72,9 @@ main(int argc, char *argv[])
             break;
         case 'c':
             conf = optarg;
+            break;
+        case 's':
+            is_stats = true;
             break;
         case 'h':
         default:

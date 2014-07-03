@@ -593,12 +593,22 @@ cdpi_appif::read_conf(string conf)
 
             it3 = it1->second.find("up");
             if (it3 != it1->second.end()) {
-                rule->m_up = ptr_regex(new boost::regex(it3->second));
+                try {
+                    rule->m_up = ptr_regex(new boost::regex(it3->second));
+                } catch (boost::bad_expression e) {
+                    cerr << it3->second << " is a bad regular expression"
+                         << endl;
+                }
             }
 
             it3 = it1->second.find("down");
             if (it3 != it1->second.end()) {
-                rule->m_down = ptr_regex(new boost::regex(it3->second));
+                try {
+                    rule->m_down = ptr_regex(new boost::regex(it3->second));
+                } catch (boost::bad_expression e) {
+                    cerr << it3->second << " is a bad regular expression"
+                         << endl;
+                }
             }
 
             it3 = it1->second.find("nice");
